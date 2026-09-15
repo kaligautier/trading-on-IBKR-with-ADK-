@@ -120,43 +120,43 @@ config:
     rankSpacing: 45
 ---
 flowchart TB
-    USER("Utilisateur") --> INTERNET("Internet")
-    INTERNET --> FRONT("Front Next.js<br/>Interface et proxy serveur")
-    INTERNET -->|Client MCP| PUBLIC
-    ADMIN("Administrateur<br/>Client MCP authentifié") --> INTERNAL
+    USER("User") --> INTERNET("Internet")
+    INTERNET --> FRONT("Next.js frontend<br/>UI and server proxy")
+    INTERNET -->|MCP client| PUBLIC
+    ADMIN("Administrator<br/>Authenticated MCP client") --> INTERNAL
 
-    subgraph PLATFORM["Deep Copy · composants applicatifs"]
+    subgraph PLATFORM["Deep Copy · application components"]
         direction TB
 
         API_DC("API<br/>Deep Copy")
-        ADK_DC("Workflow ADK2<br/>Deep Copy")
-        MCP_IBKR("MCP interne<br/>IBKR")
-        GATEWAY("Gateways IBKR<br/>ibkr-gw-*")
+        ADK_DC("ADK2 workflow<br/>Deep Copy")
+        MCP_IBKR("Internal MCP<br/>IBKR")
+        GATEWAY("IBKR gateways<br/>ibkr-gw-*")
 
-        PUBLIC("MCP public<br/>Momentum")
-        INTERNAL("MCP interne<br/>Momentum")
+        PUBLIC("Public MCP<br/>Momentum")
+        INTERNAL("Internal MCP<br/>Momentum")
         API_M("API<br/>Momentum")
-        ADK_M("ADK2 Momentum<br/>Cloud Run Job")
+        ADK_M("Momentum ADK2<br/>Cloud Run Job")
 
         API_S("API<br/>Market Scanner")
-        SCHEDULER("Scheduler Market Scanner<br/>et Cloud Workflows")
+        SCHEDULER("Market Scanner scheduler<br/>and Cloud Workflows")
         ADK_S("ADK2<br/>Market Scanner")
-        DB("PostgreSQL<br/>Données applicatives")
+        DB("PostgreSQL<br/>Application data")
 
-        API_DC -->|Worker de runs| ADK_DC
-        API_DC -->|Déploie et pilote| GATEWAY
+        API_DC -->|Run worker| ADK_DC
+        API_DC -->|Deploys and manages| GATEWAY
         ADK_DC --> MCP_IBKR --> GATEWAY
         PUBLIC --> API_M
         PUBLIC --> API_S
         INTERNAL -->|Administration| API_M
-        API_M -->|Lance une analyse| ADK_M
-        SCHEDULER -->|Session puis exécution| ADK_S
+        API_M -->|Starts an analysis| ADK_M
+        SCHEDULER -->|Session, then execution| ADK_S
 
         API_DC --> DB
-        API_M -->|Lit les analyses| DB
-        ADK_M -->|Enregistre| DB
-        API_S -->|Lit les scans| DB
-        ADK_S -->|Enregistre| DB
+        API_M -->|Reads analyses| DB
+        ADK_M -->|Saves| DB
+        API_S -->|Reads scans| DB
+        ADK_S -->|Saves| DB
     end
 
     FRONT --> API_DC
