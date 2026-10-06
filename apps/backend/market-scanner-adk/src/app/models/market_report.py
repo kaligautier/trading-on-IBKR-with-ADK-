@@ -86,9 +86,37 @@ class ThemeAnalysis(ThemeInsight):
     asset_keys: list[str]
 
 
+class MacroTheme(ReportModel):
+    """Observation, reported context and conditional mechanism remain distinct."""
+
+    title: ReportText
+    asset_keys: list[str]
+    observation: ReportText
+    development: ReportText
+    transmission: ReportText
+    counter_evidence: ReportText
+    uncertainty: ReportText
+    status: Literal["hypothesis", "unestablished"]
+
+
+class MacroOverview(ReportModel):
+    context: ReportText
+    themes: list[MacroTheme]
+    data_gaps: list[ReportText]
+
+    @model_validator(mode="after")
+    def validate_theme_scope(self):
+        if len(self.themes) > 3 or any(not theme.asset_keys for theme in self.themes):
+            raise ValueError(
+                "Macro overview requires at most three themes with affected assets"
+            )
+        return self
+
+
 class ReportSummary(ReportModel):
     title: ReportText
     summary: ReportText
+    macro_overview: MacroOverview | None = None
     regime: Regime = Field(
         description="Diagnosis of the observed universe, without allocation advice."
     )

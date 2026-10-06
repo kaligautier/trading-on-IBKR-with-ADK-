@@ -206,3 +206,99 @@ async def should_persist_a_report_through_the_job_runner(local_schema, monkeypat
         )
         == 25
     )
+
+
+@pytest.mark.parametrize("disabled", [False, True])
+async def should_persist_macro_with_real_adk_tools_even_when_data_is_unavailable(
+    local_schema, monkeypatch, disabled
+):
+    # Arrange: only provider I/O and model output are faked; ADK and PostgreSQL run.
+    from unittest.mock import Mock
+
+    from app.client.market_research_client import MarketResearchClient
+    from app.components.tools import market_research as tools
+
+    connection, engine, schema = local_schema
+    data = market_data()
+    data.assets = {"sp500": data.assets["sp500"]}
+    http = Mock()
+    http.get_text.side_effect = TimeoutError("must-not-leak-provider-url")
+    monkeypatch.setattr(
+        tools,
+        "research_client",
+        MarketResearchClient(http=http, search=lambda q, n: [], fred_api_key=""),
+    )
+    monkeypatch.setattr(settings, "MARKET_SCANNER_RESEARCH_TOOLS_ENABLED", not disabled)
+    monkeypatch.setattr(scanner.market_data_collection_service, "collect", lambda: data)
+    monkeypatch.setattr(settings, "DATABASE_URL", "postgresql://local-test")
+    monkeypatch.setattr(settings, "DATABASE_SCHEMA", schema)
+    monkeypatch.setattr(
+        "app.services.market_scan_persistence.get_engine", lambda: engine
+    )
+    calls = []
+    overview = {
+        "context": "Equities rose while macro data remained unavailable.",
+        "themes": [
+            {
+                "title": "Equity resilience",
+                "asset_keys": ["sp500"],
+                "observation": "Equities rose over one day.",
+                "development": "No usable macro evidence.",
+                "transmission": "Lower financing costs could support valuations.",
+                "counter_evidence": "No rate series establishes easing.",
+                "uncertainty": "The catalyst remains unknown.",
+                "status": "unestablished",
+            }
+        ],
+        "data_gaps": ["Optional providers unavailable"],
+    }
+
+    async def respond(_self, llm_request, stream=False):
+        calls.append(llm_request)
+        if len(calls) == 1:
+            content = types.Content(
+                role="model",
+                parts=[
+                    types.Part(function_call=types.FunctionCall(name=name, args=args))
+                    for name, args in [
+                        ("get_global_news", {}),
+                        ("get_macro_indicators", {"indicator": "cpi"}),
+                        ("get_prediction_markets", {"topic": "Fed"}),
+                        ("get_news", {"asset_key": "sp500"}),
+                    ]
+                ],
+            )
+        elif len(calls) == 2:
+            content = types.Content(
+                role="model",
+                parts=[types.Part(text="Research with explicit provider gaps.")],
+            )
+        else:
+            payload = unsourced_analysis_payload(data.assets)
+            payload["macro_overview"] = overview
+            content = types.Content(
+                role="model", parts=[types.Part(text=json.dumps(payload))]
+            )
+        yield LlmResponse(content=content)
+
+    monkeypatch.setattr(Gemini, "generate_content_async", respond)
+    # Act
+    _, final = await run_graph()
+    row = await connection.fetchrow(
+        "SELECT report FROM market_scans WHERE session_id='test-scan'"
+    )
+    persisted = MarketRegime.model_validate_json(row["report"])
+    # Assert: four adapters actually executed and failure did not stop persistence.
+    assert len(final.state["research_tool_results"]) == 4
+    assert {
+        result["status"] for result in final.state["research_tool_results"].values()
+    } <= {"unavailable", "empty"}
+    assert persisted.macro_overview.model_dump() == overview
+    assert (
+        persisted.model_dump(mode="json") == final.state["market_data"]["market_regime"]
+    )
+    assert (
+        persisted.sources == [] and persisted.assets[0].interpretation.source_ids == []
+    )
+    assert "must-not-leak" not in json.dumps(final.state)
+    assert len(calls) == 3

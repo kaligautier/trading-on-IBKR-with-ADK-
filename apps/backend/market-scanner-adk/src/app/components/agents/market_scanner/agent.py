@@ -1,5 +1,7 @@
 """Collect, compute trends, research and assemble qualitative market analysis."""
 
+from datetime import UTC, datetime
+
 from google.adk import Context, Event, Workflow
 from google.adk.agents import LlmAgent
 from google.adk.models import Gemini
@@ -12,6 +14,12 @@ from app.client.yahoo_finance_client import YahooFinanceClient
 from app.components.callbacks.after_agent import record_agent_end
 from app.components.callbacks.before_agent import record_agent_start
 from app.components.callbacks.tool_callbacks import record_tool_end, record_tool_start
+from app.components.tools.market_research import (
+    get_global_news,
+    get_macro_indicators,
+    get_news,
+    get_prediction_markets,
+)
 from app.config.constants import (
     ASSEMBLE_MARKET_DATA,
     ASSET_WEB_RESEARCHER_INSTRUCTION,
@@ -86,6 +94,8 @@ def get_market_data(context: Context) -> Event:
         output=payload,
         state={
             STATE_TREND_MARKET_DATA: payload,
+            "analysis_date": datetime.now(UTC).date().isoformat(),
+            "research_tool_results": {},
             # Clear legacy citation state when reusing an existing session.
             STATE_RESEARCH_SOURCES: [],
             STATE_RESEARCH_CLAIMS: [],
@@ -109,7 +119,13 @@ researcher = LlmAgent(
     static_instruction=None,
     instruction=ASSET_WEB_RESEARCHER_INSTRUCTION,
     output_schema=None,
-    tools=[google_search],
+    tools=[
+        google_search,
+        get_news,
+        get_global_news,
+        get_macro_indicators,
+        get_prediction_markets,
+    ],
     output_key=STATE_WEB_ANALYSIS,
     include_contents="none",
     before_agent_callback=record_agent_start,

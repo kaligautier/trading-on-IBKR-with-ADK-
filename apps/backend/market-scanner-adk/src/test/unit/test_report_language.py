@@ -25,6 +25,7 @@ def should_publish_the_documented_english_v3_contract():
     assert set(report) == {
         "title",
         "summary",
+        "macro_overview",
         "regime",
         "horizon",
         "limitations",

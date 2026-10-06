@@ -75,6 +75,15 @@ class MarketScanAssembler:
         sources: list[ResearchSource],
     ) -> None:
         available = data.available_keys()
+        if analysis.macro_overview:
+            for theme in analysis.macro_overview.themes:
+                if (
+                    len(theme.asset_keys) != len(set(theme.asset_keys))
+                    or not set(theme.asset_keys) <= available
+                ):
+                    raise MarketScanAssemblyError(
+                        "Macro theme references duplicate or unavailable assets"
+                    )
         keys = [insight.asset_key for insight in analysis.asset_insights]
         if len(keys) != len(set(keys)):
             raise MarketScanAssemblyError("Duplicate asset insights")

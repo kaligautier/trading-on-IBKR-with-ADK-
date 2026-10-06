@@ -190,6 +190,8 @@ async def should_keep_stage_outputs_separate_and_return_only_the_final_result(
     assert [set(event.actions.state_delta) for event in events] == [
         {
             "trend_market_data",
+            "analysis_date",
+            "research_tool_results",
             "research_sources",
             "research_claims",
             "research_capture_count",

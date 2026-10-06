@@ -52,7 +52,7 @@ class TestMarketScannerWorkflow:
         assert researcher.mode == "single_turn"
         assert researcher.instruction
         assert researcher.output_key == STATE_WEB_ANALYSIS
-        assert len(researcher.tools) == 1
+        assert len(researcher.tools) == 5
         assert researcher.before_agent_callback is record_agent_start
         assert researcher.after_agent_callback is record_agent_end
         assert researcher.before_tool_callback is record_tool_start
