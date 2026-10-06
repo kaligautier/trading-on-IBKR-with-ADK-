@@ -2,13 +2,13 @@
   "info": {
     "_postman_id": "b8500742-6b30-4f3b-9673-68d61004fd52",
     "name": "Deep Copy Finary - Market Scanner",
-    "description": "Market Scanner requests: Yahoo/Treasury providers, Scanner ADK/API, reading and triggering through Momentum API, and reading through public MCP. Import a Local or Public environment. Run Create session before Run scanner. Run scanner and Trigger market scan can invoke the model and write to the database. Some API/MCP services belong to the broader platform and are not included in this repository.",
+    "description": "Market Scanner ADK and its Yahoo Finance/Treasury data sources. Import the Local environment. Start the service with just api 7777, then run Health, Create session and Run scanner. Running the scanner invokes Gemini and persists a report when a database is configured.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
     {
       "name": "Market Scanner",
-      "description": "Local environment. Start the ADK scanner, then run Health → Create session → Run scanner. The ADK name is market_scanner. Set scannerToken when MARKET_SCANNER_TOKEN is configured. Latest persisted scan requires a separately deployed read API. The External data folder works independently of local services in Local and Public environments.",
+      "description": "Set scannerToken to MARKET_SCANNER_TOKEN when configured. Run Create session before Run scanner. External data requests work independently of the local service.",
       "item": [
         {
           "name": "External data",
@@ -342,44 +342,6 @@
                   }
                 }
               ]
-            },
-            {
-              "name": "Scanner API",
-              "request": {
-                "method": "GET",
-                "header": [],
-                "url": {
-                  "raw": "{{scannerApiUrl}}/health",
-                  "host": [
-                    "{{scannerApiUrl}}"
-                  ],
-                  "path": [
-                    "health"
-                  ]
-                }
-              },
-              "event": [
-                {
-                  "listen": "prerequest",
-                  "script": {
-                    "type": "text/javascript",
-                    "exec": [
-                      "const token = pm.variables.get('scannerToken');",
-                      "if (token) pm.request.headers.upsert({ key: 'X-Market-Scanner-Token', value: token });"
-                    ]
-                  }
-                },
-                {
-                  "listen": "test",
-                  "script": {
-                    "type": "text/javascript",
-                    "exec": [
-                      "pm.test('Status 200', () => pm.response.to.have.status(200));",
-                      "pm.test('API healthy', () => pm.expect(pm.response.json().status).to.eql('ok'));"
-                    ]
-                  }
-                }
-              ]
             }
           ]
         },
@@ -490,202 +452,6 @@
                 "run"
               ]
             }
-          }
-        },
-        {
-          "name": "Latest persisted scan",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{scannerApiUrl}}/market-scans/latest",
-              "host": [
-                "{{scannerApiUrl}}"
-              ],
-              "path": [
-                "market-scans",
-                "latest"
-              ]
-            }
-          },
-          "event": [
-            {
-              "listen": "prerequest",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "const token = pm.variables.get('scannerToken');",
-                  "if (token) pm.request.headers.upsert({ key: 'X-Market-Scanner-Token', value: token });"
-                ]
-              }
-            },
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('A result exists after a completed run', () => pm.response.to.have.status(200));",
-                  "pm.test('Returns the latest scan', () => pm.expect(pm.response.json()).to.have.property('created_at'));"
-                ]
-              }
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "name": "Momentum API",
-      "description": "Local environment. Read or trigger Market Scanner through a separately deployed Momentum API. Triggering requires momentumApiSchedulerToken (TA_SCHEDULER_SECRET).",
-      "item": [
-        {
-          "name": "Market scans",
-          "description": "Routes exposed by Momentum API. Triggering requires momentumApiSchedulerToken (TA_SCHEDULER_SECRET) and invokes its configured scanner.",
-          "item": [
-            {
-              "name": "Latest market scan via Momentum API",
-              "request": {
-                "method": "GET",
-                "header": [],
-                "url": {
-                  "raw": "{{momentumApiBaseUrl}}/market-scans/latest",
-                  "host": [
-                    "{{momentumApiBaseUrl}}"
-                  ],
-                  "path": [
-                    "market-scans",
-                    "latest"
-                  ]
-                }
-              },
-              "event": [
-                {
-                  "listen": "test",
-                  "script": {
-                    "type": "text/javascript",
-                    "exec": [
-                      "pm.test('Status 200', () => pm.response.to.have.status(200));",
-                      "const scan = pm.response.json();",
-                      "pm.test('Persisted scan returned', () => pm.expect(scan).to.have.property('scan_date'));",
-                      "pm.test('Market regime returned', () => pm.expect(scan.state_market_regime).to.be.an('object'));"
-                    ]
-                  }
-                }
-              ]
-            },
-            {
-              "name": "Trigger market scan",
-              "request": {
-                "method": "POST",
-                "header": [],
-                "url": {
-                  "raw": "{{momentumApiBaseUrl}}/market-scans/trigger",
-                  "host": [
-                    "{{momentumApiBaseUrl}}"
-                  ],
-                  "path": [
-                    "market-scans",
-                    "trigger"
-                  ]
-                },
-                "description": "Start or reuse the current daily scan and wait for completion. Requires TA_SCHEDULER_SECRET and a configured scanner.",
-                "auth": {
-                  "type": "bearer",
-                  "bearer": [
-                    {
-                      "key": "token",
-                      "value": "{{momentumApiSchedulerToken}}",
-                      "type": "string"
-                    }
-                  ]
-                }
-              },
-              "event": [
-                {
-                  "listen": "test",
-                  "script": {
-                    "type": "text/javascript",
-                    "exec": [
-                      "pm.test('Status 201', () => pm.response.to.have.status(201));",
-                      "pm.test('Scan returned', () => pm.expect(pm.response.json()).to.have.property('scan_date'));"
-                    ]
-                  }
-                }
-              ]
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "name": "Momentum Public MCP",
-      "description": "Local and Public environments. Read the latest persisted scan with latest_market_scan. The folder script adds public protocol headers. Requires a separately deployed MCP service.",
-      "item": [
-        {
-          "name": "Market scanner",
-          "description": "Read-only access to the latest persisted scanner report.",
-          "item": [
-            {
-              "name": "Latest market scan",
-              "request": {
-                "method": "POST",
-                "header": [],
-                "body": {
-                  "mode": "raw",
-                  "raw": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": \"latest-market-scan-1\",\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"name\": \"latest_market_scan\",\n    \"arguments\": {},\n    \"_meta\": {\n      \"io.modelcontextprotocol/protocolVersion\": \"{{publicMcpProtocolVersion}}\",\n      \"io.modelcontextprotocol/clientInfo\": {\n        \"name\": \"{{publicMcpClientName}}\",\n        \"version\": \"{{publicMcpClientVersion}}\"\n      },\n      \"io.modelcontextprotocol/clientCapabilities\": {}\n    }\n  }\n}",
-                  "options": {
-                    "raw": {
-                      "language": "json"
-                    }
-                  }
-                },
-                "url": {
-                  "raw": "{{publicMcpBaseUrl}}",
-                  "host": [
-                    "{{publicMcpBaseUrl}}"
-                  ],
-                  "path": []
-                },
-                "description": "Return the latest market scan stored in PostgreSQL. This request does not trigger a scan."
-              },
-              "event": [
-                {
-                  "listen": "test",
-                  "script": {
-                    "type": "text/javascript",
-                    "exec": [
-                      "pm.test('Status 200', () => pm.response.to.have.status(200));",
-                      "const response = pm.response.json();",
-                      "pm.test('JSON-RPC success', () => pm.expect(response).to.not.have.property('error'));",
-                      "pm.test('Tool success', () => pm.expect(response.result.isError).to.not.eql(true));",
-                      "const scan = response.result.structuredContent;",
-                      "pm.test('Latest persisted scan returned', () => pm.expect(scan).to.have.property('regime'));",
-                      "pm.test('No execution capability exposed', () => pm.expect(scan).to.have.property('scan_date'));"
-                    ]
-                  }
-                }
-              ]
-            }
-          ]
-        }
-      ],
-      "event": [
-        {
-          "listen": "prerequest",
-          "script": {
-            "type": "text/javascript",
-            "exec": [
-              "if (pm.request.body && pm.request.body.mode === 'raw') {",
-              "  const body = JSON.parse(pm.variables.replaceIn(pm.request.body.raw));",
-              "  pm.request.headers.upsert({ key: 'Content-Type', value: 'application/json' });",
-              "  pm.request.headers.upsert({ key: 'Accept', value: 'application/json, text/event-stream' });",
-              "  pm.request.headers.upsert({ key: 'MCP-Protocol-Version', value: pm.variables.get('publicMcpProtocolVersion') });",
-              "  pm.request.headers.upsert({ key: 'Mcp-Method', value: body.method });",
-              "  pm.request.headers.remove('Mcp-Name');",
-              "  if (body.method === 'tools/call') {",
-              "    pm.request.headers.upsert({ key: 'Mcp-Name', value: body.params.name });",
-              "  }",
-              "}"
-            ]
           }
         }
       ]
