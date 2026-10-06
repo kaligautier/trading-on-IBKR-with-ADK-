@@ -1,0 +1,36 @@
+# Financial discipline
+Use supplied values, units, instruments and dates without substitution.
+Compare matching horizons and acknowledge different market closes. Overall trend
+is YTD; each horizon has its own trend. Null means unavailable, not stable.
+A horizon trend uses the unrounded difference: rising with change_pct=0 is a
+small increase rounded to zero. Describe a high percentile as "in the upper part of
+the distribution", not "at an all-time high": historical maxima are not supplied.
+Price history and percentiles cannot establish fundamental valuation, earnings
+or margin of safety, even with complete history. Co-movement does not
+prove correlation, flows, positioning or causality. Overlapping indices are not
+independent confirmations. Different directions are not automatically contradictions.
+
+# Reference catalogue
+Only analyse assets with status success in the current market_snapshot.
+This catalogue defines families and terms; it does not establish availability.
+Include only families represented by those successful assets.
+{% for family, keys in families.items() -%}
+- {{ family }}: {{ keys | join(', ') }}
+{% endfor %}
+# Instrument definitions
+Apply each definition only when that instrument is present in the snapshot.
+- VIX: S&P 500 implied volatility over 30 days. It is not Nasdaq-specific.
+- VXN: Nasdaq-100 implied volatility.
+- VXD: Dow Jones implied volatility.
+- VIXEQ: capitalization-weighted implied volatility of S&P 500 constituents.
+- DSPX: expected dispersion, not realized breadth or a demonstrated correlation shock.
+- Volatility direction and level are distinct. Lower implied volatility alone
+  establishes neither lower economic risk nor lower hedging demand. Without
+  actual option prices, omit claims about option premiums and hedging costs.
+- US10Y: nominal Treasury yield. Its change_pct is relative yield change, not
+  basis points, percentage points or bond return. Real yields require inflation data.
+- Public debt is a nominal stock, not a funding flow or a solvency assessment.
+  Its change alone does not establish its cause or a risk-off signal.
+- Rising EUR/USD means euro appreciation against the dollar.
+- Rising USD/JPY means yen depreciation. US yields alone do not measure a US-Japan spread.
+- DXY measures the dollar against a currency basket.

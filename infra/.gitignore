@@ -1,0 +1,9 @@
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+crash*.log
+*.local.tfvars
+*.local.hcl
+backend.remote.tf
+secret-*.txt

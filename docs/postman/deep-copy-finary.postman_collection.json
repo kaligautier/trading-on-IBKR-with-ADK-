@@ -1,0 +1,460 @@
+{
+  "info": {
+    "_postman_id": "b8500742-6b30-4f3b-9673-68d61004fd52",
+    "name": "Deep Copy Finary - Market Scanner",
+    "description": "Market Scanner ADK and its Yahoo Finance/Treasury data sources. Import the Local environment. Start the service with just api 7777, then run Health, Create session and Run scanner. Running the scanner invokes Gemini and persists a report when a database is configured.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Market Scanner",
+      "description": "Set scannerToken to MARKET_SCANNER_TOKEN when configured. Run Create session before Run scanner. External data requests work independently of the local service.",
+      "item": [
+        {
+          "name": "External data",
+          "description": "Yahoo Finance and U.S. Treasury GET requests: raw external responses without return calculations or scores.",
+          "item": [
+            {
+              "name": "Yahoo - 1. Anonymous session",
+              "request": {
+                "method": "GET",
+                "auth": {
+                  "type": "noauth"
+                },
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "*/*"
+                  },
+                  {
+                    "key": "User-Agent",
+                    "value": "Mozilla/5.0"
+                  }
+                ],
+                "url": "https://fc.yahoo.com",
+                "description": "Initialize the Yahoo cookie in the Postman cookie jar. This URL may return 404; the test requires an A3 cookie. Keep cookies enabled. No scanner account or token is sent. Yahoo consent may require user interaction depending on the network."
+              },
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.environment.unset('scannerYahooCrumb');"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Yahoo session: expected response', () => pm.expect([200, 204, 404]).to.include(pm.response.code));",
+                      "pm.test('Anonymous Yahoo cookie received', () => {",
+                      "  const cookies = pm.response.headers.all().filter(h => h.key.toLowerCase() === 'set-cookie');",
+                      "  pm.expect(cookies.some(h => /(?:^|;\\s*)A3=/.test(h.value))).to.eql(true);",
+                      "});"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Yahoo - 2. Crumb token",
+              "request": {
+                "method": "GET",
+                "auth": {
+                  "type": "noauth"
+                },
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "text/plain"
+                  },
+                  {
+                    "key": "User-Agent",
+                    "value": "Mozilla/5.0"
+                  }
+                ],
+                "url": "https://query1.finance.yahoo.com/v1/test/getcrumb",
+                "description": "Run after Anonymous session. Capture the crumb in the active environment without displaying it. The cookie and crumb must belong to the same Postman session. Consent errors and 401/429 blocks remain visible failures."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                      "const crumb = pm.response.text().trim();",
+                      "const valid = pm.response.code === 200 && crumb.length > 0 && crumb.length < 256 && !/[<>\\s]/.test(crumb) && !/^\\{/.test(crumb);",
+                      "pm.test('Valid Yahoo crumb', () => pm.expect(valid).to.eql(true));",
+                      "if (valid) pm.environment.set('scannerYahooCrumb', crumb);",
+                      "else pm.environment.unset('scannerYahooCrumb');"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Yahoo - 3. Daily history",
+              "request": {
+                "method": "GET",
+                "auth": {
+                  "type": "noauth"
+                },
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "User-Agent",
+                    "value": "Mozilla/5.0"
+                  }
+                ],
+                "url": {
+                  "raw": "https://query2.finance.yahoo.com/v8/finance/chart/{{scannerYahooSymbolEncoded}}?range={{scannerYahooRange}}&interval=1d&includePrePost=false&events=div%2Csplits%2CcapitalGains",
+                  "protocol": "https",
+                  "host": [
+                    "query2",
+                    "finance",
+                    "yahoo",
+                    "com"
+                  ],
+                  "path": [
+                    "v8",
+                    "finance",
+                    "chart",
+                    "{{scannerYahooSymbolEncoded}}"
+                  ],
+                  "query": [
+                    {
+                      "key": "range",
+                      "value": "{{scannerYahooRange}}"
+                    },
+                    {
+                      "key": "interval",
+                      "value": "1d"
+                    },
+                    {
+                      "key": "includePrePost",
+                      "value": "false"
+                    },
+                    {
+                      "key": "events",
+                      "value": "div%2Csplits%2CcapitalGains"
+                    }
+                  ]
+                },
+                "description": "Native Yahoo response. Set scannerYahooSymbol to ^GSPC (S&P 500), ^VIX, ^NDX, BTC-USD, GC=F, etc. Defaults: ^GSPC, range=10y. timestamp and indicators.quote[0].close arrays align by position. observed_on is constructed later by the Python client, not supplied by Yahoo. The current value may be provisional. Postman calculates no horizons and does not adjust prices. If Yahoo requires a session, run steps 1 and 2 in this same Postman session."
+              },
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const symbol = pm.variables.get('scannerYahooSymbol');",
+                      "if (!symbol) throw new Error('Set scannerYahooSymbol in the environment.');",
+                      "pm.variables.set('scannerYahooSymbolEncoded', encodeURIComponent(symbol));",
+                      "const crumb = pm.variables.get('scannerYahooCrumb');",
+                      "if (crumb) pm.request.url.query.upsert({key: 'crumb', value: encodeURIComponent(crumb)});",
+                      "else pm.request.url.query.remove('crumb');"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                      "if (pm.response.code === 200) {",
+                      "  const body = pm.response.json();",
+                      "  pm.test('No provider error', () => pm.expect(body.chart.error).to.eql(null));",
+                      "  const result = body.chart.result && body.chart.result[0];",
+                      "  pm.test('Requested series is present', () => {",
+                      "    pm.expect(result).to.be.an('object');",
+                      "    pm.expect(result.meta.symbol).to.eql(pm.variables.get('scannerYahooSymbol'));",
+                      "  });",
+                      "  if (result) {",
+                      "    pm.test('Dates and closes align with at least one valid observation', () => {",
+                      "      const dates = result.timestamp;",
+                      "      const closes = result.indicators.quote[0].close;",
+                      "      pm.expect(dates).to.be.an('array').and.not.empty;",
+                      "      pm.expect(closes.length).to.eql(dates.length);",
+                      "      pm.expect(dates.every(t => Number.isFinite(t) && t <= Date.now() / 1000)).to.eql(true);",
+                      "      pm.expect(closes.every(v => v === null || Number.isFinite(v))).to.eql(true);",
+                      "      pm.expect(closes.some(v => Number.isFinite(v))).to.eql(true);",
+                      "    });",
+                      "  }",
+                      "}"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Treasury - US public debt",
+              "request": {
+                "method": "GET",
+                "auth": {
+                  "type": "noauth"
+                },
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "User-Agent",
+                    "value": "DeepCopy-MarketScanner/2"
+                  }
+                ],
+                "url": {
+                  "raw": "https://api.fiscaldata.treasury.gov/services/api/fiscal_service/v2/accounting/od/debt_to_penny?fields=record_date%2Ctot_pub_debt_out_amt&filter=record_date%3Agte%3A{{scannerTreasuryStartResolved}}%2Crecord_date%3Alte%3A{{scannerTreasuryAsOfResolved}}&sort=-record_date&page%5Bsize%5D=10000",
+                  "protocol": "https",
+                  "host": [
+                    "api",
+                    "fiscaldata",
+                    "treasury",
+                    "gov"
+                  ],
+                  "path": [
+                    "services",
+                    "api",
+                    "fiscal_service",
+                    "v2",
+                    "accounting",
+                    "od",
+                    "debt_to_penny"
+                  ],
+                  "query": [
+                    {
+                      "key": "fields",
+                      "value": "record_date%2Ctot_pub_debt_out_amt"
+                    },
+                    {
+                      "key": "filter",
+                      "value": "record_date%3Agte%3A{{scannerTreasuryStartResolved}}%2Crecord_date%3Alte%3A{{scannerTreasuryAsOfResolved}}"
+                    },
+                    {
+                      "key": "sort",
+                      "value": "-record_date"
+                    },
+                    {
+                      "key": "page%5Bsize%5D",
+                      "value": "10000"
+                    }
+                  ]
+                },
+                "description": "Uses the same series and fields as TreasuryClient. Defaults: today in UTC and ten years of history plus fourteen days. scannerTreasuryAsOf and scannerTreasuryStart can fix the dates (YYYY-MM-DD). Amounts remain decimal strings: do not convert them to Number, which could lose cents. The test fails if additional pagination is required."
+              },
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const asOf = pm.variables.get('scannerTreasuryAsOf') || new Date().toISOString().slice(0, 10);",
+                      "function parseDate(value) {",
+                      "  if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(value)) throw new Error('Expected date format: YYYY-MM-DD');",
+                      "  const d = new Date(value + 'T00:00:00Z');",
+                      "  if (!Number.isFinite(d.getTime()) || d.toISOString().slice(0, 10) !== value) throw new Error('Invalid date');",
+                      "  return d;",
+                      "}",
+                      "const end = parseDate(asOf);",
+                      "if (asOf > new Date().toISOString().slice(0, 10)) throw new Error('The end date cannot be in the future.');",
+                      "const year = end.getUTCFullYear() - 10, month = end.getUTCMonth();",
+                      "const day = Math.min(end.getUTCDate(), new Date(Date.UTC(year, month + 1, 0)).getUTCDate());",
+                      "const start = new Date(Date.UTC(year, month, day));",
+                      "start.setUTCDate(start.getUTCDate() - 14);",
+                      "const startText = pm.variables.get('scannerTreasuryStart') || start.toISOString().slice(0, 10);",
+                      "if (parseDate(startText) > end) throw new Error('The start date is later than the end date.');",
+                      "pm.variables.set('scannerTreasuryAsOfResolved', asOf);",
+                      "pm.variables.set('scannerTreasuryStartResolved', startText);"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                      "if (pm.response.code === 200) {",
+                      "  const body = pm.response.json();",
+                      "  pm.test('Complete Treasury history', () => {",
+                      "    pm.expect(body.data).to.be.an('array').and.not.empty;",
+                      "    pm.expect(Number(body.meta['total-pages'])).to.be.at.most(1);",
+                      "  });",
+                      "  pm.test('Valid dates and exact decimal amounts', () => {",
+                      "    const start = pm.variables.get('scannerTreasuryStartResolved');",
+                      "    const end = pm.variables.get('scannerTreasuryAsOfResolved');",
+                      "    pm.expect(body.data.every(row => /^\\d{4}-\\d{2}-\\d{2}$/.test(row.record_date) && row.record_date >= start && row.record_date <= end && typeof row.tot_pub_debt_out_amt === 'string' && /^\\d+(?:\\.\\d+)?$/.test(row.tot_pub_debt_out_amt))).to.eql(true);",
+                      "  });",
+                      "}"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Health",
+          "item": [
+            {
+              "name": "Scanner ADK",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{scannerAdkUrl}}/health",
+                  "host": [
+                    "{{scannerAdkUrl}}"
+                  ],
+                  "path": [
+                    "health"
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const token = pm.variables.get('scannerToken');",
+                      "if (token) pm.request.headers.upsert({ key: 'X-Market-Scanner-Token', value: token });"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                      "pm.test('Scanner healthy', () => pm.expect(pm.response.json().status).to.eql('ok'));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Create session",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{scannerAdkUrl}}/apps/{{scannerAppName}}/users/{{scannerUserId}}/sessions",
+              "host": [
+                "{{scannerAdkUrl}}"
+              ],
+              "path": [
+                "apps",
+                "{{scannerAppName}}",
+                "users",
+                "{{scannerUserId}}",
+                "sessions"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Create an ADK session and capture scannerSessionId before Run scanner."
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const token = pm.variables.get('scannerToken');",
+                  "if (token) pm.request.headers.upsert({ key: 'X-Market-Scanner-Token', value: token });"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const session = pm.response.json();",
+                  "pm.test('Session created', () => pm.expect(session.id).to.be.a('string').and.not.empty);",
+                  "pm.environment.set('scannerSessionId', session.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Run scanner",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const token = pm.variables.get('scannerToken');",
+                  "if (token) pm.request.headers.upsert({ key: 'X-Market-Scanner-Token', value: token });",
+                  "if (!pm.variables.get('scannerSessionId')) throw new Error('Run Create session before Run scanner.');"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const events = pm.response.json();",
+                  "pm.test('ADK events returned', () => pm.expect(events).to.be.an('array').and.not.empty);",
+                  "pm.test('No ADK error', () => pm.expect(events.some(event => event.errorCode || event.errorMessage)).to.eql(false));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"appName\": \"{{scannerAppName}}\",\n  \"userId\": \"{{scannerUserId}}\",\n  \"sessionId\": \"{{scannerSessionId}}\",\n  \"newMessage\": {\n    \"role\": \"user\",\n    \"parts\": [{ \"text\": \"{{scannerRunInstruction}}\" }]\n  },\n  \"streaming\": false\n}"
+            },
+            "url": {
+              "raw": "{{scannerAdkUrl}}/run",
+              "host": [
+                "{{scannerAdkUrl}}"
+              ],
+              "path": [
+                "run"
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

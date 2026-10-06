@@ -1,0 +1,25 @@
+# Local environments and credentials
+.env
+.env.*
+!.env.example
+!.env.test
+*.pem
+*.key
+# Python and build output
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.coverage*
+htmlcov/
+dist/
+*.egg-info/
+# Local runtime and worktrees
+.adk/
+.worktrees/
+.local/
+.DS_Store
+context/
+# Personal planning notes
+BEST_PRATICE.TODO

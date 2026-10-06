@@ -1,0 +1,14 @@
+services:
+  liquibase:
+    build: .
+    image: local/deep-copy-liquibase:5.0.4
+    profiles: [migration]
+    volumes:
+      - ./changelog:/liquibase/changelog:ro
+    environment:
+      LIQUIBASE_COMMAND_URL: ${LIQUIBASE_COMMAND_URL:?Set the JDBC URL}
+      LIQUIBASE_COMMAND_USERNAME: database_migrator
+      LIQUIBASE_COMMAND_PASSWORD: ${LIQUIBASE_COMMAND_PASSWORD:?Set the migration password}
+      LIQUIBASE_COMMAND_CHANGELOG_FILE: db.changelog-master.yaml
+      LIQUIBASE_LIQUIBASE_SCHEMA_NAME: liquibase
+    command: [validate]
