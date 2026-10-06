@@ -2,7 +2,10 @@
 
 Deepcopy is a market research and trading automation project built with Google ADK. It combines daily market summaries, stock analyses available through a public Model Context Protocol (MCP) server, and an agentic trading workflow connected to Interactive Brokers (IBKR).
 
-This repository contains the project overview, public MCP reference, and example outputs.
+This repository contains the Market Scanner ADK source, database migrations,
+Terraform infrastructure, public MCP reference, and example outputs.
+
+For development and validation, see the [contribution guide](CONTRIBUTING.md).
 
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENCE)
 
