@@ -1,0 +1,79 @@
+{
+  "market_regime": {
+    "title": "Test observations",
+    "summary": "Test observations are available. Their scope is limited.",
+    "regime": "cautious",
+    "horizon": "1d",
+    "limitations": [
+      "Synthetic data; no valuation is provided."
+    ],
+    "watch_points": [
+      "A reversal in the observed direction."
+    ],
+    "schema_version": 3,
+    "scope": {
+      "requested": 1,
+      "available": 1,
+      "observation_dates": [
+        "2026-10-05"
+      ],
+      "unavailable": [],
+      "stale": []
+    },
+    "themes": [
+      {
+        "family": "equities",
+        "observation": "One-day family observation.",
+        "interpretation": {
+          "text": "No verified catalyst in this synthetic data.",
+          "status": "unestablished",
+          "source_ids": []
+        },
+        "asset_keys": [
+          "sp500"
+        ]
+      }
+    ],
+    "assets": [
+      {
+        "asset_key": "sp500",
+        "horizon": "1d",
+        "observation": "One-day observation.",
+        "interpretation": {
+          "text": "No verified catalyst in this synthetic data.",
+          "status": "unestablished",
+          "source_ids": []
+        },
+        "name": "S&P 500",
+        "symbol": "^GSPC",
+        "kind": "market",
+        "unit": null,
+        "observed_on": "2026-10-05",
+        "value": 110.0,
+        "horizons": {
+          "1d": {
+            "change_pct": 10.0,
+            "ref_price": 100.0,
+            "trend": "rising"
+          },
+          "ytd": null
+        },
+        "trend": null,
+        "percentile_3y": null,
+        "history_points_3y": 0
+      }
+    ],
+    "sources": [],
+    "data_quality": {
+      "sp500": {
+        "name": "S&P 500",
+        "symbol": "^GSPC",
+        "source": "Yahoo Finance",
+        "source_url": null,
+        "observed_on": "2026-10-05",
+        "status": "available",
+        "reason": null
+      }
+    }
+  }
+}
