@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import create_async_engine
 
 from app.components.agents.market_scanner import agent as scanner
 from app.config.settings import settings
+from app.jobs.daily_scan import run_scan
 from app.models.market_regime import MarketRegime
 from app.services.market_scan_persistence import MarketScanPersistence
 from test.integration import test_shared_database
@@ -166,4 +167,42 @@ async def should_roll_back_the_whole_report_when_an_asset_write_fails(
             "SELECT count(*) FROM market_scans WHERE session_id='must-rollback'"
         )
         == 0
+    )
+
+
+async def should_persist_a_report_through_the_job_runner(local_schema, monkeypatch):
+    connection, engine, schema = local_schema
+    data = market_data()
+    calls = []
+
+    async def respond(_self, llm_request, stream=False):
+        calls.append(llm_request)
+        message = (
+            "Fictional research."
+            if len(calls) == 1
+            else json.dumps(unsourced_analysis_payload(data.assets))
+        )
+        yield LlmResponse(
+            content=types.Content(role="model", parts=[types.Part(text=message)])
+        )
+
+    monkeypatch.setattr(scanner.market_data_collection_service, "collect", lambda: data)
+    monkeypatch.setattr(Gemini, "generate_content_async", respond)
+    monkeypatch.setattr(settings, "DATABASE_URL", "postgresql://local-test")
+    monkeypatch.setattr(settings, "DATABASE_SCHEMA", schema)
+    monkeypatch.setattr(settings, "MARKET_SCANNER_TOKEN", "test-token")
+    monkeypatch.setattr(
+        "app.services.market_scan_persistence.get_engine", lambda: engine
+    )
+    result = await run_scan()
+    stored = await connection.fetchrow(
+        "SELECT id, report FROM market_scans WHERE session_id=$1", result["marker"]
+    )
+    report = MarketRegime.model_validate_json(stored["report"])
+    assert result["assets"] == len(report.assets) == 25
+    assert (
+        await connection.fetchval(
+            "SELECT count(*) FROM market_scan_assets WHERE scan_id=$1", stored["id"]
+        )
+        == 25
     )

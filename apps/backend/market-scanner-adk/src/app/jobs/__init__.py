@@ -1,1 +1,1 @@
-"""Scheduled application entry points."""
+"""Standalone batch entry points."""

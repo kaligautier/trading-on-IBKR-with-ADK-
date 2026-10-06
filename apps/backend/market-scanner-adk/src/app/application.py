@@ -1,11 +1,11 @@
 """FastAPI application factory."""
 
+import asyncio
 import logging
 import secrets
 from collections.abc import Mapping
 from contextlib import asynccontextmanager
 
-import httpx
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from google.adk.cli.fast_api import get_fast_api_app
@@ -13,9 +13,9 @@ from starlette.datastructures import Headers
 from starlette.types import ASGIApp, Receive, Scope, Send
 
 from app.config.settings import settings
-from app.jobs.scheduled_scan import run_scheduled_scan
 from app.middleware.wide_event import WideEventMiddleware
 from app.services.database import close_database
+from app.services.scan_dispatch import dispatch_scan
 from app.utils.error import AppError
 from app.utils.wide_event import wide_event
 
@@ -120,35 +120,31 @@ def create_app() -> FastAPI:
 
     @app.post("/internal/daily-scan", tags=["Operations"])
     async def daily_scan() -> JSONResponse:
-        """Execute both ADK calls inside one authenticated Scheduler request."""
-        if not settings.DATABASE_URL:
+        """Acknowledge job submission without waiting for the scan."""
+        if not settings.MARKET_SCANNER_JOB:
             return JSONResponse(
-                {"detail": "Database persistence is not configured"}, status_code=503
+                {"detail": "Scheduled scan job is not configured"}, status_code=503
             )
-        headers = (
-            {"X-Market-Scanner-Token": settings.MARKET_SCANNER_TOKEN}
-            if settings.MARKET_SCANNER_TOKEN
-            else {}
-        )
         try:
-            async with httpx.AsyncClient(
-                transport=httpx.ASGITransport(app=app), base_url="http://adk-internal"
-            ) as client:
-                result = await run_scheduled_scan(client, headers)
+            operation = await asyncio.to_thread(
+                dispatch_scan, settings.MARKET_SCANNER_JOB
+            )
         except Exception as error:
             logger.error(
-                "scheduled scan failed",
+                "scheduled scan dispatch failed",
                 extra={
-                    "event": "scheduled_scan.failed",
+                    "event": "scheduled_scan.dispatch_failed",
                     "error_type": type(error).__name__,
                 },
             )
-            return JSONResponse({"detail": "Scheduled scan failed"}, status_code=502)
+            return JSONResponse(
+                {"detail": "Scheduled scan dispatch failed"}, status_code=502
+            )
         logger.info(
-            "scheduled scan completed",
-            extra={"event": "scheduled_scan.completed", **result},
+            "scheduled scan accepted",
+            extra={"event": "scheduled_scan.accepted", "operation": operation},
         )
-        return JSONResponse(result)
+        return JSONResponse({"status": "accepted", "operation": operation})
 
     logger.info(
         "application created",

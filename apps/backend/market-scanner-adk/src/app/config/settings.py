@@ -157,6 +157,11 @@ class Settings(BaseSettings):
     DATABASE_POOL_TIMEOUT: float = Field(default=30, gt=0)
     MARKET_SCANNER_APP_NAME: str = "market_scanner"
     MARKET_SCANNER_TOKEN: str = ""
+    MARKET_SCANNER_JOB: str = Field(
+        default="",
+        pattern=r"^$|^projects/[a-z0-9-]+/locations/[a-z0-9-]+/jobs/[a-z0-9-]+$",
+        description="Cloud Run Job resource to execute for scheduled scans.",
+    )
 
 
 # Singleton settings instance with error handling
