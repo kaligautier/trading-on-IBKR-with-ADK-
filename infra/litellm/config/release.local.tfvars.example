@@ -1,0 +1,9 @@
+# Fill these after uploading secret values outside Terraform.
+secret_versions = {
+  database-url = "1"
+  master-key   = "1"
+  salt-key     = "1"
+  ui-password  = "1"
+  database-ca  = "1" # Omit only if the database uses a CA already trusted by the image.
+}
+iap_members = ["user:YOUR_GOOGLE_ACCOUNT"]

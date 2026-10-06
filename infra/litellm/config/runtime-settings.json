@@ -1,0 +1,30 @@
+{
+  "general_settings": {
+    "store_prompts_in_spend_logs": false,
+    "disable_error_logs": true,
+    "proxy_batch_write_at": 60
+  },
+  "litellm_settings": {
+    "set_verbose": false,
+    "json_logs": true,
+    "turn_off_message_logging": true,
+    "redact_user_api_key_info": true,
+    "request_timeout": 600,
+    "num_retries": 0,
+    "drop_params": false,
+    "user_url_validation": true
+  },
+  "router_settings": {
+    "routing_strategy": "simple-shuffle",
+    "timeout": 170,
+    "num_retries": 1,
+    "retry_policy": {
+      "AuthenticationErrorRetries": 0,
+      "BadRequestErrorRetries": 0,
+      "ContentPolicyViolationErrorRetries": 0,
+      "TimeoutErrorRetries": 0,
+      "RateLimitErrorRetries": 1,
+      "InternalServerErrorRetries": 1
+    }
+  }
+}

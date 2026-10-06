@@ -1,0 +1,14 @@
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+*.local.tfvars
+*.local.tfvars.json
+*.local.hcl
+crash*.log
+__pycache__/
+
+# Downloaded OAuth / service-account credentials
+client_secret*.json
+application_default_credentials.json
+*credentials*.json

@@ -1,0 +1,13 @@
+# Copy to providers.local.tfvars. Keep unused providers absent.
+# Upload a key first, then pin the numeric version returned by Secret Manager.
+# This empty configuration is intentionally safe to apply before keys exist.
+provider_secret_versions = {}
+provider_models          = {}
+
+# Example only: replace MODEL_ID with an exact model available to your account.
+# provider_secret_versions = { openai = "1" }
+# provider_models = {
+#   openai-chat = { provider = "openai", model = "MODEL_ID" }
+# }
+# Other supported providers: anthropic, gemini (Google AI Studio).
+# Vertex AI remains configured separately with the attached GCP identity.
