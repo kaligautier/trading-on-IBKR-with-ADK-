@@ -100,10 +100,31 @@ run "daily_scan_at_seven_paris" {
     condition = (
       length(google_cloud_scheduler_job.daily_scan.http_target[0].oidc_token) == 1 &&
       google_cloud_run_v2_service_iam_member.scheduled_scanner.role == "roles/run.invoker" &&
-      google_cloud_scheduler_job.daily_scan.attempt_deadline == "900s" &&
+      google_cloud_scheduler_job.daily_scan.attempt_deadline == "60s" &&
       google_cloud_run_v2_service.scanner.template[0].timeout == "900s"
     )
-    error_message = "Scheduler must authenticate to the scanner and wait for completion."
+    error_message = "Scheduler must authenticate and wait only for job submission."
   }
 
+}
+
+run "independent_scan_job" {
+  command = plan
+  assert {
+    condition = (
+      google_cloud_run_v2_job.daily_scan.template[0].task_count == 1 &&
+      google_cloud_run_v2_job.daily_scan.template[0].parallelism == 1 &&
+      google_cloud_run_v2_job.daily_scan.template[0].template[0].max_retries == 0 &&
+      google_cloud_run_v2_job.daily_scan.template[0].template[0].timeout == "900s"
+    )
+    error_message = "One task owns the full scan; no automatic duplicate retry."
+  }
+  assert {
+    condition = (
+      google_cloud_run_v2_job_iam_member.dispatcher.role == "roles/run.invoker" &&
+      google_cloud_run_v2_job.daily_scan.template[0].template[0].containers[0].command == tolist(["/app/.venv/bin/python"]) &&
+      google_cloud_run_v2_job.daily_scan.template[0].template[0].containers[0].args == tolist(["-m", "app.jobs.daily_scan"])
+    )
+    error_message = "The dispatcher invokes the job; the job executes ADK without starting the HTTP server."
+  }
 }

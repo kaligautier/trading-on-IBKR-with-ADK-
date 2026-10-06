@@ -1,3 +1,22 @@
+locals {
+  scanner_environment = {
+    DOCKER_ENV                           = "true"
+    DEBUG                                = "false"
+    LOG_LEVEL                            = "INFO"
+    GOOGLE_GENAI_USE_VERTEXAI            = "true"
+    GOOGLE_CLOUD_PROJECT                 = var.project_id
+    GOOGLE_CLOUD_LOCATION                = var.vertex_location
+    MARKET_SCANNER_GOOGLE_CLOUD_LOCATION = var.vertex_location
+    MARKET_SCANNER_MODEL                 = var.model
+    ADK_ALLOW_ORIGINS                    = jsonencode(["http://127.0.0.1:8080"])
+    DATABASE_SCHEMA                      = var.database_schema
+    DATABASE_POOL_SIZE                   = "1"
+    DATABASE_POOL_TIMEOUT                = "30"
+    DD_TRACE_ENABLED                     = "false"
+    DD_INSTRUMENTATION_TELEMETRY_ENABLED = "false"
+  }
+}
+
 resource "google_cloud_run_v2_service" "scanner" {
   project              = var.project_id
   name                 = "market-scanner-adk"
@@ -31,26 +50,15 @@ resource "google_cloud_run_v2_service" "scanner" {
         startup_cpu_boost = true
       }
       dynamic "env" {
-        for_each = {
-          DOCKER_ENV                           = "true"
-          DEBUG                                = "false"
-          LOG_LEVEL                            = "INFO"
-          GOOGLE_GENAI_USE_VERTEXAI            = "true"
-          GOOGLE_CLOUD_PROJECT                 = var.project_id
-          GOOGLE_CLOUD_LOCATION                = var.vertex_location
-          MARKET_SCANNER_GOOGLE_CLOUD_LOCATION = var.vertex_location
-          MARKET_SCANNER_MODEL                 = var.model
-          ADK_ALLOW_ORIGINS                    = jsonencode(["http://127.0.0.1:8080"])
-          DATABASE_SCHEMA                      = var.database_schema
-          DATABASE_POOL_SIZE                   = "1"
-          DATABASE_POOL_TIMEOUT                = "30"
-          DD_TRACE_ENABLED                     = "false"
-          DD_INSTRUMENTATION_TELEMETRY_ENABLED = "false"
-        }
+        for_each = local.scanner_environment
         content {
           name  = env.key
           value = env.value
         }
+      }
+      env {
+        name  = "MARKET_SCANNER_JOB"
+        value = google_cloud_run_v2_job.daily_scan.id
       }
       env {
         name = "MARKET_SCANNER_DATABASE_URL"
@@ -79,5 +87,6 @@ resource "google_cloud_run_v2_service" "scanner" {
   depends_on = [
     google_secret_manager_secret_iam_member.database,
     google_project_iam_member.vertex,
+    google_cloud_run_v2_job_iam_member.dispatcher,
   ]
 }

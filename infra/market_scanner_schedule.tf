@@ -16,13 +16,13 @@ resource "google_cloud_scheduler_job" "daily_scan" {
   project          = var.project_id
   region           = var.region
   name             = "market-scanner-daily-0700"
-  description      = "Run the complete ADK market scan every day at 07:00 Paris time."
+  description      = "Submit the daily ADK scan job at 07:00 Paris time."
   schedule         = "0 7 * * *"
   time_zone        = "Europe/Paris"
-  attempt_deadline = "900s"
+  attempt_deadline = "60s"
   paused           = false
 
-  # A retry could persist a second report after an interrupted response.
+  # A retry could submit another execution after an interrupted acknowledgement.
   retry_config {
     retry_count          = 0
     max_retry_duration   = "0s"

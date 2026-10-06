@@ -5,7 +5,8 @@ Two Terraform roots manage the GCP resources:
 - `bootstrap/`: APIs, protected state bucket, Artifact Registry, and database
   secret metadata. Secret values are supplied separately and never enter state.
 - This directory: private Cloud Run, its service account and permissions, and
-  a daily Cloud Scheduler request at 07:00 Europe/Paris.
+  a daily Cloud Scheduler request at 07:00 Europe/Paris, and a Cloud Run Job
+  that runs the scan independently of the HTTP request.
 
 The database is external to Terraform. Apply its migrations before starting the
 scanner; see [database setup](../database/README.md).
@@ -62,13 +63,31 @@ Never reuse an unrelated image digest solely because it is already deployed.
 
 ## Live verification
 
-Check the ready revision and image digest, then invoke `/internal/daily-scan`
-with a Cloud Run identity token from an allowed invoker. The endpoint creates an
-ADK session, runs the full graph, and requires the persistence node to complete.
-It returns 503 if the database is unconfigured and 502 if the scan fails.
+Check the ready service revision and job image digest, then invoke
+`/internal/daily-scan` with a Cloud Run identity token from an allowed invoker.
+The route submits the Cloud Run Job and returns HTTP 200 with
+`{"status": "accepted", "operation": "projects/.../operations/..."}`.
+This acknowledges submission, not scan completion. It returns 503 if the job
+is unconfigured and 502 if submission fails. The service uses its attached
+identity and `roles/run.invoker` on this job only, without execution overrides.
 
-Record the returned `marker` and use a separate reader connection to check
-`market_scanner.market_scans.session_id`. Confirm the report's schema version,
-its assets, and the corresponding normalized asset/horizon rows. An HTTP 200,
-a ready revision, or a successful Terraform plan alone does not prove a durable
-database write. Also verify a Scheduler-triggered run to cover its OIDC identity.
+The job runs `python -m app.jobs.daily_scan`. It creates an ephemeral ADK session
+and calls `Runner.run_async` directly; there are no internal HTTP/SSE calls.
+It exits 0 only after the persistence node completes, or 1 on failure. Its
+execution name identifies the stored report as `scheduled:<execution-name>`.
+The session disappears when the worker exits; the report remains in PostgreSQL.
+Use the returned operation to track the execution, check its final status and
+`scheduled_scan.completed`/`scheduled_scan.failed` logs, then reread the report
+and normalized assets/horizons through a separate database reader.
+
+Scheduler success now confirms dispatch only. Monitor job execution failures to
+detect a missing report. Scheduler and job retries are disabled; manually
+repeating a request creates another execution. Parallelism 1 applies within one
+execution, not across several executions; avoid overlapping manual runs with the
+small database connection budget. This is not an exactly-once queue.
+
+For local worker validation, configure Vertex ADC and the database, then run
+`uv run python -m app.jobs.daily_scan` from the scanner directory. The HTTP
+trigger requires `MARKET_SCANNER_JOB=projects/PROJECT/locations/REGION/jobs/JOB`
+and permission to invoke it; it does not silently run an in-process background
+scan when the job is absent.
