@@ -101,6 +101,12 @@ class Settings(BaseSettings):
         default=None, description="Optional subset of catalog keys to collect."
     )
 
+    FRED_API_KEY: str = Field(default="", repr=False)
+    MARKET_SCANNER_RESEARCH_TOOLS_ENABLED: bool = Field(
+        default=True,
+        description="Enable optional Yahoo news, FRED and Polymarket research.",
+    )
+
     # Agent directory (computed from project structure)
     @property
     def AGENT_DIR(self) -> str:  # noqa: N802
