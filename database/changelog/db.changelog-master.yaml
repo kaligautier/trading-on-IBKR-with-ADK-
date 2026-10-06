@@ -1,0 +1,4 @@
+databaseChangeLog:
+  - include:
+      file: market-scanner/001-initial.sql
+      relativeToChangelogFile: true
