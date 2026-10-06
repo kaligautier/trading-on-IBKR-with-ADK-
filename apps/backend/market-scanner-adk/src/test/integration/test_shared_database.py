@@ -136,7 +136,9 @@ async def should_serialize_concurrent_saves_and_timeout_without_overflow(
 @pytest.fixture
 def mounted_tmp_path():
     # Colima mounts the workspace, but not macOS /var/folders pytest directories.
-    with TemporaryDirectory(dir=ROOT / ".pytest_cache") as directory:
+    cache = ROOT / ".pytest_cache"
+    cache.mkdir(exist_ok=True)
+    with TemporaryDirectory(dir=cache) as directory:
         yield Path(directory)
 
 

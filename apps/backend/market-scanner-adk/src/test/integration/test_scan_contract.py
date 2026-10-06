@@ -1,11 +1,7 @@
-"""Real PostgreSQL migration and graph round trip in an isolated local schema."""
+"""Real PostgreSQL graph round trip using the current Liquibase schema."""
 
 import json
-import os
-from pathlib import Path
-from uuid import uuid4
 
-import asyncpg
 import pytest
 from google.adk.models import LlmResponse
 from google.adk.models.google_llm import Gemini
@@ -17,70 +13,30 @@ from app.components.agents.market_scanner import agent as scanner
 from app.config.settings import settings
 from app.models.market_regime import MarketRegime
 from app.services.market_scan_persistence import MarketScanPersistence
+from test.integration import test_shared_database
+from test.integration.test_shared_database import ROLES, run_liquibase
 from test.report_fixtures import unsourced_analysis_payload
 from test.unit.components.agents.test_regime_workflow import market_data, run_graph
 
-ROOT = Path(__file__).resolve().parents[3]
-BASELINE = """
-CREATE TABLE market_scans (
-    id UUID PRIMARY KEY, scan_date DATE NOT NULL, session_id TEXT NOT NULL,
-    regime TEXT NOT NULL, summary TEXT NOT NULL, recommendation TEXT NOT NULL,
-    data_quality JSONB, created_at TIMESTAMPTZ NOT NULL
-);
-CREATE TABLE market_scan_assets (
-    id UUID PRIMARY KEY, scan_id UUID REFERENCES market_scans(id), name TEXT NOT NULL,
-    symbol TEXT NOT NULL, kind TEXT NOT NULL DEFAULT 'market', unit TEXT,
-    value NUMERIC NOT NULL, trend TEXT NOT NULL,
-    analysis TEXT NOT NULL, context TEXT NOT NULL
-);
-CREATE TABLE market_scan_horizons (
-    id UUID PRIMARY KEY, asset_id UUID REFERENCES market_scan_assets(id),
-    horizon TEXT NOT NULL, change_pct DOUBLE PRECISION NOT NULL,
-    ref_price NUMERIC NOT NULL, trend TEXT NOT NULL
-);
-INSERT INTO market_scans VALUES (
-    '00000000-0000-0000-0000-000000000001', '2020-01-02', 'legacy', 'cautious',
-    'Preserved history', 'moderate', NULL, '2020-01-02'
-);
-"""
+shared_database = test_shared_database.shared_database
 
 
 @pytest.fixture
-async def local_schema():
-    database_url = os.getenv("MARKET_REPORT_TEST_DATABASE_URL")
-    if not database_url:
-        pytest.skip(
-            "Set MARKET_REPORT_TEST_DATABASE_URL to an isolated local PostgreSQL"
-        )
-    address = make_url(database_url)
-    if address.host not in {"127.0.0.1", "localhost"}:
-        pytest.fail("Report integration tests require a local PostgreSQL host")
-    connection = await asyncpg.connect(
-        address.set(drivername="postgresql").render_as_string(hide_password=False)
-    )
-    schema = f"report_test_{uuid4().hex}"
+async def local_schema(shared_database):
+    owner, _, _, urls = shared_database
+    await run_liquibase(urls[ROLES[2]])
     engine = create_async_engine(
-        address.set(drivername="postgresql+asyncpg"),
-        connect_args={"server_settings": {"search_path": schema}},
+        make_url(urls[ROLES[0]]).set(drivername="postgresql+asyncpg"),
     )
     try:
-        await connection.execute(f'CREATE SCHEMA "{schema}"')
-        await connection.execute(f'SET search_path TO "{schema}"')
-        await connection.execute(BASELINE)
-        migration = (ROOT / "migrations/001_market_report_v2.sql").read_text()
-        await connection.execute(migration)
-        await connection.execute(migration)  # Reapplying must preserve historical rows.
-        yield connection, engine, schema
+        await owner.execute("SET search_path TO market_scanner")
+        yield owner, engine, "market_scanner"
     finally:
         await engine.dispose()
-        await connection.execute(f'DROP SCHEMA IF EXISTS "{schema}" CASCADE')
-        await connection.close()
 
 
 @pytest.mark.parametrize("missing", [False, True])
-async def should_round_trip_the_25_asset_graph_and_preserve_legacy(
-    local_schema, monkeypatch, missing
-):
+async def should_round_trip_the_25_asset_graph(local_schema, monkeypatch, missing):
     connection, engine, schema = local_schema
     data = market_data()
     data.assets["vixeq"].observations = data.assets["vixeq"].observations[-1:]
@@ -186,11 +142,6 @@ async def should_round_trip_the_25_asset_graph_and_preserve_legacy(
         )
         == "40047726949770.15"
     )
-    legacy = await connection.fetchrow(
-        "SELECT summary, recommendation, report FROM market_scans "
-        "WHERE session_id='legacy'"
-    )
-    assert tuple(legacy) == ("Preserved history", "moderate", None)
 
 
 async def should_roll_back_the_whole_report_when_an_asset_write_fails(

@@ -22,9 +22,7 @@ docker compose --profile migration run --rm liquibase update
 The changelog grants the writer INSERT access and the reader SELECT access.
 Runtime services must use these roles, not the administrator or migration role.
 Never run the initial changelog blindly against tables managed by another
-migration system; establish a reviewed baseline first. The application-local
-`migrations/001_market_report_v2.sql` is an upgrade for a legacy schema, not a
-replacement for this Liquibase changelog.
+migration system; establish a reviewed baseline first.
 
 ## Disposable integration tests
 
@@ -42,13 +40,12 @@ Wait for `docker exec scanner-test-db pg_isready -U postgres` to succeed. From
 
 ```sh
 TZ=UTC \
-MARKET_REPORT_TEST_DATABASE_URL=postgresql://postgres:local-test-only@127.0.0.1:55439/postgres \
 MARKET_SHARED_TEST_DATABASE_URL=postgresql://postgres:local-test-only@127.0.0.1:55439/postgres \
 MARKET_SHARED_TEST_CONTAINER=scanner-test-db \
 uv run --frozen pytest -q
 ```
 
-The tests cover report round trips, legacy data preservation, transactional
+The tests cover report round trips with the current Liquibase schema, transactional
 rollback, role permissions, pool limits, migration checksums, and rollback of
 another domain. Providers and Gemini are mocked in these integration tests.
 The test host must be localhost, and the shared-database tests require a fresh
