@@ -2,16 +2,11 @@
 
 import asyncio
 import json
-import sys
-from pathlib import Path
+import os
 
 import httpx
 from google.genai import Client, types
 from pydantic import BaseModel
-
-ROOT = Path(__file__).resolve().parents[3]
-sys.path.insert(0, str(ROOT / "infra/litellm/scripts"))
-import bootstrap_scanner_key as b  # noqa: E402
 
 
 class Result(BaseModel):
@@ -19,10 +14,13 @@ class Result(BaseModel):
 
 
 async def main():
-    b.validate_configuration()
-    key = b.gcloud("secrets", "versions", "access", "latest", "--secret=" + b.SECRET)
-    headers = b.iap_headers(key)
-    with httpx.Client(base_url=b.BASE_URL, headers=headers, timeout=180) as client:
+    base_url = os.environ["LITELLM_BASE_URL"].rstrip("/")
+    key = os.environ["LITELLM_API_KEY"]
+    model_name = os.environ.get("LITELLM_MODEL", "gemini-3.8-flash")
+    headers = {"Authorization": "Bearer " + key}
+    with httpx.Client(
+        base_url=base_url, headers=headers, timeout=180, follow_redirects=False
+    ) as client:
         for route, body in [
             ("/key/generate", {}),
             (
@@ -34,20 +32,20 @@ async def main():
             print("Denied route", route, r.status_code, flush=True)
             assert r.status_code == 403
         r = client.post(
-            "/v1beta/models/gemini-3.8-flash:generateContent",
-            headers={"Proxy-Authorization": ""},
+            f"/v1beta/models/{model_name}:generateContent",
+            headers={"Authorization": "Bearer invalid-client-key"},
             json={"contents": [{"parts": [{"text": "Hi"}]}]},
         )
-        print("No IAP", r.status_code, flush=True)
+        print("Invalid key denied", r.status_code, flush=True)
         assert r.status_code in (401, 403)
     # Explicitly select the Gemini API shape even when the scanner uses Vertex.
     with Client(
         vertexai=False,
         api_key=key,
         http_options=types.HttpOptions(
-            base_url=b.BASE_URL,
+            base_url=base_url,
             api_version="v1beta",
-            headers=b.iap_headers(key),
+            headers=headers,
             timeout=180_000,
             retry_options=types.HttpRetryOptions(attempts=1),
             client_args={"follow_redirects": False},
@@ -59,7 +57,7 @@ async def main():
     ) as model:
         async with model.aio as client:
             result = await client.models.generate_content(
-                model=b.MODELS[0],
+                model=model_name,
                 contents="Return gateway_ok true.",
                 config=types.GenerateContentConfig(
                     response_mime_type="application/json",
@@ -74,7 +72,7 @@ async def main():
                 flush=True,
             )
             research = await client.models.generate_content(
-                model=b.MODELS[0],
+                model=model_name,
                 contents=(
                     "Search the web for the official Google Gemini documentation. "
                     "Give one sentence and its source."
@@ -94,7 +92,7 @@ async def main():
             )
             assert grounding and grounding.grounding_chunks
             stream = await client.models.generate_content_stream(
-                model=b.MODELS[0], contents="Reply only STREAM_OK."
+                model=model_name, contents="Reply only STREAM_OK."
             )
             output = ""
             async for chunk in stream:

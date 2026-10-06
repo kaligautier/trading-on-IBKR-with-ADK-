@@ -1,12 +1,14 @@
 """Offline checks for deployment targeting and credential handling."""
 
 import importlib.util
+import json
 from pathlib import Path
 import secrets
 import sys
 from types import SimpleNamespace
 
 import pytest
+import httpx
 
 SCRIPTS = Path(__file__).resolve().parents[1] / "scripts"
 
@@ -16,6 +18,86 @@ def load_script(name):
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
+
+
+@pytest.mark.parametrize("target", ["other-host", "user", "database", "port"])
+def test_database_rerun_rejects_a_different_target(target):
+    # Arrange
+    script = load_script("bootstrap_database")
+    host = "other.example.com" if target == "other-host" else "db.example.com"
+    user = "admin" if target == "user" else "litellm"
+    database = "defaultdb" if target == "database" else "litellm"
+    port = 5433 if target == "port" else 5432
+    stored = f"postgresql://{user}:placeholder@{host}:{port}/{database}"
+
+    # Act / Assert
+    with pytest.raises(ValueError, match="dedicated target"):
+        script.existing_password(stored, "db.example.com", 5432)
+
+
+def test_database_rerun_preserves_encoded_password():
+    # Arrange
+    script = load_script("bootstrap_database")
+    stored = "postgresql://litellm:p%2B%27%40ss@db.example.com:5432/litellm"
+
+    # Act
+    password = script.existing_password(stored, "db.example.com", 5432)
+
+    # Assert
+    assert password == "p+'@ss"
+
+
+@pytest.mark.parametrize("upload_ok", [True, False])
+def test_client_secret_upload_or_revocation(monkeypatch, capsys, upload_ok):
+    # Arrange
+    script = load_script("bootstrap_scanner_key")
+    script.PROJECT = "example-project"
+    script.BASE_URL = "https://gateway.example.com"
+    script.SECRET = "litellm-client-agent"
+    master = secrets.token_hex(32)
+    key = "sk-" + secrets.token_hex(32)
+    monkeypatch.setenv("LITELLM_MASTER_KEY", master)
+    credentials = SimpleNamespace(refresh=lambda _: None, token="placeholder")
+    monkeypatch.setattr(script.google.auth, "default", lambda **_: (credentials, None))
+    requests = []
+
+    def handle(request):
+        requests.append((request.url.path, json.loads(request.content or "{}")))
+        if request.url.path.endswith("/versions"):
+            return httpx.Response(200, json={"versions": []})
+        if request.url.path == "/key/generate":
+            return httpx.Response(200, json={"key": key})
+        if request.url.path.endswith(":addVersion"):
+            return httpx.Response(
+                200 if upload_ok else 503,
+                json={"name": "projects/example/secrets/agent/versions/1"},
+            )
+        if request.url.path == "/key/delete":
+            return httpx.Response(200, json={})
+        raise AssertionError("Unexpected request")
+
+    client_type = httpx.Client
+    monkeypatch.setattr(
+        script.httpx,
+        "Client",
+        lambda **kwargs: client_type(transport=httpx.MockTransport(handle), **kwargs),
+    )
+
+    # Act
+    if upload_ok:
+        script.main()
+    else:
+        with pytest.raises(script.BootstrapError, match="HTTP 503"):
+            script.main()
+
+    # Assert
+    generation = next(body for path, body in requests if path == "/key/generate")
+    assert generation["key_alias"].startswith("agent-")
+    assert generation["allowed_routes"] == ["/v1beta/models/*"]
+    revocations = [body for path, body in requests if path == "/key/delete"]
+    assert revocations == ([] if upload_ok else [{"keys": [key]}])
+    output = capsys.readouterr().out
+    assert key not in output and master not in output
 
 
 @pytest.mark.parametrize(
@@ -32,7 +114,6 @@ def load_script(name):
 def test_client_rejects_unsafe_origin(url):
     # Arrange
     script = load_script("bootstrap_scanner_key")
-    script.ACCOUNT = "operator@example.com"
     script.PROJECT = "example-project"
     script.BASE_URL = url
 
@@ -41,22 +122,20 @@ def test_client_rejects_unsafe_origin(url):
         script.validate_configuration()
 
 
-def test_client_requires_explicit_account():
+def test_client_requires_explicit_project():
     # Arrange
     script = load_script("bootstrap_scanner_key")
-    script.ACCOUNT = ""
-    script.PROJECT = "example-project"
+    script.PROJECT = ""
     script.BASE_URL = "https://example.com"
 
     # Act / Assert
-    with pytest.raises(ValueError, match="LITELLM_GCP_ACCOUNT"):
+    with pytest.raises(ValueError, match="GOOGLE_CLOUD_PROJECT"):
         script.validate_configuration()
 
 
 def test_client_accepts_https_origin():
     # Arrange
     script = load_script("bootstrap_scanner_key")
-    script.ACCOUNT = "operator@example.com"
     script.PROJECT = "example-project"
     script.BASE_URL = "https://example.com"
 

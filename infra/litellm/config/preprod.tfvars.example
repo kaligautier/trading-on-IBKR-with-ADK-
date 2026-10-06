@@ -7,4 +7,3 @@ additional_vertex_models = []
 
 # Optional: existing identities for future application integration.
 client_service_accounts = {}
-client_operator_members = []

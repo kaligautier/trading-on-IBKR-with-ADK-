@@ -98,9 +98,10 @@ resource "google_project_iam_member" "vertex" {
 }
 
 resource "google_secret_manager_secret" "credentials" {
-  for_each  = local.secret_names
-  project   = var.project_id
-  secret_id = "litellm-${each.key}"
+  for_each            = local.secret_names
+  project             = var.project_id
+  secret_id           = "litellm-${each.key}"
+  version_destroy_ttl = "2592000s"
   replication {
     auto {}
   }
@@ -127,10 +128,14 @@ resource "google_secret_manager_secret_iam_member" "migrations" {
 
 # This payload contains configuration only, never credentials.
 resource "google_secret_manager_secret" "config" {
-  project   = var.project_id
-  secret_id = "litellm-config"
+  project             = var.project_id
+  secret_id           = "litellm-config"
+  version_destroy_ttl = "2592000s"
   replication {
     auto {}
+  }
+  lifecycle {
+    prevent_destroy = true
   }
 }
 

@@ -57,29 +57,29 @@ URL-encode credentials. Record only the returned numeric secret versions in
 `release.local.tfvars`. Changing the salt makes stored provider credentials
 unreadable. Back up the database before upgrades.
 
-### Optional existing Aiven service
+### Existing PostgreSQL database
 
-`scripts/bootstrap_aiven.py` creates a dedicated `litellm` user/database in an
-existing service, checks TLS and SQL writes, and uploads credentials without
-printing them. It requires an authenticated Aiven CLI administrator and these
-explicit environment variables:
-
-| Variable | Value |
-| --- | --- |
-| `LITELLM_GCP_ACCOUNT` | Authorized gcloud account |
-| `GOOGLE_CLOUD_PROJECT` | Target GCP project ID |
-| `LITELLM_AIVEN_ACCOUNT` | Expected Aiven account email |
-| `LITELLM_AIVEN_PROJECT` | Existing Aiven project |
-| `LITELLM_AIVEN_SERVICE` | Existing PostgreSQL service |
-| `LITELLM_AIVEN_HOST` | Expected PostgreSQL hostname |
+For an existing Aiven service, prefer a protected administrator connection file
+and the downloaded project CA. The file contains `{"url":"POSTGRES_ADMIN_URI"}`;
+restrict it to `0600` and keep it outside Git. Use the existing dedicated
+`litellm` database and role; no new database service is required.
 
 ```sh
-uv run --project apps/backend/market-scanner-adk --no-sync python infra/litellm/scripts/bootstrap_aiven.py
+uv run --project apps/backend/market-scanner-adk --no-sync python infra/litellm/scripts/bootstrap_database.py \
+  --admin-file=/PROTECTED_PATH/admin.json --ca-file=/PROTECTED_PATH/ca.pem \
+  --expected-host=YOUR_DATABASE_HOST --project=YOUR_PROJECT --account=YOUR_ACCOUNT
 ```
 
-The script preserves existing enabled secrets and the local release file. It
-sets the database role's connection limit to five. Increase capacity before
-running the second proxy alongside rolling updates or migrations.
+The script preserves existing enabled secret versions, checks role privileges,
+verifies TLS and SQL writes, and sets the dedicated role's connection limit to
+12 by default. If existing encrypted records have no recoverable salt, it stops
+instead of creating an incompatible salt. Check the service's total connection
+capacity before choosing the limit. Remove the temporary administrator file
+once bootstrap is complete.
+
+The optional `bootstrap_aiven.py` also supports an authenticated Aiven CLI via
+explicit `LITELLM_GCP_ACCOUNT`, `GOOGLE_CLOUD_PROJECT`, `LITELLM_AIVEN_ACCOUNT`,
+`LITELLM_AIVEN_PROJECT`, `LITELLM_AIVEN_SERVICE` and `LITELLM_AIVEN_HOST` variables.
 
 ## Migrations, service and IAP
 
@@ -141,38 +141,53 @@ settings can override YAML. Avoid duplicating a YAML alias in the UI.
 
 ## Application access and private gateway
 
-Optional `client_service_accounts` grants existing project service accounts IAP
-access, permission to sign as themselves, and access to their own virtual-key
-secret. `client_operator_members` grants explicit operators impersonation rights.
-These maps are empty in the public example.
+`client_service_accounts` grants existing project identities access only to
+their own virtual-key secret. Agents have no IAP access or token-signing grant.
+They call the private gateway using `Authorization: Bearer <virtual-key>`.
 
-To bootstrap the Scanner-named inference key, configure that existing identity
-in Terraform, apply the grants, then set `LITELLM_GCP_ACCOUNT`,
-`GOOGLE_CLOUD_PROJECT` and `LITELLM_BASE_URL` (the admin service's HTTPS origin):
+The gateway is internal-only, with a VPC, Private Google Access and private
+`run.app` DNS. Cloud Run agents must attach to the supplied subnet and route
+this traffic through the VPC. The admin endpoint retains IAP plus LiteLLM login.
+The current Scanner application still uses Vertex directly; its dedicated
+verification job exercises the gateway with the same service account.
+
+### Key provisioning and verification jobs
+
+Set `client_tools_image` to a digest-pinned Python image containing `httpx`,
+`google-auth`, `google-genai` and `pydantic`. The existing Scanner image has these
+dependencies. The optional jobs use Direct VPC egress; no IAP authentication is
+implemented in their scripts.
+
+After applying the service stage, run `litellm-key-CLIENT_NAME`. Its dedicated
+bootstrap identity can read the master secret, list its client-key versions and
+add a version; it cannot read the client key back or destroy versions. It creates
+an inference-only virtual key inside the VPC and uploads it directly to Secret
+Manager. Credential payloads never appear in Terraform arguments or logs.
 
 ```sh
-uv run --project apps/backend/market-scanner-adk --no-sync python infra/litellm/scripts/bootstrap_scanner_key.py
+gcloud run jobs execute litellm-key-CLIENT_NAME --wait --project=YOUR_PROJECT --region=europe-west1
 ```
 
-The key allows only native `/v1beta/models/*` inference for the script's explicit
-model list. Align that list with your Terraform catalog before running. Limits
-are 10 requests/minute, 100,000 tokens/minute, two concurrent requests, a $10
-30-day accounting budget and 30-day expiry. Existing enabled secret versions are
-reused; an enabled version does not prove its virtual key is unexpired. Rotate
-explicitly before expiry and revoke the old key only after testing its replacement.
+Pin the returned numeric version in the ignored configuration:
 
-The prepared `gateway.tf` also creates an internal-only service, a VPC, a subnet
-with Private Google Access, and private `run.app` DNS. The gateway uses virtual
-keys without IAP or Cloud Run IAM checks; internal network ingress is its
-additional boundary. The admin endpoint retains IAP. Clients must route traffic
-through the VPC. The merged Scanner does not include this integration and keeps
-its direct Vertex permissions.
+```hcl
+client_key_versions = { CLIENT_NAME = "1" }
+```
 
-Both services share the image, config, database and runtime identity. The gateway
-keeps one instance running; the admin service can scale to zero. Each has a
-two-connection pool. Size PostgreSQL for both services, revision overlap and
-migrations before applying this topology. There is no Redis: budgets and rate
-limits are approximate/process-local and can overshoot or reset on restart.
+Reapply and run `litellm-verify-CLIENT_NAME`. The verification identity is the
+agent SA, with only its own key mounted, and the job calls the internal endpoint
+with no IAP or Google identity token.
+
+Keys permit `/v1beta/models/*` and the configured model catalog. Limits are
+10 requests/minute, 100,000 tokens/minute, two concurrent requests, a $10 30-day
+accounting budget and 30-day expiry. Bootstrap reruns preserve existing enabled
+versions; they do not prove the key is unexpired or perform rotation. Rotate
+explicitly and verify the replacement before revoking the old key.
+
+Both services share the image, config, database and runtime identity. Each uses
+a two-connection pool; size PostgreSQL for revision overlap and migrations.
+There is no Redis: rate limits are process-local, counters may reset, and
+asynchronous accounting can overshoot budgets.
 
 ## Verification and upgrades
 
@@ -187,17 +202,17 @@ python3 infra/litellm/tests/smoke.py
 Terraform tests use mocked providers. The Docker smoke test runs the pinned
 images with disposable PostgreSQL and mocked inference: migrations, UI login,
 authentication, key restrictions and persistence after restart. It uses no cloud
-credentials. The opt-in native test requires the same deployment variables as
-key bootstrap and makes billable calls:
+credentials. The opt-in native test makes billable calls:
 
 ```sh
 uv run --project apps/backend/market-scanner-adk --no-sync python infra/litellm/tests/scanner_native.py
 ```
 
-This checks IAP denial, key restrictions, native schema/thinking, Search grounding
-and streaming through the admin endpoint. It does not validate private gateway
-networking or Scanner integration. Check anonymous denial, authorized browser
-login, real model inference and usage persistence separately after deployment.
+This runs from inside the VPC with `LITELLM_BASE_URL` and the mounted
+`LITELLM_API_KEY`. It checks key restrictions, native schema/thinking, Search
+grounding and streaming through the private gateway without IAP. Check anonymous
+denial, authorized browser login, real model inference and usage persistence
+separately after deployment.
 
 Runtime settings disable prompt/response spend-log persistence and message
 logging, redact key details, and retain usage accounting. Provider timeout is
@@ -214,3 +229,5 @@ References: [LiteLLM configuration](https://docs.litellm.ai/docs/proxy/configs),
 [production settings](https://docs.litellm.ai/docs/proxy/prod),
 [Cloud Run IAP](https://docs.cloud.google.com/run/docs/securing/identity-aware-proxy-cloud-run),
 [private networking](https://docs.cloud.google.com/run/docs/securing/private-networking).
+
+For rebuilding after an incident, see [RECOVERY.md](RECOVERY.md).

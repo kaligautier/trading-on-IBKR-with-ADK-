@@ -1,33 +1,30 @@
-"""Create a scoped scanner key and store it without exposing credential values.
+"""Provision a private-gateway client key from a VPC-attached bootstrap job.
 
-Apply clients.tf first. Run with the backend Python environment (httpx).
-Existing secret versions are reused; rotation must be an explicit operation.
+The job mounts the master key from Secret Manager. Agents receive only their
+inference key and never authenticate through IAP. No credential is printed.
 """
 
-import json
+import base64
 import os
-import subprocess
-import time
+from uuid import uuid4
 
+import google.auth
+from google.auth.transport.requests import Request
 import httpx
 
-ACCOUNT = os.environ.get("LITELLM_GCP_ACCOUNT", "")
 PROJECT = os.environ.get("GOOGLE_CLOUD_PROJECT", "")
 BASE_URL = os.environ.get("LITELLM_BASE_URL", "").rstrip("/")
-SERVICE_ACCOUNT = f"market-scanner-adk@{PROJECT}.iam.gserviceaccount.com"
-SECRET = "litellm-client-market-scanner-adk"
-MODELS = [
-    "gemini-3.8-flash",
-    "gemini-3.7-flash",
-    "gemini-3.6-flash",
-    "gemini-3.5-flash",
-    "gemini-3.5-flash-lite",
-]
+SECRET = os.environ.get("LITELLM_CLIENT_SECRET", "litellm-client-market-scanner-adk")
+MODELS = os.environ.get("LITELLM_MODELS", "gemini-3.8-flash").split(",")
+
+
+class BootstrapError(RuntimeError):
+    """Safe operation names and HTTP codes, never upstream response bodies."""
 
 
 def validate_configuration():
-    if not ACCOUNT or not PROJECT:
-        raise ValueError("Set LITELLM_GCP_ACCOUNT and GOOGLE_CLOUD_PROJECT")
+    if not PROJECT:
+        raise ValueError("Set GOOGLE_CLOUD_PROJECT")
     url = httpx.URL(BASE_URL)
     if (
         url.scheme != "https"
@@ -40,108 +37,93 @@ def validate_configuration():
         raise ValueError("LITELLM_BASE_URL must be an HTTPS origin without credentials")
 
 
-def gcloud(*args, data=None):
-    result = subprocess.run(
-        ["gcloud", *args, f"--project={PROJECT}", f"--account={ACCOUNT}"],
-        input=data,
-        capture_output=True,
-        text=True,
-    )
-    if result.returncode:
-        raise RuntimeError(f"gcloud {args[0]} {args[1]} failed")
-    return result.stdout.strip()
-
-
-def iap_headers(key):
-    token = gcloud("auth", "print-access-token")
-    now = int(time.time())
-    response = httpx.post(
-        "https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/"
-        f"{SERVICE_ACCOUNT}:signJwt",
-        headers={"Authorization": f"Bearer {token}"},
-        json={
-            "payload": json.dumps(
-                {
-                    "iss": SERVICE_ACCOUNT,
-                    "sub": SERVICE_ACCOUNT,
-                    "aud": BASE_URL + "/*",
-                    "iat": now,
-                    "exp": now + 600,
-                }
-            )
-        },
-        timeout=30,
+def secret_request(client, credentials, method, path, **kwargs):
+    credentials.refresh(Request())
+    response = client.request(
+        method,
+        f"https://secretmanager.googleapis.com/v1/projects/{PROJECT}/secrets/{SECRET}{path}",
+        headers={"Authorization": f"Bearer {credentials.token}"},
+        **kwargs,
     )
     if response.status_code != 200:
-        raise RuntimeError(f"IAM signing failed (HTTP {response.status_code})")
-    return {
-        "Proxy-Authorization": "Bearer " + response.json()["signedJwt"],
-        "Authorization": "Bearer " + key,
-    }
+        raise BootstrapError(
+            f"Secret Manager request failed (HTTP {response.status_code})"
+        )
+    return response.json()
 
 
 def main():
     validate_configuration()
-    existing = json.loads(
-        gcloud(
-            "secrets",
-            "versions",
-            "list",
-            SECRET,
-            "--format=json",
-            "--filter=state=ENABLED",
-            "--sort-by=~createTime",
-            "--limit=1",
-        )
+    master = os.environ.get("LITELLM_MASTER_KEY")
+    if not master:
+        raise ValueError("Mount LITELLM_MASTER_KEY from Secret Manager")
+    credentials, _ = google.auth.default(
+        scopes=["https://www.googleapis.com/auth/cloud-platform"]
     )
-    if existing:
-        print("Existing client secret version:", existing[0]["name"].split("/")[-1])
-        return
-    master = gcloud(
-        "secrets", "versions", "access", "latest", "--secret=litellm-master-key"
-    )
-    headers = iap_headers(master)
-    with httpx.Client(base_url=BASE_URL, headers=headers, timeout=60) as client:
-        response = client.post(
-            "/key/generate",
-            json={
-                "key_alias": "market-scanner-adk",
-                "models": MODELS,
-                "allowed_routes": ["/v1beta/models/*"],
-                "duration": "30d",
-                "max_budget": 10,
-                "budget_duration": "30d",
-                "rpm_limit": 10,
-                "tpm_limit": 100000,
-                "max_parallel_requests": 2,
-                "metadata": {"application": "market-scanner-adk", "auth": "gcp-iap-sa"},
-            },
-        )
-        if response.status_code != 200:
-            raise RuntimeError(f"Key creation failed (HTTP {response.status_code})")
-        result = response.json()
-        key = result["key"]
-        try:
-            version = gcloud(
-                "secrets",
-                "versions",
-                "add",
-                SECRET,
-                "--data-file=-",
-                "--format=value(name)",
-                data=key,
-            ).split("/")[-1]
-        except Exception:
-            rollback = client.post("/key/delete", json={"keys": [key]})
-            if rollback.status_code != 200:
-                raise RuntimeError(
-                    "Secret upload and key cleanup failed; revoke the scanner key in LiteLLM"
-                ) from None
-            raise
-    print("Client secret version:", version)
-    print("Key expires:", result.get("expires"))
-    print("Allowed models:", ", ".join(MODELS))
+    with httpx.Client(timeout=60, follow_redirects=False) as cloud:
+        existing = secret_request(
+            cloud, credentials, "GET", "/versions", params={"filter": "state:ENABLED"}
+        ).get("versions", [])
+        if existing:
+            print("Existing client secret version:", existing[0]["name"].split("/")[-1])
+            return
+        with httpx.Client(
+            base_url=BASE_URL,
+            headers={"Authorization": "Bearer " + master},
+            timeout=60,
+            follow_redirects=False,
+        ) as proxy:
+            response = proxy.post(
+                "/key/generate",
+                json={
+                    # Preserve keys retained in a recovered database: aliases are unique.
+                    "key_alias": SECRET.removeprefix("litellm-client-")
+                    + "-"
+                    + uuid4().hex[:12],
+                    "models": MODELS,
+                    "allowed_routes": ["/v1beta/models/*"],
+                    "duration": "30d",
+                    "max_budget": 10,
+                    "budget_duration": "30d",
+                    "rpm_limit": 10,
+                    "tpm_limit": 100000,
+                    "max_parallel_requests": 2,
+                    "metadata": {"authentication": "private-network-virtual-key"},
+                },
+            )
+            if response.status_code != 200:
+                raise BootstrapError(
+                    f"Key creation failed (HTTP {response.status_code})"
+                )
+            result = response.json()
+            key = result["key"]
+            try:
+                uploaded = secret_request(
+                    cloud,
+                    credentials,
+                    "POST",
+                    ":addVersion",
+                    json={"payload": {"data": base64.b64encode(key.encode()).decode()}},
+                )
+            except Exception:
+                cleanup = proxy.post("/key/delete", json={"keys": [key]})
+                if cleanup.status_code != 200:
+                    raise BootstrapError(
+                        "Upload and cleanup failed; revoke the client key"
+                    ) from None
+                raise
+        print("Client secret version:", uploaded["name"].split("/")[-1])
+        print("Key expires:", result.get("expires"))
+        print("Allowed models:", ", ".join(MODELS))
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception as error:
+        if isinstance(error, BootstrapError):
+            print(str(error))
+        print(
+            f"Bootstrap stopped ({type(error).__name__}); credential details suppressed"
+        )
+        raise SystemExit(1) from None

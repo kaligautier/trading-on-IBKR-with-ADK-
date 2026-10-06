@@ -255,23 +255,16 @@ run "application_clients_are_scoped" {
     client_service_accounts = {
       market-scanner-adk = "market-scanner-adk@example-project.iam.gserviceaccount.com"
     }
-    client_operator_members = ["user:owner@example.com"]
   }
   assert {
     condition = (
-      google_service_account_iam_member.client_signer["market-scanner-adk"].service_account_id == "projects/example-project/serviceAccounts/market-scanner-adk@example-project.iam.gserviceaccount.com" &&
-      google_service_account_iam_member.client_signer["market-scanner-adk"].member == "serviceAccount:market-scanner-adk@example-project.iam.gserviceaccount.com" &&
-      google_service_account_iam_member.client_signer["market-scanner-adk"].role == "roles/iam.serviceAccountTokenCreator"
-    )
-    error_message = "The runtime can sign only as its own service account."
-  }
-  assert {
-    condition = (
-      google_iap_web_cloud_run_service_iam_member.clients["market-scanner-adk"].role == "roles/iap.httpsResourceAccessor" &&
       google_secret_manager_secret.client_key["market-scanner-adk"].secret_id == "litellm-client-market-scanner-adk" &&
-      google_secret_manager_secret_iam_member.client_key["market-scanner-adk"].member == "serviceAccount:market-scanner-adk@example-project.iam.gserviceaccount.com"
+      google_secret_manager_secret_iam_member.client_key["market-scanner-adk"].member == "serviceAccount:market-scanner-adk@example-project.iam.gserviceaccount.com" &&
+      !google_cloud_run_v2_service.gateway[0].iap_enabled &&
+      google_cloud_run_v2_service.gateway[0].ingress == "INGRESS_TRAFFIC_INTERNAL_ONLY" &&
+      google_cloud_run_v2_service.gateway[0].invoker_iam_disabled
     )
-    error_message = "The client must use IAP and its dedicated credential, never the master key."
+    error_message = "Application clients use their own virtual key on the private gateway without IAP or Google identity tokens."
   }
 }
 
@@ -303,5 +296,43 @@ run "gateway_is_internal_only_without_iap" {
       google_compute_subnetwork.run.private_ip_google_access
     )
     error_message = "Only the admin front is IAP-exposed; the gateway must be VPC-internal."
+  }
+}
+
+run "credentials_have_delayed_version_destruction" {
+  command = plan
+  assert {
+    condition = alltrue([
+      for secret in google_secret_manager_secret.credentials : secret.version_destroy_ttl == "2592000s"
+    ]) && google_secret_manager_secret.config.version_destroy_ttl == "2592000s"
+    error_message = "Secret versions must remain recoverable for 30 days after a destruction request."
+  }
+}
+
+run "vpc_jobs_separate_admin_provisioning_from_agent_inference" {
+  command = apply
+  variables {
+    stage              = "service"
+    iap_members        = ["user:owner@example.com"]
+    secret_versions    = { database-url = "1", master-key = "1", salt-key = "1", ui-password = "1" }
+    client_tools_image = "registry.example.com/tools@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    client_service_accounts = {
+      agent-one = "agent-one@example-project.iam.gserviceaccount.com"
+    }
+    client_key_versions = { agent-one = "2" }
+  }
+  override_resource {
+    target = google_service_account.key_bootstrap[0]
+    values = { email = "litellm-key-bootstrap@example-project.iam.gserviceaccount.com" }
+  }
+  assert {
+    condition = (
+      google_cloud_run_v2_job.client_verify["agent-one"].template[0].template[0].service_account == "agent-one@example-project.iam.gserviceaccount.com" &&
+      google_cloud_run_v2_job.client_verify["agent-one"].template[0].template[0].vpc_access[0].egress == "PRIVATE_RANGES_ONLY" &&
+      [for env in google_cloud_run_v2_job.client_verify["agent-one"].template[0].template[0].containers[0].env : env.name if length(env.value_source) > 0] == ["LITELLM_API_KEY"] &&
+      google_secret_manager_secret_iam_member.bootstrap_master[0].member != "serviceAccount:agent-one@example-project.iam.gserviceaccount.com" &&
+      google_secret_manager_secret_iam_member.bootstrap_write["agent-one"].role == "roles/secretmanager.secretVersionAdder"
+    )
+    error_message = "Only the provisioning job can read the master; agents get their own key and private VPC routing."
   }
 }

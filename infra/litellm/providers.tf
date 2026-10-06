@@ -46,9 +46,10 @@ variable "provider_models" {
 
 # Empty containers are safe to prepare before provider credentials are available.
 resource "google_secret_manager_secret" "provider" {
-  for_each  = local.provider_environment
-  project   = var.project_id
-  secret_id = "litellm-provider-${each.key}"
+  for_each            = local.provider_environment
+  project             = var.project_id
+  secret_id           = "litellm-provider-${each.key}"
+  version_destroy_ttl = "2592000s"
   replication {
     auto {}
   }
