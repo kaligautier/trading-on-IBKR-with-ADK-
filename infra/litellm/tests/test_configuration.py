@@ -6,6 +6,7 @@ from pathlib import Path
 import secrets
 import sys
 from types import SimpleNamespace
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 import httpx
@@ -219,3 +220,107 @@ def test_oauth_rejects_another_project_before_authentication(monkeypatch, tmp_pa
     with pytest.raises(ValueError, match="selected project"):
         script.main()
     assert calls == []
+
+
+@pytest.mark.asyncio
+async def test_database_decodes_administrator_password(monkeypatch, tmp_path):
+    # Arrange
+    script = load_script("bootstrap_database")
+    admin = tmp_path / "admin.json"
+    admin.write_text(
+        json.dumps(
+            {"url": "postgresql://avnadmin:p%2B%27%40ss@db.example.com:5432/defaultdb"}
+        )
+    )
+    admin.chmod(0o600)
+    args = SimpleNamespace(
+        admin_file=admin,
+        ca_file=tmp_path / "ca.pem",
+        expected_host="db.example.com",
+        project="example-project",
+        account="owner",
+    )
+    connect = AsyncMock(side_effect=RuntimeError("stop before database writes"))
+    monkeypatch.setattr(script.asyncpg, "connect", connect)
+    monkeypatch.setattr(script.ssl, "create_default_context", lambda **_: object())
+    monkeypatch.setattr(script.SecretStore, "existing_version", lambda *_: None)
+
+    # Act
+    with pytest.raises(RuntimeError, match="stop before database writes"):
+        await script.bootstrap(args)
+
+    # Assert
+    assert connect.call_args.kwargs["password"] == "p+'@ss"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "salt_exists,encrypted_rows", [(False, 1), (False, 0), (True, 1)]
+)
+async def test_aiven_preserves_salt_for_encrypted_records(
+    monkeypatch, tmp_path, salt_exists, encrypted_rows
+):
+    # Arrange
+    monkeypatch.syspath_prepend(str(SCRIPTS))
+    script = load_script("bootstrap_aiven")
+    for name in [
+        "LITELLM_GCP_ACCOUNT",
+        "GOOGLE_CLOUD_PROJECT",
+        "LITELLM_AIVEN_PROJECT",
+        "LITELLM_AIVEN_SERVICE",
+        "LITELLM_AIVEN_ACCOUNT",
+        "LITELLM_AIVEN_HOST",
+    ]:
+        monkeypatch.setenv(name, "example")
+    script.ROOT = tmp_path
+    (tmp_path / "config").mkdir()
+    (tmp_path / "config/release.local.tfvars").write_text('stage = "service"')
+    monkeypatch.setattr(script, "command", lambda *_: json.dumps({"user": "example"}))
+    monkeypatch.setattr(
+        script,
+        "service",
+        lambda: {
+            "state": "RUNNING",
+            "service_uri_params": {"host": "example", "port": 5432, "user": "avnadmin"},
+            "users": [{"username": "litellm"}],
+        },
+    )
+    monkeypatch.setattr(script, "service_user", lambda _: {"password": "placeholder"})
+
+    def avn(*args):
+        if "ca-get" in args:
+            Path(args[-1]).write_text("placeholder-ca")
+        return json.dumps(["litellm"])
+
+    monkeypatch.setattr(script, "avn", avn)
+    monkeypatch.setattr(script.ssl, "create_default_context", lambda **_: object())
+    connection = MagicMock()
+    connection.fetchrow = AsyncMock(return_value={"rolsuper": False})
+    connection.fetch = AsyncMock(
+        return_value=[{"tablename": "LiteLLM_CredentialsTable"}]
+    )
+    connection.fetchval = AsyncMock(
+        side_effect=lambda query: (encrypted_rows if "count(*)" in query else True)
+    )
+    connection.execute = AsyncMock()
+    connection.close = AsyncMock()
+    monkeypatch.setattr(script.asyncpg, "connect", AsyncMock(return_value=connection))
+    uploads = MagicMock(return_value="1")
+    monkeypatch.setattr(script, "upload", uploads)
+    monkeypatch.setattr(
+        script.SecretStore, "existing_version", lambda *_: "1" if salt_exists else None
+    )
+
+    # Act
+    if encrypted_rows and not salt_exists:
+        with pytest.raises(ValueError, match="original salt"):
+            await script.main()
+    else:
+        await script.main()
+
+    # Assert
+    if encrypted_rows and not salt_exists:
+        uploads.assert_not_called()
+    else:
+        assert uploads.call_count == 5
+    assert connection.close.await_count >= 1

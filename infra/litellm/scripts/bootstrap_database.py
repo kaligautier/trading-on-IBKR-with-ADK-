@@ -79,6 +79,32 @@ def existing_password(stored, expected_host, expected_port):
     return unquote(uri.password)
 
 
+async def require_recoverable_salt(database, salt_version):
+    """Never create an incompatible salt for a restored encrypted database."""
+    if salt_version:
+        return
+    tables = {
+        row["tablename"]
+        for row in await database.fetch(
+            "SELECT tablename FROM pg_tables WHERE schemaname='public'"
+        )
+    }
+    for table in (
+        "LiteLLM_CredentialsTable",
+        "LiteLLM_ProxyModelTable",
+        "LiteLLM_MCPServerTable",
+        "LiteLLM_MCPServerOAuthClient",
+        "LiteLLM_MCPUserCredentials",
+        "LiteLLM_ManagedObjectTable",
+    ):
+        if table in tables and await database.fetchval(
+            f'SELECT count(*) FROM "{table}"'
+        ):
+            raise ValueError(
+                "Existing encrypted records require recovery of the original salt"
+            )
+
+
 async def bootstrap(args):
     if args.admin_file.stat().st_mode & 0o077:
         raise ValueError("Restrict the administrator file permissions to 0600")
@@ -96,7 +122,7 @@ async def bootstrap(args):
         host=uri.hostname,
         port=uri.port,
         user=uri.username,
-        password=uri.password,
+        password=unquote(uri.password),
         ssl=tls,
         timeout=30,
     )
@@ -128,28 +154,7 @@ async def bootstrap(args):
     database = await asyncpg.connect(**connection, database="litellm")
     try:
         await database.execute("REVOKE ALL ON SCHEMA public FROM PUBLIC")
-        tables = {
-            row["tablename"]
-            for row in await database.fetch(
-                "SELECT tablename FROM pg_tables WHERE schemaname='public'"
-            )
-        }
-        if not salt_version:
-            encrypted_tables = (
-                "LiteLLM_CredentialsTable",
-                "LiteLLM_ProxyModelTable",
-                "LiteLLM_MCPServerTable",
-                "LiteLLM_MCPServerOAuthClient",
-                "LiteLLM_MCPUserCredentials",
-                "LiteLLM_ManagedObjectTable",
-            )
-            for table in encrypted_tables:
-                if table in tables and await database.fetchval(
-                    f'SELECT count(*) FROM "{table}"'
-                ):
-                    raise ValueError(
-                        "Existing encrypted records require recovery of the original salt"
-                    )
+        await require_recoverable_salt(database, salt_version)
         if database_version:
             stored = store.command(
                 "secrets",

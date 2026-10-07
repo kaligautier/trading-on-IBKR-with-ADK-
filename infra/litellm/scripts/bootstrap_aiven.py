@@ -17,6 +17,7 @@ from urllib.parse import quote, urlencode
 from urllib.request import Request, urlopen
 
 import asyncpg
+from bootstrap_database import SecretStore, require_recoverable_salt
 
 
 ACCOUNT = os.environ.get("LITELLM_GCP_ACCOUNT", "")
@@ -169,6 +170,8 @@ async def main():
             database=DATABASE,
         )
         try:
+            salt_version = SecretStore(PROJECT, ACCOUNT).existing_version("salt-key")
+            await require_recoverable_salt(connection, salt_version)
             await connection.execute("REVOKE ALL ON SCHEMA public FROM PUBLIC")
             # Verify DDL/write/read with a connection-local temporary table.
             async with connection.transaction():
