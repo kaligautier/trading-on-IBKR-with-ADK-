@@ -2,7 +2,7 @@
 
 The Market Scanner research agent now uses the TradingAgents News Analyst's
 macro-first approach. It retrieves structured context and Google Search evidence,
-then a separate agent synthesizes the report. Python still computes all market
+a tool-free critic reviews the research, then a separate agent synthesizes the report. Python still computes all market
 values, horizons and historical percentiles. Research does not place orders.
 
 ## Tools
@@ -49,6 +49,32 @@ ADK 2.6.1 and the configured Gemini 3.8 Flash model support these four function 
 alongside `google_search`. The real Vertex combination was exercised locally; older
 or alternative models must be checked before replacing the configured model.
 
+## Research critique and arbitration
+
+Workflow: Python collection/calculations → `market_web_researcher` →
+`market_research_critic` → `market_synthesizer` → assembly/persistence.
+
+Like TradingAgents' debate agents, the critic has a dedicated prompt and no external
+tools. It receives the current snapshot, structured tool results and research prose.
+It challenges both optimistic and cautious explanations without forcing disagreement
+or a trading stance. This is a single adapted review, not the upstream multi-round
+Bull/Bear and risk debate. Configure `CRITIC_THINKING_LEVEL` (default `MEDIUM`) or
+`MARKET_SCANNER_CRITIC_THINKING_LEVEL`; it uses the same configured model.
+
+Its required, validated `ResearchCritique` output contains up to three supported
+findings, six specific challenges with reasons and suggested revisions, three
+observable invalidation conditions and five material data gaps. It is written to
+`research_critique` in session state, cleared at collection for a new scan, and supplied
+to the synthesizer. Invalid output fails the scan before synthesis or persistence;
+there is no silent bypass. The critic adds one model stage and existing agent
+callbacks record its start/end. It cannot independently verify external claims.
+
+The synthesizer weighs the review against the original evidence, corrects substantiated
+issues and retains supported macro context. Disagreement alone does not force a
+cautious regime. The critique stays internal; public report v3 and database schemas
+are unchanged. The new report still carries macro context, counter-evidence, gaps
+and watch points through the existing fields.
+
 ## Report and writing contract
 
 Report v3 gains an optional `macro_overview` (defaults to `null` for old reports):
@@ -84,6 +110,8 @@ prove live report quality or deployment. Upstream attribution and license are in
 `apps/backend/market-scanner-adk/third_party/`.
 
 Primary references:
+- [TradingAgents Neutral Risk Analyst](https://github.com/TauricResearch/TradingAgents/blob/1394a3f72aa4393e1a98f51b382434c4b4c2d972/tradingagents/agents/risk_mgmt/neutral_debator.py)
+- [TradingAgents Research Manager](https://github.com/TauricResearch/TradingAgents/blob/1394a3f72aa4393e1a98f51b382434c4b4c2d972/tradingagents/agents/managers/research_manager.py)
 - [TradingAgents News Analyst](https://github.com/TauricResearch/TradingAgents/blob/1394a3f72aa4393e1a98f51b382434c4b4c2d972/tradingagents/agents/analysts/news_analyst.py)
 - [FRED observations and real-time periods](https://fred.stlouisfed.org/docs/api/fred/series_observations.html)
 - [Polymarket public search](https://docs.polymarket.com/api-reference/search/search-markets-events-and-profiles)

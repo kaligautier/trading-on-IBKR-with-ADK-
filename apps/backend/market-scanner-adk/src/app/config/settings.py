@@ -89,6 +89,14 @@ class Settings(BaseSettings):
         description="Gemini 3.8 Flash research reasoning effort.",
     )
 
+    CRITIC_THINKING_LEVEL: Literal["LOW", "MEDIUM", "HIGH"] = Field(
+        default="MEDIUM",
+        validation_alias=AliasChoices(
+            "MARKET_SCANNER_CRITIC_THINKING_LEVEL", "CRITIC_THINKING_LEVEL"
+        ),
+        description="Research critique reasoning effort.",
+    )
+
     SYNTHESIZER_THINKING_LEVEL: Literal["LOW", "MEDIUM", "HIGH"] = Field(
         default="LOW",
         validation_alias=AliasChoices(

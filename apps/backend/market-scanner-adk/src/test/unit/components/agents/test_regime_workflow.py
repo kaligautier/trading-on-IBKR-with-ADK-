@@ -25,9 +25,10 @@ from app.models.step_01_external_market_data import ExternalMarketData
 from app.models.step_02_trend_market_data import TrendMarketData
 from app.models.step_03_analysed_market_data import AnalysedMarketData
 from app.models.step_04_market_data import MarketData
+from app.models.structured_output.research_critique import ResearchCritique
 from app.services.market_data_collection_service import MarketDataCollectionService
 from app.utils.error import MarketDataUnavailableError
-from test.report_fixtures import unsourced_analysis_payload
+from test.report_fixtures import research_critique_payload, unsourced_analysis_payload
 
 
 def market_data():
@@ -61,6 +62,7 @@ async def run_graph(agent=None):
                 "research_sources": [{"id": "STALE"}],
                 "research_claims": [{"claim_id": "STALE"}],
                 "research_capture_count": 99,
+                "research_critique": {"stale": "STALE"},
                 "research_evidence_audit": {"stale": True},
             },
         )
@@ -108,11 +110,20 @@ async def should_keep_stage_outputs_separate_and_return_only_the_final_result(
         assert "capitalization-weighted" in instruction
         assert "Only analyse assets with status success" in instruction
         is_research = "research" not in steps
-        steps.append("research" if is_research else "conclusion")
-        if is_research:
+        is_critique = llm_request.config.response_schema is ResearchCritique
+        steps.append(
+            "research" if is_research else "critique" if is_critique else "conclusion"
+        )
+        if is_critique:
+            assert "Dated research on current market risks." in instruction
+            assert "STALE" not in instruction
+            assert not llm_request.config.tools
+            output = json.dumps(research_critique_payload())
+        elif is_research:
             output = "Dated research on current market risks."
         else:
             assert "Dated research on current market risks." in instruction
+            assert "Leave the catalyst unestablished." in instruction
             thinking = llm_request.config.thinking_config
             assert thinking.thinking_level == settings.SYNTHESIZER_THINKING_LEVEL
             output = json.dumps(conclusion(data))
@@ -133,7 +144,7 @@ async def should_keep_stage_outputs_separate_and_return_only_the_final_result(
     assert events[0].author == "get_market_data"
     assert events[0].node_info.path.endswith("/get_market_data@1")
     assert events[1].author == "market_web_researcher"
-    assert steps == ["collection", "research", "conclusion", "persistence"]
+    assert steps == ["collection", "research", "critique", "conclusion", "persistence"]
     assert data == before
     assert "external_market_data" not in final.state
     assert '"observations"' not in json.dumps(final.state)
@@ -143,7 +154,7 @@ async def should_keep_stage_outputs_separate_and_return_only_the_final_result(
         "horizons" not in asset for asset in data.model_dump()["assets"].values()
     )
     assert "trend_market_data_for_llm" not in final.state
-    assert len(events) == 6
+    assert len(events) == 7
     assert (
         final.state["trend_market_data"]["assets"]["sp500"]["horizons"]["1m"][
             "change_pct"
@@ -162,6 +173,9 @@ async def should_keep_stage_outputs_separate_and_return_only_the_final_result(
     analysis = AnalysedMarketData.model_validate(final.state["analysed_market_data"])
     assert analysis.summary == conclusion(data)["summary"]
     assert final.state["web_analysis"] == "Dated research on current market risks."
+    assert final.state["research_critique"] == research_critique_payload()
+    assert events[2].author == "market_research_critic"
+    assert events[0].actions.state_delta["research_critique"] == {}
     assert analysis.regime == "cautious"
     for key, trend in trends.assets.items():
         analysed = analysis.assets[key]
@@ -192,12 +206,14 @@ async def should_keep_stage_outputs_separate_and_return_only_the_final_result(
             "trend_market_data",
             "analysis_date",
             "research_tool_results",
+            "research_critique",
             "research_sources",
             "research_claims",
             "research_capture_count",
             "research_evidence_audit",
         },
         {"web_analysis"},
+        {"research_critique"},
         {"market_analysis"},
         {"analysed_market_data"},
         {"market_data"},
@@ -208,10 +224,10 @@ async def should_keep_stage_outputs_separate_and_return_only_the_final_result(
         set(insight) == {"asset_key", "horizon", "observation", "interpretation"}
         for insight in final.state["market_analysis"]["asset_insights"]
     )
-    assert events[3].output == final.state["analysed_market_data"]
+    assert events[4].output == final.state["analysed_market_data"]
     assert (
-        events[4].output
-        == events[5].output
+        events[5].output
+        == events[6].output
         == {"market_regime": result.model_dump(mode="json")}
     )
     result_keys = list(events[-1].output["market_regime"])
@@ -286,6 +302,18 @@ async def should_reject_documented_output_without_sources_over_sse(monkeypatch):
 
     async def respond(_self, llm_request, stream=False):
         calls.append(llm_request)
+        if llm_request.config.response_schema is ResearchCritique:
+            instruction = str(llm_request.config.system_instruction)
+            assert "<tool_results>" in instruction and "<web_research>" in instruction
+            assert "STALE" not in instruction
+            assert not llm_request.config.tools
+            yield LlmResponse(
+                content=types.Content(
+                    role="model",
+                    parts=[types.Part(text=json.dumps(research_critique_payload()))],
+                )
+            )
+            return
         payload = conclusion(data)
         payload["asset_insights"][0]["interpretation"].update(status="documented")
         output = "Research" if len(calls) == 1 else json.dumps(payload)
@@ -336,6 +364,18 @@ async def should_not_persist_when_the_agent_invents_an_asset(monkeypatch):
 
     async def respond(_self, llm_request, stream=False):
         calls.append(llm_request)
+        if llm_request.config.response_schema is ResearchCritique:
+            instruction = str(llm_request.config.system_instruction)
+            assert "<tool_results>" in instruction and "<web_research>" in instruction
+            assert "STALE" not in instruction
+            assert not llm_request.config.tools
+            yield LlmResponse(
+                content=types.Content(
+                    role="model",
+                    parts=[types.Part(text=json.dumps(research_critique_payload()))],
+                )
+            )
+            return
         payload = conclusion(data)
         payload["asset_insights"][0]["asset_key"] = "invented"
         output = "Research" if len(calls) == 1 else json.dumps(payload)
@@ -361,6 +401,18 @@ async def should_analyse_one_available_asset_without_a_weighted_coverage_gate(
 
     async def respond(_self, llm_request, stream=False):
         calls.append(llm_request)
+        if llm_request.config.response_schema is ResearchCritique:
+            instruction = str(llm_request.config.system_instruction)
+            assert "<tool_results>" in instruction and "<web_research>" in instruction
+            assert "STALE" not in instruction
+            assert not llm_request.config.tools
+            yield LlmResponse(
+                content=types.Content(
+                    role="model",
+                    parts=[types.Part(text=json.dumps(research_critique_payload()))],
+                )
+            )
+            return
         output = "Research" if len(calls) == 1 else json.dumps(conclusion(data))
         yield LlmResponse(
             content=types.Content(role="model", parts=[types.Part(text=output)])
@@ -373,7 +425,7 @@ async def should_analyse_one_available_asset_without_a_weighted_coverage_gate(
 
     _, final = await run_graph()
 
-    assert len(calls) == 2
+    assert len(calls) == 3
     save.assert_awaited_once()
     result = final.state["market_data"]
     assert result["market_regime"]["regime"] == "cautious"
@@ -389,6 +441,18 @@ async def should_ignore_provider_citations_and_return_an_unsourced_report(monkey
 
     async def respond(_self, llm_request, stream=False):
         calls.append(llm_request)
+        if llm_request.config.response_schema is ResearchCritique:
+            instruction = str(llm_request.config.system_instruction)
+            assert "<tool_results>" in instruction and "<web_research>" in instruction
+            assert "STALE" not in instruction
+            assert not llm_request.config.tools
+            yield LlmResponse(
+                content=types.Content(
+                    role="model",
+                    parts=[types.Part(text=json.dumps(research_critique_payload()))],
+                )
+            )
+            return
         if len(calls) == 1:
             yield LlmResponse(
                 content=types.Content(
@@ -452,6 +516,18 @@ async def should_reject_citations_and_documented_status_before_persistence(
 
     async def respond(_self, llm_request, stream=False):
         calls.append(llm_request)
+        if llm_request.config.response_schema is ResearchCritique:
+            instruction = str(llm_request.config.system_instruction)
+            assert "<tool_results>" in instruction and "<web_research>" in instruction
+            assert "STALE" not in instruction
+            assert not llm_request.config.tools
+            yield LlmResponse(
+                content=types.Content(
+                    role="model",
+                    parts=[types.Part(text=json.dumps(research_critique_payload()))],
+                )
+            )
+            return
         payload = conclusion(data)
         payload["asset_insights"][0]["interpretation"].update(**invalid)
         output = (

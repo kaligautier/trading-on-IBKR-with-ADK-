@@ -14,17 +14,21 @@ from google.genai import types
 from app import application
 from app.components.agents.market_scanner import agent as scanner
 from app.jobs import daily_scan
+from app.models.structured_output.research_critique import ResearchCritique
+from test.report_fixtures import research_critique_payload
 from test.unit.components.agents.test_regime_workflow import conclusion, market_data
 
 
 @pytest.fixture
 def scheduled_workflow(monkeypatch):
     data = market_data()
-    calls = []
-
     async def respond(_self, llm_request, stream=False):
-        calls.append(llm_request)
-        text = "Research context." if len(calls) % 2 else json.dumps(conclusion(data))
+        if llm_request.config.response_schema is ResearchCritique:
+            text = json.dumps(research_critique_payload())
+        elif llm_request.config.response_schema:
+            text = json.dumps(conclusion(data))
+        else:
+            text = "Research context."
         yield LlmResponse(
             content=types.Content(role="model", parts=[types.Part(text=text)])
         )

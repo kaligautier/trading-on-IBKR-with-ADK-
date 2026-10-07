@@ -8,6 +8,7 @@ from pydantic import ValidationError
 
 from app.config.constants import (
     ASSET_WEB_RESEARCHER_INSTRUCTION,
+    MARKET_RESEARCH_CRITIC_INSTRUCTION,
     MARKET_SYNTHESIZER_INSTRUCTION,
 )
 from app.models.market_regime import MarketRegime
@@ -63,8 +64,9 @@ def should_not_mislabel_a_report_as_the_previous_schema_version():
         MarketRegime.model_validate(report)
 
 
-def should_request_english_in_both_active_agent_instructions():
+def should_request_english_in_all_active_agent_instructions():
     assert "Write concise English prose" in ASSET_WEB_RESEARCHER_INSTRUCTION
+    assert "Write concise English" in MARKET_RESEARCH_CRITIC_INSTRUCTION
     assert "Write a clear English market diagnosis" in MARKET_SYNTHESIZER_INSTRUCTION
 
 

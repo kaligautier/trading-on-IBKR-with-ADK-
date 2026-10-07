@@ -25,6 +25,8 @@ from app.config.constants import (
     ASSET_WEB_RESEARCHER_INSTRUCTION,
     ENRICH_MARKET_DATA,
     GET_MARKET_DATA,
+    MARKET_RESEARCH_CRITIC_INSTRUCTION,
+    MARKET_RESEARCH_CRITIC_NAME,
     MARKET_SCANNER,
     MARKET_SCANNER_AGENT_MODE,
     MARKET_SYNTHESIZER_INSTRUCTION,
@@ -36,6 +38,7 @@ from app.config.constants import (
     STATE_MARKET_DATA,
     STATE_RESEARCH_CAPTURE_COUNT,
     STATE_RESEARCH_CLAIMS,
+    STATE_RESEARCH_CRITIQUE,
     STATE_RESEARCH_EVIDENCE_AUDIT,
     STATE_RESEARCH_SOURCES,
     STATE_SESSION_ID,
@@ -50,6 +53,7 @@ from app.models.step_03_analysed_market_data import (
 )
 from app.models.step_04_market_data import MarketData
 from app.models.structured_output.market_analysis import MarketAnalysis
+from app.models.structured_output.research_critique import ResearchCritique
 from app.models.structured_output.unsourced_market_analysis import (
     UnsourcedMarketAnalysis,
 )
@@ -96,6 +100,7 @@ def get_market_data(context: Context) -> Event:
             STATE_TREND_MARKET_DATA: payload,
             "analysis_date": datetime.now(UTC).date().isoformat(),
             "research_tool_results": {},
+            STATE_RESEARCH_CRITIQUE: {},
             # Clear legacy citation state when reusing an existing session.
             STATE_RESEARCH_SOURCES: [],
             STATE_RESEARCH_CLAIMS: [],
@@ -132,6 +137,25 @@ researcher = LlmAgent(
     after_agent_callback=record_agent_end,
     before_tool_callback=record_tool_start,
     after_tool_callback=record_tool_end,
+)
+
+
+critic = LlmAgent(
+    name=MARKET_RESEARCH_CRITIC_NAME,
+    model=gemini_model,
+    mode=MARKET_SCANNER_AGENT_MODE,
+    generate_content_config=types.GenerateContentConfig(
+        thinking_config=types.ThinkingConfig(
+            thinking_level=types.ThinkingLevel(settings.CRITIC_THINKING_LEVEL),
+            include_thoughts=True,
+        ),
+    ),
+    instruction=MARKET_RESEARCH_CRITIC_INSTRUCTION,
+    output_schema=ResearchCritique,
+    output_key=STATE_RESEARCH_CRITIQUE,
+    include_contents="none",
+    before_agent_callback=record_agent_start,
+    after_agent_callback=record_agent_end,
 )
 
 
@@ -199,7 +223,8 @@ root_agent = Workflow(
     edges=[
         ("START", get_market_data),
         (get_market_data, researcher),
-        (researcher, synthesizer),
+        (researcher, critic),
+        (critic, synthesizer),
         (synthesizer, enrich_market_data),
         (enrich_market_data, assemble_market_data),
         (assemble_market_data, persist_market_scan),

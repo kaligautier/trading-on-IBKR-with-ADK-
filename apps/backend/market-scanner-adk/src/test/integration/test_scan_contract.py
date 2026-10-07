@@ -13,10 +13,11 @@ from app.components.agents.market_scanner import agent as scanner
 from app.config.settings import settings
 from app.jobs.daily_scan import run_scan
 from app.models.market_regime import MarketRegime
+from app.models.structured_output.research_critique import ResearchCritique
 from app.services.market_scan_persistence import MarketScanPersistence
 from test.integration import test_shared_database
 from test.integration.test_shared_database import ROLES, run_liquibase
-from test.report_fixtures import unsourced_analysis_payload
+from test.report_fixtures import research_critique_payload, unsourced_analysis_payload
 from test.unit.components.agents.test_regime_workflow import market_data, run_graph
 
 shared_database = test_shared_database.shared_database
@@ -53,6 +54,18 @@ async def should_round_trip_the_25_asset_graph(local_schema, monkeypatch, missin
 
     async def respond(_self, llm_request, stream=False):
         calls.append(llm_request)
+        if llm_request.config.response_schema is ResearchCritique:
+            instruction = str(llm_request.config.system_instruction)
+            assert "<tool_results>" in instruction and "<web_research>" in instruction
+            assert "STALE" not in instruction
+            assert not llm_request.config.tools
+            yield LlmResponse(
+                content=types.Content(
+                    role="model",
+                    parts=[types.Part(text=json.dumps(research_critique_payload()))],
+                )
+            )
+            return
         if len(calls) == 1:
             yield LlmResponse(
                 content=types.Content(
@@ -119,7 +132,7 @@ async def should_round_trip_the_25_asset_graph(local_schema, monkeypatch, missin
         "falling",
         "stable",
     }
-    assert len(calls) == 2
+    assert len(calls) == 3
     assert len(persisted.assets) == (24 if missing else 25)
     assert row["recommendation"] is None
     assert persisted.sources == []
@@ -177,6 +190,18 @@ async def should_persist_a_report_through_the_job_runner(local_schema, monkeypat
 
     async def respond(_self, llm_request, stream=False):
         calls.append(llm_request)
+        if llm_request.config.response_schema is ResearchCritique:
+            instruction = str(llm_request.config.system_instruction)
+            assert "<tool_results>" in instruction and "<web_research>" in instruction
+            assert "STALE" not in instruction
+            assert not llm_request.config.tools
+            yield LlmResponse(
+                content=types.Content(
+                    role="model",
+                    parts=[types.Part(text=json.dumps(research_critique_payload()))],
+                )
+            )
+            return
         message = (
             "Fictional research."
             if len(calls) == 1
@@ -255,6 +280,18 @@ async def should_persist_macro_with_real_adk_tools_even_when_data_is_unavailable
 
     async def respond(_self, llm_request, stream=False):
         calls.append(llm_request)
+        if llm_request.config.response_schema is ResearchCritique:
+            instruction = str(llm_request.config.system_instruction)
+            assert "<tool_results>" in instruction and "<web_research>" in instruction
+            assert "STALE" not in instruction
+            assert not llm_request.config.tools
+            yield LlmResponse(
+                content=types.Content(
+                    role="model",
+                    parts=[types.Part(text=json.dumps(research_critique_payload()))],
+                )
+            )
+            return
         if len(calls) == 1:
             content = types.Content(
                 role="model",
@@ -301,4 +338,15 @@ async def should_persist_macro_with_real_adk_tools_even_when_data_is_unavailable
         persisted.sources == [] and persisted.assets[0].interpretation.source_ids == []
     )
     assert "must-not-leak" not in json.dumps(final.state)
-    assert len(calls) == 3
+    assert len(calls) == 4
+    critique_request = calls[2]
+    assert critique_request.config.response_schema is ResearchCritique
+    assert "Research with explicit provider gaps." in str(
+        critique_request.config.system_instruction
+    )
+    assert "unavailable" in str(critique_request.config.system_instruction)
+    assert "Leave the catalyst unestablished." in str(
+        calls[3].config.system_instruction
+    )
+    assert final.state["research_critique"] == research_critique_payload()
+    assert "research_critique" not in persisted.model_dump()

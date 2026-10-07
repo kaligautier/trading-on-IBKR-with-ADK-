@@ -27,11 +27,16 @@ ASSEMBLE_MARKET_DATA = "assemble_market_data"
 PERSIST_MARKET_SCAN = "persist_market_scan"
 
 MARKET_WEB_RESEARCHER_NAME = "market_web_researcher"
+MARKET_RESEARCH_CRITIC_NAME = "market_research_critic"
 MARKET_SYNTHESIZER_NAME = "market_synthesizer"
 MARKET_SCANNER_AGENT_MODE = "single_turn"
 
 ASSET_WEB_RESEARCHER_INSTRUCTION = instruction_manager.get_instructions(
     "market_scanner/asset_web_researcher_instruction", families=ASSET_FAMILIES
+)
+
+MARKET_RESEARCH_CRITIC_INSTRUCTION = instruction_manager.get_instructions(
+    "market_scanner/market_research_critic_instruction", families=ASSET_FAMILIES
 )
 
 MARKET_SYNTHESIZER_INSTRUCTION = instruction_manager.get_instructions(
@@ -42,6 +47,7 @@ STATE_TRADING_CONFIG = "trading_config"
 STATE_TREND_MARKET_DATA = "trend_market_data"
 STATE_SESSION_ID = "session_id"
 STATE_WEB_ANALYSIS = "web_analysis"
+STATE_RESEARCH_CRITIQUE = "research_critique"
 STATE_RESEARCH_SOURCES = "research_sources"
 STATE_RESEARCH_CLAIMS = "research_claims"
 STATE_RESEARCH_CAPTURE_COUNT = "research_capture_count"
