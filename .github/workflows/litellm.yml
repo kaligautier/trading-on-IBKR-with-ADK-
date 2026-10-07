@@ -1,0 +1,63 @@
+name: LiteLLM checks
+
+on:
+  pull_request:
+    paths:
+      - 'infra/litellm/**'
+      - '.github/workflows/litellm.yml'
+      - 'apps/backend/market-scanner-adk/pyproject.toml'
+      - 'apps/backend/market-scanner-adk/uv.lock'
+  push:
+    branches: [main]
+    paths:
+      - 'infra/litellm/**'
+      - '.github/workflows/litellm.yml'
+      - 'apps/backend/market-scanner-adk/pyproject.toml'
+      - 'apps/backend/market-scanner-adk/uv.lock'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: litellm-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  configuration:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3
+        with:
+          terraform_version: '1.9.8'
+          terraform_wrapper: false
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
+        with:
+          version: '0.9.17'
+          enable-cache: true
+          cache-dependency-glob: apps/backend/market-scanner-adk/uv.lock
+      - name: Install locked test dependencies
+        run: uv sync --project apps/backend/market-scanner-adk --frozen --python 3.12
+      - name: Check Terraform formatting
+        run: terraform -chdir=infra/litellm fmt -check -recursive
+      - name: Initialize providers without cloud backend
+        run: terraform -chdir=infra/litellm init -backend=false -input=false -lockfile=readonly
+      - name: Validate configuration
+        run: terraform -chdir=infra/litellm validate
+      - name: Test infrastructure with mocked providers
+        run: terraform -chdir=infra/litellm test
+      - name: Lint bootstrap and verification scripts
+        run: uv run --project apps/backend/market-scanner-adk --no-sync ruff check infra/litellm/scripts infra/litellm/tests
+      - name: Test bootstrap regressions
+        run: uv run --project apps/backend/market-scanner-adk --no-sync pytest -c /dev/null -p no:cacheprovider infra/litellm/tests/test_configuration.py
+  containers:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Verify images, migrations, auth and shared quotas
+        run: python3 infra/litellm/tests/smoke.py
+      - name: Verify gateway route isolation and streaming
+        run: python3 infra/litellm/tests/gateway_smoke.py
