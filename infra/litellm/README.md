@@ -263,7 +263,10 @@ python3 infra/litellm/tests/smoke.py
 python3 infra/litellm/tests/gateway_smoke.py
 ```
 
-Terraform tests use mocked providers. The Docker smoke test runs the pinned
+Terraform tests use mocked providers and require Terraform >= 1.14; CI pins
+1.14.4. This version includes the [test cleanup fix](https://github.com/hashicorp/terraform/pull/37364)
+for resources protected by `prevent_destroy`, so deployment safeguards stay enabled.
+The Docker smoke test runs the pinned
 images with disposable PostgreSQL and mocked inference: migrations, UI login,
 authentication, key restrictions, persistence after restart, and shared RPM
 limits across two proxies using authenticated Redis with verified TLS. It also
