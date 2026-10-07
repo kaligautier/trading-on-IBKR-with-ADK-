@@ -2,11 +2,30 @@ mock_provider "google" {
   mock_data "google_project" {
     defaults = { number = "123456789012" }
   }
+
 }
 mock_provider "google-beta" {}
 
 variables {
   project_id = "example-project"
+}
+
+run "global_budget_caps_all_proxy_calls_in_usd" {
+  command = plan
+  variables { global_budget_usd = 33.80 }
+  assert {
+    condition = (
+      try(yamldecode(local.proxy_config).litellm_settings.max_budget, null) == 33.80 &&
+      try(yamldecode(local.proxy_config).litellm_settings.budget_duration, null) == "30d"
+    )
+    error_message = "The common proxy configuration must enforce the USD budget over 30 days."
+  }
+}
+
+run "reject_nonpositive_global_budget" {
+  command = plan
+  variables { global_budget_usd = 0 }
+  expect_failures = [var.global_budget_usd]
 }
 
 run "foundation_has_no_running_workloads" {
@@ -86,7 +105,7 @@ run "service_requires_iap_and_keeps_native_auth" {
   }
   assert {
     condition = (
-      length(google_cloud_run_v2_service.litellm[0].template[0].volumes) == 2 &&
+      contains([for volume in google_cloud_run_v2_service.litellm[0].template[0].volumes : volume.name], "database-ca") &&
       length(google_cloud_run_v2_job.migrations[0].template[0].template[0].volumes) == 1
     )
     error_message = "Mount the PostgreSQL CA in both the proxy and migration job."
@@ -306,6 +325,99 @@ run "credentials_have_delayed_version_destruction" {
       for secret in google_secret_manager_secret.credentials : secret.version_destroy_ttl == "2592000s"
     ]) && google_secret_manager_secret.config.version_destroy_ttl == "2592000s"
     error_message = "Secret versions must remain recoverable for 30 days after a destruction request."
+  }
+}
+
+run "gateway_filters_routes_before_the_proxy" {
+  command = plan
+  variables {
+    stage           = "service"
+    iap_members     = ["user:owner@example.com"]
+    secret_versions = { database-url = "1", master-key = "1", salt-key = "1", ui-password = "1" }
+  }
+  assert {
+    condition = (
+      # Ports are computed by container index: preserve the existing ingress slot.
+      google_cloud_run_v2_service.gateway[0].template[0].containers[0].name == "routes" &&
+      tonumber(trimsuffix(google_cloud_run_v2_service.gateway[0].template[0].containers[0].resources[0].limits.memory, "Mi")) >= 128 &&
+      toset([for container in google_cloud_run_v2_service.gateway[0].template[0].containers :
+      container.name if length(container.ports) > 0]) == toset(["routes"]) &&
+      alltrue([for container in google_cloud_run_v2_service.gateway[0].template[0].containers :
+      contains(coalesce(container.depends_on, []), "proxy") if container.name == "routes"]) &&
+      alltrue([for container in google_cloud_run_v2_service.gateway[0].template[0].containers :
+        alltrue([for env in container.env : env.name != "UI_PASSWORD" && env.name != "UI_USERNAME"])
+      ])
+    )
+    error_message = "Only the route filter may receive ingress; gateway must not mount UI credentials."
+  }
+}
+
+run "reject_mutable_gateway_filter_image" {
+  command = plan
+  variables { gateway_filter_digest = "latest" }
+  expect_failures = [var.gateway_filter_digest]
+}
+
+run "external_redis_uses_verified_tls_and_pinned_secrets" {
+  command = plan
+  variables {
+    stage           = "service"
+    iap_members     = ["user:owner@example.com"]
+    secret_versions = { database-url = "1", master-key = "1", salt-key = "1", ui-password = "1" }
+    redis_connection = {
+      host             = "valkey.example.com"
+      port             = 12345
+      password_version = "2"
+      ca_version       = "3"
+    }
+  }
+  assert {
+    condition = alltrue([for service in [google_cloud_run_v2_service.litellm[0], google_cloud_run_v2_service.gateway[0]] :
+      anytrue([for container in service.template[0].containers :
+        contains([for env in container.env : env.value if env.name == "REDIS_HOST"], "valkey.example.com") &&
+        contains([for env in container.env : env.value if env.name == "REDIS_SSL_CERT_REQS"], "required") &&
+        contains([for env in container.env : env.value if env.name == "REDIS_SSL_CHECK_HOSTNAME"], "true") &&
+        anytrue([for env in container.env : env.name == "REDIS_PASSWORD" ? (
+          env.value == null && env.value_source[0].secret_key_ref[0].version == "2"
+        ) : false]) &&
+        contains([for volume in container.volume_mounts : volume.name], "redis-ca")
+      ]) &&
+      anytrue([for volume in service.template[0].volumes : volume.name == "redis-ca" ?
+      volume.secret[0].items[0].version == "3" : false])
+    ])
+    error_message = "Both proxies must share external Redis with hostname/CA verification and pinned secret references."
+  }
+}
+
+run "reject_mutable_redis_credentials" {
+  command = plan
+  variables {
+    redis_connection = { host = "valkey.example.com", port = 12345, password_version = "latest", ca_version = "1" }
+  }
+  expect_failures = [var.redis_connection]
+}
+
+run "redis_public_ca_uses_system_trust" {
+  command = plan
+  variables {
+    stage            = "service"
+    iap_members      = ["user:owner@example.com"]
+    secret_versions  = { database-url = "1", master-key = "1", salt-key = "1", ui-password = "1" }
+    redis_connection = { host = "valkey.example.com", port = 12345, password_version = "2" }
+  }
+  assert {
+    condition = (!local.redis_ca_enabled && !contains(keys(local.redis_env), "REDIS_SSL_CA_CERTS") &&
+      alltrue([for service in [google_cloud_run_v2_service.litellm[0], google_cloud_run_v2_service.gateway[0]] :
+    !contains([for volume in service.template[0].volumes : volume.name], "redis-ca")]))
+    error_message = "Publicly trusted Redis certificates must not require an empty custom CA secret."
+  }
+}
+
+run "redis_is_optional" {
+  command = plan
+  assert {
+    condition     = length(local.redis_env) == 0 && length(local.redis_secret_env) == 0 && !contains(keys(yamldecode(local.proxy_config).router_settings), "redis_host")
+    error_message = "Without an external connection, configuration must not refer to missing Redis credentials."
   }
 }
 

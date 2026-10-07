@@ -80,6 +80,8 @@ once bootstrap is complete.
 The optional `bootstrap_aiven.py` also supports an authenticated Aiven CLI via
 explicit `LITELLM_GCP_ACCOUNT`, `GOOGLE_CLOUD_PROJECT`, `LITELLM_AIVEN_ACCOUNT`,
 `LITELLM_AIVEN_PROJECT`, `LITELLM_AIVEN_SERVICE` and `LITELLM_AIVEN_HOST` variables.
+Both bootstrap scripts refuse to generate a replacement salt when encrypted
+records already exist. Recover the original enabled salt version first.
 
 ## Migrations, service and IAP
 
@@ -148,6 +150,16 @@ They call the private gateway using `Authorization: Bearer <virtual-key>`.
 The gateway is internal-only, with a VPC, Private Google Access and private
 `run.app` DNS. Cloud Run agents must attach to the supplied subnet and route
 this traffic through the VPC. The admin endpoint retains IAP plus LiteLLM login.
+Only the gateway's NGINX container receives ingress. It forwards native Gemini
+generation, streaming and token-count routes, readiness/liveness, and the
+master-key-protected key generation/deletion routes. Other routes, including
+login, UI, SSO and administration, return 404. The proxy listens on port 4001;
+it receives no UI username or password. LiteLLM still authenticates forwarded
+requests. The NGINX image is pinned by `gateway_filter_digest` and mirrored
+through the same Artifact Registry repository.
+Keep NGINX first in the container list: the provider preserves computed ports
+by list index when updating the original single-container service. Its 128 MiB
+memory limit meets Cloud Run's minimum for the configured CPU allocation.
 The current Scanner application still uses Vertex directly; its dedicated
 verification job exercises the gateway with the same service account.
 
@@ -186,8 +198,59 @@ explicitly and verify the replacement before revoking the old key.
 
 Both services share the image, config, database and runtime identity. Each uses
 a two-connection pool; size PostgreSQL for revision overlap and migrations.
-There is no Redis: rate limits are process-local, counters may reset, and
-asynchronous accounting can overshoot budgets.
+Without `redis_connection`, rate limits are process-local and counters may reset.
+Shared Redis coordinates counters across both services; asynchronous accounting
+can still overshoot budgets.
+
+Set `global_budget_usd` in the ignored release file to cap LLM spend across the
+whole proxy over 30 days. LiteLLM budgets use USD; convert EUR explicitly when
+setting the amount. Both services use the same budget configuration and durable
+database accounting. This excludes Cloud Run and other infrastructure charges;
+concurrent requests and delayed accounting can overshoot the configured limit.
+In the pinned v1.103.1 UI, the Global Usage budget card reads the current user's
+personal budget and can show "No limit" even when this proxy budget is set.
+Verify the global setting through the authenticated `/global/spend` admin API;
+the `litellm-proxy-budget` user row in PostgreSQL also records its maximum,
+duration and next reset. Do not add an admin-user limit to change this display.
+
+### Optional external Redis / Aiven Valkey
+
+This stack does not provision a Redis service or Memorystore. Supply an existing
+TLS endpoint to share quotas and router state across both proxies. Aiven offers
+a [free Valkey plan](https://aiven.io/docs/products/valkey/concepts/valkey-free-tier)
+compatible with Redis: 1 GB RAM, `maxmemory` at 50%, one node, no VPC, and possible
+shutdown after inactivity. Validate your selected plan before creating it.
+
+For a new deployment, foundation prepares `litellm-redis-password` and
+`litellm-redis-ca`. For an existing deployment, keep `stage = "service"` and
+retain all current variable files: first plan/apply with `redis_connection`
+unset to add the secret containers. Upload the password from a protected file
+using the secret upload command above, then pin only its numeric version in the
+ignored release file and plan/apply again:
+
+```hcl
+redis_connection = {
+  host = "YOUR_VALKEY_HOST"
+  port = 12345 # Replace with the service's TLS port.
+  username = "default"
+  password_version = "1"
+}
+```
+
+The endpoint uses normal internet egress. TLS certificate and hostname
+verification are required. New Aiven Valkey services use a publicly trusted
+certificate, so no CA upload is needed. If your service offers a project CA,
+upload it to `litellm-redis-ca` and add its numeric `ca_version` to the object.
+See [Aiven certificate requirements](https://aiven.io/docs/platform/concepts/tls-ssl-certificates).
+Credential payloads remain outside Terraform state. Reapply service stage after
+pinning the connection; verify both deployed proxies before relying on shared
+limits. The local smoke test proves Redis behavior, not live Aiven connectivity.
+For local Docker runs, an ignored root `.env` can instead contain `REDIS_URL`
+using a `rediss://` URI with `?ssl_cert_reqs=required&ssl_check_hostname=true`.
+Pin these TLS options in the URI: the pinned LiteLLM URL connection path filters
+separate TLS environment options. Pass the file with Docker's `--env-file`. Keep the
+file at permissions `0600`. Cloud Run does not load this local file: deployment
+uses the Secret Manager password reference described above.
 
 ## Verification and upgrades
 
@@ -197,12 +260,21 @@ terraform -chdir=infra/litellm validate
 terraform -chdir=infra/litellm test
 uv run --project apps/backend/market-scanner-adk --no-sync pytest -c /dev/null infra/litellm/tests/test_configuration.py
 python3 infra/litellm/tests/smoke.py
+python3 infra/litellm/tests/gateway_smoke.py
 ```
 
 Terraform tests use mocked providers. The Docker smoke test runs the pinned
 images with disposable PostgreSQL and mocked inference: migrations, UI login,
-authentication, key restrictions and persistence after restart. It uses no cloud
-credentials. The opt-in native test makes billable calls:
+authentication, key restrictions, persistence after restart, and shared RPM
+limits across two proxies using authenticated Redis with verified TLS. It also
+rejects an untrusted server certificate and blocks inference on both proxies
+after simulated global overspend and a restart of each proxy. This budget test
+modifies only its disposable local database. The gateway smoke test uses a permissive
+upstream to prove NGINX blocks login/admin routes while preserving authorization
+and SSE streaming. Neither test uses cloud credentials. The `LiteLLM checks`
+GitHub workflow runs these checks on scoped PRs and pushes to main, together
+with Terraform validation/tests and Python lint/tests.
+The opt-in native test makes billable calls:
 
 ```sh
 uv run --project apps/backend/market-scanner-adk --no-sync python infra/litellm/tests/scanner_native.py

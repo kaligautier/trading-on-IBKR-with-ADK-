@@ -31,14 +31,14 @@ resource "google_cloud_run_v2_service" "litellm" {
         startup_cpu_boost = true
       }
       dynamic "env" {
-        for_each = merge(local.proxy_env, { ROOT_REDIRECT_URL = "/ui", PROXY_BASE_URL = local.base_url })
+        for_each = merge(local.proxy_env, local.redis_env, { ROOT_REDIRECT_URL = "/ui", PROXY_BASE_URL = local.base_url })
         content {
           name  = env.key
           value = env.value
         }
       }
       dynamic "env" {
-        for_each = merge(local.proxy_secret_env, local.proxy_provider_secret_env)
+        for_each = merge(local.proxy_secret_env, local.proxy_provider_secret_env, local.redis_secret_env)
         content {
           name = env.key
           value_source {
@@ -52,6 +52,13 @@ resource "google_cloud_run_v2_service" "litellm" {
       volume_mounts {
         name       = "config"
         mount_path = "/etc/litellm"
+      }
+      dynamic "volume_mounts" {
+        for_each = local.redis_ca_enabled ? [1] : []
+        content {
+          name       = "redis-ca"
+          mount_path = "/etc/redis"
+        }
       }
       dynamic "volume_mounts" {
         for_each = local.proxy_database_ca_enabled ? [1] : []
@@ -82,6 +89,19 @@ resource "google_cloud_run_v2_service" "litellm" {
           period_seconds    = liveness_probe.value.period_seconds
           timeout_seconds   = liveness_probe.value.timeout_seconds
           failure_threshold = liveness_probe.value.failure_threshold
+        }
+      }
+    }
+    dynamic "volumes" {
+      for_each = local.redis_ca_enabled ? [1] : []
+      content {
+        name = "redis-ca"
+        secret {
+          secret = google_secret_manager_secret.redis["ca"].secret_id
+          items {
+            version = var.redis_connection.ca_version
+            path    = "ca.pem"
+          }
         }
       }
     }
@@ -119,6 +139,7 @@ resource "google_cloud_run_v2_service" "litellm" {
     google_secret_manager_secret_iam_member.runtime,
     google_secret_manager_secret_iam_member.config,
     google_secret_manager_secret_iam_member.provider,
+    google_secret_manager_secret_iam_member.redis,
   ]
 }
 

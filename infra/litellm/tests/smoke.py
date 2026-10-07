@@ -38,6 +38,7 @@ def docker(*args, check=True):
 def main():
     prefix = f"litellm-smoke-{secrets.token_hex(4)}"
     database, proxy = f"{prefix}-db", f"{prefix}-proxy"
+    redis, sibling = f"{prefix}-redis", f"{prefix}-sibling"
     master = "sk-" + secrets.token_hex(32)
     password = secrets.token_hex(24)
     migrations = image("migrations_digest", "litellm-migrations")
@@ -69,7 +70,14 @@ def main():
         settings = json.loads((ROOT / "config/runtime-settings.json").read_text())
         config["general_settings"].update(settings["general_settings"])
         config["litellm_settings"] = settings["litellm_settings"]
+        config["litellm_settings"].update({"max_budget": 1, "budget_duration": "30d"})
         config["router_settings"] = settings["router_settings"]
+        config["router_settings"].update(
+            {
+                "redis_host": "os.environ/REDIS_HOST",
+                "redis_port": "os.environ/REDIS_PORT",
+            }
+        )
         # Offline upstream response exercises proxy auth/routing without paid calls.
         config["model_list"].append(
             {
@@ -95,13 +103,100 @@ def main():
             "LITELLM_LOG": "INFO",
             "LITELLM_MODE": "PRODUCTION",
             "OPENAI_API_KEY": "local-smoke-only",
+            "REDIS_HOST": redis,
+            "REDIS_PORT": "6378",
+            "REDIS_SSL": "true",
+            "REDIS_SSL_CA_CERTS": "/tmp/redis-ca.pem",
+            "REDIS_SSL_CERT_REQS": "required",
+            "REDIS_SSL_CHECK_HOSTNAME": "true",
+            "REDIS_USERNAME": "default",
+            "REDIS_PASSWORD": "local-smoke-only",
         }
+        subprocess.run(
+            [
+                "openssl",
+                "req",
+                "-x509",
+                "-newkey",
+                "rsa:2048",
+                "-nodes",
+                "-keyout",
+                str(path / "redis.key"),
+                "-out",
+                str(path / "redis.crt"),
+                "-subj",
+                "/CN=" + redis,
+                "-addext",
+                "subjectAltName=DNS:" + redis,
+                "-days",
+                "1",
+            ],
+            check=True,
+            capture_output=True,
+        )
+        os.chmod(path / "redis.key", 0o600)
         (path / "runtime.env").write_text("".join(f"{k}={v}\n" for k, v in env.items()))
         (path / "migration.env").write_text(f"DATABASE_URL={env['DATABASE_URL']}\n")
         os.chmod(path / "runtime.env", 0o600)
         os.chmod(path / "migration.env", 0o600)
         docker("network", "create", prefix)
         try:
+            docker(
+                "create",
+                "--name",
+                redis,
+                "--network",
+                prefix,
+                "--user",
+                "0",
+                "--entrypoint",
+                "redis-server",
+                "redis:7-alpine",
+                "--requirepass",
+                "local-smoke-only",
+                "--port",
+                "0",
+                "--tls-port",
+                "6378",
+                "--tls-cert-file",
+                "/tmp/redis.crt",
+                "--tls-key-file",
+                "/tmp/redis.key",
+                "--tls-ca-cert-file",
+                "/tmp/redis.crt",
+                "--tls-auth-clients",
+                "no",
+                "--save",
+                "",
+                "--appendonly",
+                "no",
+            )
+            for filename in ["redis.crt", "redis.key"]:
+                docker("cp", str(path / filename), redis + ":/tmp/" + filename)
+            docker("start", redis)
+            for _ in range(30):
+                if (
+                    docker(
+                        "exec",
+                        redis,
+                        "redis-cli",
+                        "--no-auth-warning",
+                        "-a",
+                        "local-smoke-only",
+                        "--tls",
+                        "-p",
+                        "6378",
+                        "--cacert",
+                        "/tmp/redis.crt",
+                        "ping",
+                        check=False,
+                    )
+                    == "PONG"
+                ):
+                    break
+                time.sleep(0.2)
+            else:
+                raise RuntimeError("Redis TLS did not become ready")
             docker(
                 "run",
                 "-d",
@@ -158,6 +253,7 @@ def main():
             )
             # Docker VM hosts may not share the host's temporary directory.
             docker("cp", str(path / "config.json"), f"{proxy}:/tmp/litellm-config.yaml")
+            docker("cp", str(path / "redis.crt"), f"{proxy}:/tmp/redis-ca.pem")
             docker("start", proxy)
             base = "http://" + docker("port", proxy, "4000/tcp")
 
@@ -181,12 +277,12 @@ def main():
                 except urllib.error.HTTPError as error:
                     return error.code, error.read(), error.geturl()
 
-            def ready():
+            def ready(container=proxy):
                 deadline = time.monotonic() + 240
                 last_result = "No HTTP response"
                 while time.monotonic() < deadline:
                     if (
-                        docker("inspect", "--format", "{{.State.Running}}", proxy)
+                        docker("inspect", "--format", "{{.State.Running}}", container)
                         != "true"
                     ):
                         raise RuntimeError("Proxy exited during startup")
@@ -278,6 +374,106 @@ def main():
                 "Virtual key did not survive restart"
             )
             print("PASS: virtual key persists across proxy restart", flush=True)
+            docker(
+                "create",
+                "--name",
+                sibling,
+                "--network",
+                prefix,
+                "--env-file",
+                str(path / "runtime.env"),
+                "-p",
+                "127.0.0.1::4000",
+                proxy_image,
+                "--config",
+                "/tmp/litellm-config.yaml",
+                "--port",
+                "4000",
+                "--num_workers",
+                "1",
+            )
+            docker(
+                "cp", str(path / "config.json"), f"{sibling}:/tmp/litellm-config.yaml"
+            )
+            docker("cp", str(path / "redis.crt"), f"{sibling}:/tmp/redis-ca.pem")
+            docker("start", sibling)
+            first_base = base
+            base = "http://" + docker("port", sibling, "4000/tcp")
+            ready(sibling)
+            sibling_base = base
+            base = first_base
+            status, body, _ = request(
+                "/key/generate",
+                {
+                    "models": ["provider-smoke"],
+                    "rpm_limit": 2,
+                    "allowed_routes": ["/v1/chat/completions"],
+                },
+                auth=master,
+            )
+            assert status == 200
+            limited_key = json.loads(body)["key"]
+            payload["model"] = "provider-smoke"
+            statuses = []
+            for endpoint in [first_base, sibling_base, first_base]:
+                base = endpoint
+                statuses.append(
+                    request("/v1/chat/completions", payload, auth=limited_key)[0]
+                )
+            assert statuses == [200, 200, 429], (
+                f"Cross-instance RPM limit failed: {statuses}"
+            )
+            print(
+                "PASS: two proxy instances enforce a shared RPM quota over verified Redis TLS",
+                flush=True,
+            )
+            tls_check = """
+import certifi
+import os
+from urllib.parse import urlencode
+from litellm._redis import get_redis_client
+from redis.exceptions import ConnectionError
+query = urlencode({
+    "ssl_ca_certs": os.environ["REDIS_SSL_CA_CERTS"],
+    "ssl_cert_reqs": "required",
+    "ssl_check_hostname": "true",
+})
+os.environ["REDIS_URL"] = (
+    "rediss://default:local-smoke-only@" + os.environ["REDIS_HOST"] + ":6378?" + query
+)
+url_client = get_redis_client()
+assert url_client.connection_pool.connection_kwargs["ssl_check_hostname"] is True
+assert url_client.ping() is True
+print("PASS: REDIS_URL preserves explicit TLS options and authenticates")
+del os.environ["REDIS_URL"]
+try:
+    get_redis_client(ssl_ca_certs=certifi.where()).ping()
+except ConnectionError as error:
+    assert "CERTIFICATE_VERIFY_FAILED" in str(error)
+    print("PASS: Redis rejects an untrusted server certificate")
+else:
+    raise AssertionError("Redis TLS certificate verification was bypassed")
+"""
+            print(docker("exec", proxy, "python", "-c", tls_check), flush=True)
+            # Arrange: simulate overspend only in this disposable test database.
+            updated = docker(
+                "exec", database, "psql", "-U", "litellm", "-d", "litellm",
+                "-v", "ON_ERROR_STOP=1", "-c",
+                'UPDATE "LiteLLM_UserTable" SET spend = 1.01 '
+                "WHERE user_id = 'litellm-proxy-budget';",
+            )
+            assert "UPDATE 1" in updated, "Global budget aggregate was not initialized"
+            # Restart to reload persisted spend instead of waiting for cache expiry.
+            for container in [proxy, sibling]:
+                docker("restart", container)
+                base = "http://" + docker("port", container, "4000/tcp")
+                ready(container)
+                # Act / Assert: a valid, under-budget key is blocked by the global cap.
+                status, body, _ = request("/v1/chat/completions", payload, auth=key)
+                assert status in (400, 402, 403, 429) and b"budget" in body.lower(), (
+                    "Global budget did not block inference on " + container
+                )
+            print("PASS: global budget blocks inference on both proxies after restart", flush=True)
         except Exception:
             result = subprocess.run(
                 ["docker", "logs", "--tail", "60", proxy],
@@ -298,7 +494,7 @@ def main():
             raise
         finally:
             # Only containers and network created by this test are removed.
-            docker("rm", "-f", proxy, database, check=False)
+            docker("rm", "-f", proxy, sibling, database, redis, check=False)
             docker("network", "rm", prefix, check=False)
 
 

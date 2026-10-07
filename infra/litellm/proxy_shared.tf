@@ -1,6 +1,7 @@
 # Container settings shared by the IAP-protected admin service (service.tf) and
 # the private inference gateway (gateway.tf). Only exposure, scaling and URLs
-# differ between them; keep everything else here so the two cannot drift.
+# differ between them. The gateway also excludes UI credentials and runs behind
+# its route filter; keep common database/model settings here to avoid drift.
 locals {
   proxy_args = ["--config", "/etc/litellm/config.yaml", "--port", "4000", "--num_workers", "1"]
 

@@ -43,8 +43,14 @@ locals {
       allow_requests_on_db_unavailable = false
       store_model_in_db                = true
     })
-    litellm_settings = local.runtime_settings.litellm_settings
-    router_settings  = local.runtime_settings.router_settings
+    litellm_settings = merge(local.runtime_settings.litellm_settings, {
+      for name, value in { max_budget = var.global_budget_usd, budget_duration = "30d" } :
+      name => value if var.global_budget_usd != null
+    })
+    router_settings = merge(local.runtime_settings.router_settings, local.redis_enabled ? {
+      redis_host = "os.environ/REDIS_HOST"
+      redis_port = "os.environ/REDIS_PORT"
+    } : {})
   })
 }
 

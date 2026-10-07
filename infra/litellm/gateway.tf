@@ -74,26 +74,53 @@ resource "google_cloud_run_v2_service" "gateway" {
       min_instance_count = 1
       max_instance_count = 1
     }
+    # Keep ingress first: the provider preserves computed ports by container index.
+    # Only this container receives Cloud Run ingress. The proxy is reachable on localhost.
     containers {
-      image = local.proxy_image
-      args  = local.proxy_args
-      ports {
-        container_port = 4000
+      name       = "routes"
+      image      = local.gateway_filter_image
+      command    = ["nginx"]
+      args       = ["-c", "/etc/gateway/nginx.conf", "-g", "daemon off;"]
+      depends_on = ["proxy"]
+      ports { container_port = 4000 }
+      resources {
+        limits   = { cpu = "0.25", memory = "128Mi" }
+        cpu_idle = false
       }
+      volume_mounts {
+        name       = "gateway-routes"
+        mount_path = "/etc/gateway"
+      }
+      startup_probe {
+        http_get {
+          path = "/health/readiness"
+          port = 4000
+        }
+        period_seconds    = 10
+        timeout_seconds   = 5
+        failure_threshold = 24
+      }
+    }
+    containers {
+      name  = "proxy"
+      image = local.proxy_image
+      args  = ["--config", "/etc/litellm/config.yaml", "--port", "4001", "--num_workers", "1"]
       resources {
         limits            = { cpu = "2", memory = "4Gi" }
         cpu_idle          = false
         startup_cpu_boost = true
       }
       dynamic "env" {
-        for_each = merge(local.proxy_env, { ROOT_REDIRECT_URL = "/docs", PROXY_BASE_URL = local.gateway_url })
+        for_each = merge({ for key, value in local.proxy_env : key => value if key != "UI_USERNAME" }, local.redis_env, {
+          DISABLE_ADMIN_UI = "true", PROXY_BASE_URL = local.gateway_url
+        })
         content {
           name  = env.key
           value = env.value
         }
       }
       dynamic "env" {
-        for_each = merge(local.proxy_secret_env, local.proxy_provider_secret_env)
+        for_each = merge({ for key, value in local.proxy_secret_env : key => value if key != "UI_PASSWORD" }, local.proxy_provider_secret_env, local.redis_secret_env)
         content {
           name = env.key
           value_source {
@@ -109,6 +136,13 @@ resource "google_cloud_run_v2_service" "gateway" {
         mount_path = "/etc/litellm"
       }
       dynamic "volume_mounts" {
+        for_each = local.redis_ca_enabled ? [1] : []
+        content {
+          name       = "redis-ca"
+          mount_path = "/etc/redis"
+        }
+      }
+      dynamic "volume_mounts" {
         for_each = local.proxy_database_ca_enabled ? [1] : []
         content {
           name       = "database-ca"
@@ -120,7 +154,7 @@ resource "google_cloud_run_v2_service" "gateway" {
         content {
           http_get {
             path = startup_probe.value.path
-            port = 4000
+            port = 4001
           }
           period_seconds    = startup_probe.value.period_seconds
           timeout_seconds   = startup_probe.value.timeout_seconds
@@ -132,11 +166,34 @@ resource "google_cloud_run_v2_service" "gateway" {
         content {
           http_get {
             path = liveness_probe.value.path
-            port = 4000
+            port = 4001
           }
           period_seconds    = liveness_probe.value.period_seconds
           timeout_seconds   = liveness_probe.value.timeout_seconds
           failure_threshold = liveness_probe.value.failure_threshold
+        }
+      }
+    }
+    dynamic "volumes" {
+      for_each = local.redis_ca_enabled ? [1] : []
+      content {
+        name = "redis-ca"
+        secret {
+          secret = google_secret_manager_secret.redis["ca"].secret_id
+          items {
+            version = var.redis_connection.ca_version
+            path    = "ca.pem"
+          }
+        }
+      }
+    }
+    volumes {
+      name = "gateway-routes"
+      secret {
+        secret = google_secret_manager_secret.gateway_routes.secret_id
+        items {
+          version = google_secret_manager_secret_version.gateway_routes.version
+          path    = "nginx.conf"
         }
       }
     }
@@ -173,5 +230,7 @@ resource "google_cloud_run_v2_service" "gateway" {
     google_secret_manager_secret_iam_member.runtime,
     google_secret_manager_secret_iam_member.config,
     google_secret_manager_secret_iam_member.provider,
+    google_secret_manager_secret_iam_member.gateway_routes,
+    google_secret_manager_secret_iam_member.redis,
   ]
 }

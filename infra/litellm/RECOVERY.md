@@ -71,6 +71,14 @@ that would propose deleting them.
 Existing-secret bootstrap reruns preserve enabled versions. They do not recover
 an old salt that was destroyed. Losing the salt with encrypted provider
 credentials requires provider credential re-onboarding after database recovery.
+Both database bootstrap scripts stop before creating new secrets when encrypted
+records exist without an enabled salt version. Recover the original salt;
+creating a new random salt cannot decrypt those records.
+
+If external Redis is configured, restore its endpoint, password version and
+optional CA version in `redis_connection`. Redis counters are separate from
+PostgreSQL's durable usage records: an empty replacement Redis resets transient
+limits and cached router state. Verify TLS and shared limits after restoration.
 
 ## PostgreSQL restore
 

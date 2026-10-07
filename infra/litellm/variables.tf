@@ -88,3 +88,13 @@ variable "additional_vertex_models" {
     error_message = "Use explicit Gemini model IDs without wildcards, distinct from the primary model."
   }
 }
+
+variable "global_budget_usd" {
+  description = "Optional global LLM spend budget in USD over 30 days, shared through the proxy database. Excludes infrastructure costs."
+  type        = number
+  default     = null
+  validation {
+    condition     = var.global_budget_usd == null ? true : var.global_budget_usd > 0
+    error_message = "Use a positive USD budget; null leaves the global limit unconfigured."
+  }
+}
