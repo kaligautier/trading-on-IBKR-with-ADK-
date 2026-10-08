@@ -339,6 +339,8 @@ run "gateway_filters_routes_before_the_proxy" {
     condition = (
       # Ports are computed by container index: preserve the existing ingress slot.
       google_cloud_run_v2_service.gateway[0].template[0].containers[0].name == "routes" &&
+      google_cloud_run_v2_service.gateway[0].template[0].scaling[0].min_instance_count == 0 &&
+      google_cloud_run_v2_service.gateway[0].template[0].scaling[0].max_instance_count == 1 &&
       tonumber(trimsuffix(google_cloud_run_v2_service.gateway[0].template[0].containers[0].resources[0].limits.memory, "Mi")) >= 128 &&
       toset([for container in google_cloud_run_v2_service.gateway[0].template[0].containers :
       container.name if length(container.ports) > 0]) == toset(["routes"]) &&

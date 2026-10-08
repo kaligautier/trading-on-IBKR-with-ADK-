@@ -71,7 +71,7 @@ resource "google_cloud_run_v2_service" "gateway" {
     timeout                          = "600s"
     max_instance_request_concurrency = 20
     scaling {
-      min_instance_count = 1
+      min_instance_count = 0
       max_instance_count = 1
     }
     # Keep ingress first: the provider preserves computed ports by container index.
@@ -84,7 +84,8 @@ resource "google_cloud_run_v2_service" "gateway" {
       depends_on = ["proxy"]
       ports { container_port = 4000 }
       resources {
-        limits   = { cpu = "0.25", memory = "128Mi" }
+        # Pin Cloud Run defaults to reset existing revisions as well.
+        limits   = { cpu = "1", memory = "512Mi" }
         cpu_idle = false
       }
       volume_mounts {
@@ -106,7 +107,7 @@ resource "google_cloud_run_v2_service" "gateway" {
       image = local.proxy_image
       args  = ["--config", "/etc/litellm/config.yaml", "--port", "4001", "--num_workers", "1"]
       resources {
-        limits            = { cpu = "2", memory = "4Gi" }
+        limits            = { cpu = "1", memory = "512Mi" }
         cpu_idle          = false
         startup_cpu_boost = true
       }
