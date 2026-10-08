@@ -98,6 +98,9 @@ run "service_requires_iap_and_keeps_native_auth" {
     condition = (
       [for env in google_cloud_run_v2_service.litellm[0].template[0].containers[0].env : env.value if env.name == "DISABLE_SCHEMA_UPDATE"] == ["true"] &&
       google_cloud_run_v2_service.litellm[0].template[0].scaling[0].max_instance_count == 1 &&
+      google_cloud_run_v2_service.litellm[0].template[0].scaling[0].min_instance_count == 0 &&
+      google_cloud_run_v2_service.litellm[0].template[0].containers[0].resources[0].cpu_idle &&
+      google_cloud_run_v2_service.litellm[0].template[0].containers[0].resources[0].limits.memory == "1Gi" &&
       yamldecode(local.proxy_config).general_settings.database_connection_pool_limit == 2 &&
       !yamldecode(local.proxy_config).general_settings.allow_requests_on_db_unavailable
     )
@@ -341,6 +344,7 @@ run "gateway_filters_routes_before_the_proxy" {
       google_cloud_run_v2_service.gateway[0].template[0].containers[0].name == "routes" &&
       google_cloud_run_v2_service.gateway[0].template[0].scaling[0].min_instance_count == 0 &&
       google_cloud_run_v2_service.gateway[0].template[0].scaling[0].max_instance_count == 1 &&
+      alltrue([for container in google_cloud_run_v2_service.gateway[0].template[0].containers : container.resources[0].cpu_idle]) &&
       tonumber(trimsuffix(google_cloud_run_v2_service.gateway[0].template[0].containers[0].resources[0].limits.memory, "Mi")) >= 128 &&
       toset([for container in google_cloud_run_v2_service.gateway[0].template[0].containers :
       container.name if length(container.ports) > 0]) == toset(["routes"]) &&
