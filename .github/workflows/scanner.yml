@@ -1,0 +1,76 @@
+name: Scanner checks
+
+on:
+  pull_request:
+    paths:
+      - 'apps/backend/market-scanner-adk/**'
+      - 'infra/**'
+      - '.github/workflows/scanner.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'apps/backend/market-scanner-adk/**'
+      - 'infra/**'
+      - '.github/workflows/scanner.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: scanner-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  application:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: apps/backend/market-scanner-adk
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
+        with:
+          version: '0.9.17'
+          enable-cache: true
+          cache-dependency-glob: apps/backend/market-scanner-adk/uv.lock
+      - name: Install locked dependencies
+        run: uv sync --frozen --python 3.12
+      - name: Lint application and tests
+        run: uv run --no-sync ruff check src
+      - name: Check formatting
+        run: uv run --no-sync ruff format --check src/app
+      - name: Test scanner and gateway failure handling
+        run: TZ=UTC uv run --no-sync pytest -q src/test/unit
+
+  infrastructure:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3
+        with:
+          terraform_version: '1.14.4'
+          terraform_wrapper: false
+      - name: Check runtime Terraform formatting
+        run: terraform -chdir=infra fmt -check
+      - name: Initialize providers without cloud backend
+        run: terraform -chdir=infra init -backend=false -input=false -lockfile=readonly
+      - name: Validate runtime infrastructure
+        run: terraform -chdir=infra validate
+      - name: Test runtime infrastructure with mocked providers
+        run: terraform -chdir=infra test
+
+  dependencies:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
+        with:
+          version: '0.9.17'
+      - name: Export locked runtime dependencies
+        run: uv export --project apps/backend/market-scanner-adk --frozen --no-dev --no-emit-project --format requirements-txt --output-file=${{ runner.temp }}/scanner-requirements.txt
+      - name: Audit runtime dependencies
+        run: uvx --from pip-audit==2.10.1 --python 3.12 pip-audit -r ${{ runner.temp }}/scanner-requirements.txt --disable-pip --no-deps
