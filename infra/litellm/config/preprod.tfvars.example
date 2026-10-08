@@ -1,0 +1,9 @@
+# Copy to preprod.local.tfvars and select your own project and model access.
+project_id      = "your-gcp-project"
+region          = "europe-west1"
+vertex_location = "eu"
+model           = "gemini-3.8-flash"
+additional_vertex_models = []
+
+# Optional: existing identities for future application integration.
+client_service_accounts = {}
