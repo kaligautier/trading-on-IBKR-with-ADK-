@@ -17,7 +17,7 @@ from urllib.parse import quote, urlencode
 from urllib.request import Request, urlopen
 
 import asyncpg
-from bootstrap_database import SecretStore, require_recoverable_salt
+from bootstrap_database import SecretStore, existing_password, require_recoverable_salt
 
 
 ACCOUNT = os.environ.get("LITELLM_GCP_ACCOUNT", "")
@@ -126,9 +126,37 @@ async def main():
     ):
         raise RuntimeError("Unexpected Aiven service")
 
+    store = SecretStore(PROJECT, ACCOUNT)
+    database_version = store.existing_version("database-url")
+    retained_password = None
+    if database_version:
+        stored = store.command(
+            "secrets",
+            "versions",
+            "access",
+            database_version,
+            "--secret=litellm-database-url",
+        )
+        retained_password = existing_password(
+            stored, params["host"], int(params["port"])
+        )
+
     with tempfile.TemporaryDirectory(prefix="litellm-ca-") as directory:
         ca = Path(directory) / "ca.pem"
         avn("project", "ca-get", "--target-filepath", str(ca))
+        ca_version = store.existing_version("database-ca")
+        if ca_version:
+            stored_ca = store.command(
+                "secrets",
+                "versions",
+                "access",
+                ca_version,
+                "--secret=litellm-database-ca",
+            )
+            if stored_ca.strip() != ca.read_text().strip():
+                raise ValueError(
+                    "Existing database CA differs; update the connection secrets explicitly"
+                )
         tls = ssl.create_default_context(cafile=str(ca))
         admin_user = service_user(params["user"])
         connect = dict(
@@ -141,11 +169,21 @@ async def main():
         )
         users = {user["username"] for user in metadata["users"]}
         databases = json.loads(avn("service", "database-list", SERVICE, "--json"))
+        if database_version and (DATABASE not in users or DATABASE not in databases):
+            raise ValueError(
+                "Existing database secret requires the dedicated target to exist"
+            )
         if DATABASE not in users:
             avn("service", "user-create", SERVICE, "--username", DATABASE)
         if DATABASE not in databases:
             avn("service", "database-create", SERVICE, "--dbname", DATABASE)
         user = service_user(DATABASE)
+        if retained_password is not None and not secrets.compare_digest(
+            retained_password.encode(), user["password"].encode()
+        ):
+            raise ValueError(
+                "Existing database password differs; update the connection secrets explicitly"
+            )
 
         admin = await asyncpg.connect(**connect, database="defaultdb")
         try:

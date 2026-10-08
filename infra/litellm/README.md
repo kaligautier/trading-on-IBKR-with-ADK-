@@ -27,6 +27,8 @@ Terraform manages secret containers and references, not credential payloads.
 
 The pinned proxy and migration images use the same upstream version. Artifact
 Registry mirrors GHCR because Cloud Run cannot pull GHCR references directly.
+The current pins are LiteLLM 1.103.4; see [SECURITY.md](SECURITY.md) for the
+dependency audit, its scope and the upgrade policy.
 
 ## Database and secrets
 
@@ -82,6 +84,12 @@ explicit `LITELLM_GCP_ACCOUNT`, `GOOGLE_CLOUD_PROJECT`, `LITELLM_AIVEN_ACCOUNT`,
 `LITELLM_AIVEN_PROJECT`, `LITELLM_AIVEN_SERVICE` and `LITELLM_AIVEN_HOST` variables.
 Both bootstrap scripts refuse to generate a replacement salt when encrypted
 records already exist. Recover the original enabled salt version first.
+The Aiven bootstrap also validates the retained enabled database URL against
+the service host, port, dedicated user/database and current password, and compares
+the retained CA with the project CA before changing the database or secrets.
+A mismatch stops bootstrap. Update the connection secrets explicitly and pin
+the verified numeric versions; preserve the original encryption salt. Existing
+release files remain unchanged, so review their pinned versions separately.
 
 ## Migrations, service and IAP
 
@@ -207,8 +215,9 @@ whole proxy over 30 days. LiteLLM budgets use USD; convert EUR explicitly when
 setting the amount. Both services use the same budget configuration and durable
 database accounting. This excludes Cloud Run and other infrastructure charges;
 concurrent requests and delayed accounting can overshoot the configured limit.
-In the pinned v1.103.1 UI, the Global Usage budget card reads the current user's
-personal budget and can show "No limit" even when this proxy budget is set.
+In the previously tested v1.103.1 UI, the Global Usage budget card read the current
+user's personal budget and could show "No limit" even when this proxy budget was
+set. That UI behavior has not been revalidated on v1.103.4.
 Verify the global setting through the authenticated `/global/spend` admin API;
 the `litellm-proxy-budget` user row in PostgreSQL also records its maximum,
 duration and next reset. Do not add an admin-user limit to change this display.
@@ -258,9 +267,11 @@ uses the Secret Manager password reference described above.
 terraform -chdir=infra/litellm fmt -check
 terraform -chdir=infra/litellm validate
 terraform -chdir=infra/litellm test
-uv run --project apps/backend/market-scanner-adk --no-sync pytest -c /dev/null infra/litellm/tests/test_configuration.py
+uv run --project apps/backend/market-scanner-adk --no-sync pytest -c /dev/null -p no:cacheprovider infra/litellm/tests
 python3 infra/litellm/tests/smoke.py
 python3 infra/litellm/tests/gateway_smoke.py
+python3 infra/litellm/tests/native_gateway_smoke.py
+python3 infra/litellm/scripts/audit_images.py --output-dir=/tmp/litellm-audit
 ```
 
 Terraform tests use mocked providers and require Terraform >= 1.14; CI pins
@@ -274,10 +285,20 @@ rejects an untrusted server certificate and blocks inference on both proxies
 after simulated global overspend and a restart of each proxy. This budget test
 modifies only its disposable local database. The gateway smoke test uses a permissive
 upstream to prove NGINX blocks login/admin routes while preserving authorization
-and SSE streaming. Neither test uses cloud credentials. The `LiteLLM checks`
-GitHub workflow runs these checks on scoped PRs and pushes to main, together
-with Terraform validation/tests and Python lint/tests.
-The opt-in native test makes billable calls:
+and SSE streaming. The native gateway test runs real NGINX and two pinned LiteLLM
+proxies against PostgreSQL and shared Redis on an internal Docker network.
+Only the Gemini provider is stubbed. It exercises the deployed native route and
+virtual-key scope, shared RPM enforcement, incremental SSE frames, persisted
+usage/cost and accumulation in the global budget row. After simulating overspend,
+it restarts both proxies and requires both to reject native requests. Accounting
+is flushed faster in this fixture; deployed limits can still overshoot as noted
+above. These Docker tests use no cloud credentials or billable provider calls.
+The `LiteLLM checks` workflow runs them on scoped PRs and pushes to main, together
+with Terraform validation/tests, Python lint/tests and an audit of installed
+Python packages in both pinned release images. A known advisory fails that audit;
+inventory and JSON reports are written to the supplied output directory.
+
+The separate opt-in live native test makes billable calls:
 
 ```sh
 uv run --project apps/backend/market-scanner-adk --no-sync python infra/litellm/tests/scanner_native.py
@@ -298,6 +319,10 @@ guarantee upstream errors never contain request content.
 For upgrades, back up PostgreSQL, update/apply the migration image, run its job,
 then update the proxy digest and deploy. Keep prior config secret versions for
 rollback; database rollback depends on upstream migration compatibility.
+Before deployment, review upstream release notes, keep both images on the same
+version, and rerun the checks above. The image audit defaults to `linux/amd64`,
+the Cloud Run architecture; use `--platform=linux/arm64` for an additional local
+Apple Silicon audit. Local checks do not prove a deployed revision is healthy.
 
 References: [LiteLLM configuration](https://docs.litellm.ai/docs/proxy/configs),
 [native Gemini API](https://docs.litellm.ai/docs/generateContent),

@@ -310,6 +310,15 @@ async def test_aiven_preserves_salt_for_encrypted_records(
     monkeypatch.setattr(
         script.SecretStore, "existing_version", lambda *_: "1" if salt_exists else None
     )
+    monkeypatch.setattr(
+        script.SecretStore,
+        "command",
+        lambda _, *args, **kwargs: (
+            "postgresql://litellm:placeholder@example:5432/litellm"
+            if args[-1] == "--secret=litellm-database-url"
+            else "placeholder-ca"
+        ),
+    )
 
     # Act
     if encrypted_rows and not salt_exists:

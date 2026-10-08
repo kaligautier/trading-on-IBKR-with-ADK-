@@ -75,6 +75,15 @@ Both database bootstrap scripts stop before creating new secrets when encrypted
 records exist without an enabled salt version. Recover the original salt;
 creating a new random salt cannot decrypt those records.
 
+The Aiven bootstrap validates the latest enabled connection URL and CA before
+database changes or secret uploads. A changed host, port, dedicated user/database,
+password or CA stops recovery rather than retaining an incompatible credential.
+After a provider restore or password change, verify the replacement target and
+upload the connection URL/CA as new versions explicitly, then pin their numeric
+versions in the protected release file. Keep the original `litellm-salt-key`;
+connection recovery does not require encryption-salt rotation. Bootstrap preserves
+existing release files and does not verify every older version pinned in them.
+
 If external Redis is configured, restore its endpoint, password version and
 optional CA version in `redis_connection`. Redis counters are separate from
 PostgreSQL's durable usage records: an empty replacement Redis resets transient

@@ -51,7 +51,7 @@ jobs:
       - name: Lint bootstrap and verification scripts
         run: uv run --project apps/backend/market-scanner-adk --no-sync ruff check infra/litellm/scripts infra/litellm/tests
       - name: Test bootstrap regressions
-        run: uv run --project apps/backend/market-scanner-adk --no-sync pytest -c /dev/null -p no:cacheprovider infra/litellm/tests/test_configuration.py
+        run: uv run --project apps/backend/market-scanner-adk --no-sync pytest -c /dev/null -p no:cacheprovider infra/litellm/tests
   containers:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
@@ -61,3 +61,15 @@ jobs:
         run: python3 infra/litellm/tests/smoke.py
       - name: Verify gateway route isolation and streaming
         run: python3 infra/litellm/tests/gateway_smoke.py
+      - name: Verify native Gemini gateway quotas and accounting
+        run: python3 infra/litellm/tests/native_gateway_smoke.py
+  image-security:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
+        with:
+          version: '0.9.17'
+      - name: Audit pinned proxy and migration image packages
+        run: python3 infra/litellm/scripts/audit_images.py --output-dir=${{ runner.temp }}/litellm-audit
