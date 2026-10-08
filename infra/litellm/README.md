@@ -4,8 +4,8 @@ Deploy the official LiteLLM proxy and admin UI behind Google IAP, using Vertex A
 with an attached service account and a dedicated PostgreSQL database. Optional
 OpenAI, Anthropic and Gemini API providers use Secret Manager references.
 
-This Terraform stack owns a separate state prefix. The Scanner uses Vertex
-independently; this stack does not change its application, scheduler or IAM.
+This Terraform stack owns a separate state prefix. The Scanner runtime root
+connects its application and worker to the gateway configured here.
 
 ## Configuration
 
@@ -168,8 +168,9 @@ through the same Artifact Registry repository.
 Keep NGINX first in the container list: the provider preserves computed ports
 by list index when updating the original single-container service. Its 128 MiB
 memory limit meets Cloud Run's minimum for the configured CPU allocation.
-The current Scanner application still uses Vertex directly; its dedicated
-verification job exercises the gateway with the same service account.
+The Scanner application uses this gateway; see
+[ADK configuration](../../docs/adk-litellm.md). Its dedicated verification job
+exercises the gateway with the same service account.
 
 ### Key provisioning and verification jobs
 

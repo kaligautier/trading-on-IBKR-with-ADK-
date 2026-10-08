@@ -1,12 +1,13 @@
 # Scanner infrastructure
 
-Two Terraform roots manage the GCP resources:
+Three Terraform roots manage the GCP resources:
 
 - `bootstrap/`: APIs, protected state bucket, Artifact Registry, and database
   secret metadata. Secret values are supplied separately and never enter state.
 - This directory: private Cloud Run, its service account and permissions, and
   a daily Cloud Scheduler request at 07:00 Europe/Paris, and a Cloud Run Job
   that runs the scan independently of the HTTP request.
+- `litellm/`: the private inference gateway and IAP-protected admin service.
 
 The database is external to Terraform. Apply its migrations before starting the
 scanner; see [database setup](../database/README.md).
@@ -44,7 +45,9 @@ Authenticate Terraform with Application Default Credentials first.
 3. Build the application Dockerfile for `linux/amd64`, publish it to the
    bootstrapped `market-scanner` repository, and resolve its immutable digest.
 4. Copy `config/release.local.tfvars.example` to `config/release.local.tfvars`.
-   Set the image digest, numeric secret version, and explicit invoker identities.
+   Set the image digest, numeric database secret version, explicit invoker identities,
+   and required `litellm_gateway` object. Provision its scanner key and access grant
+   in `litellm/` first; see [ADK integration](../docs/adk-litellm.md).
 5. Initialize and review a runtime plan before applying:
 
 ```sh
@@ -58,7 +61,7 @@ terraform -chdir=infra apply release.tfplan
 
 Use your own configuration paths when deploying outside the maintainer's
 environment. Plan files can contain private configuration; do not commit them.
-The image must implement the direct Vertex AI configuration in this module.
+The image must implement the LiteLLM gateway configuration in this module.
 Never reuse an unrelated image digest solely because it is already deployed.
 
 ## Live verification
@@ -86,7 +89,8 @@ repeating a request creates another execution. Parallelism 1 applies within one
 execution, not across several executions; avoid overlapping manual runs with the
 small database connection budget. This is not an exactly-once queue.
 
-For local worker validation, configure Vertex ADC and the database, then run
+For local worker validation, configure a reachable LiteLLM gateway, its virtual
+key and the database, then run
 `uv run python -m app.jobs.daily_scan` from the scanner directory. The HTTP
 trigger requires `MARKET_SCANNER_JOB=projects/PROJECT/locations/REGION/jobs/JOB`
 and permission to invoke it; it does not silently run an in-process background

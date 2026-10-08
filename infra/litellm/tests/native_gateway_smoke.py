@@ -26,7 +26,9 @@ PAYLOAD = {"contents": [{"role": "user", "parts": [{"text": PROMPT_MARKER}]}]}
 HTTP_CLIENT = """
 import json, sys, urllib.request, urllib.error
 route, body, key = json.load(sys.stdin)
-headers = {"Content-Type": "application/json"}
+# Match the ADK GenAI client: its required SDK key is a placeholder, while
+# Authorization contains the actual virtual key. Verify bearer precedence.
+headers = {"Content-Type": "application/json", "x-goog-api-key": "litellm-proxy"}
 if key: headers["Authorization"] = "Bearer " + key
 req = urllib.request.Request("http://127.0.0.1:4000" + route,
     data=json.dumps(body).encode() if body is not None else None, headers=headers)

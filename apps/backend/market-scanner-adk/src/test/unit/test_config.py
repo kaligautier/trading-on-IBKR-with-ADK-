@@ -50,6 +50,8 @@ def test_settings_has_defaults():
 
     with patch.dict(os.environ, {}, clear=True):
         settings = Settings(
+            LITELLM_API_BASE="https://gateway.example",
+            LITELLM_API_KEY="sk-offline-test",
             GOOGLE_GENAI_USE_VERTEXAI=True,
             GOOGLE_CLOUD_PROJECT="test-project",
             GOOGLE_CLOUD_LOCATION="global",

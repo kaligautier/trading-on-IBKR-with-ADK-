@@ -19,9 +19,3 @@ resource "google_cloud_run_v2_service_iam_member" "invoker" {
   role     = "roles/run.invoker"
   member   = each.value
 }
-
-resource "google_project_iam_member" "vertex" {
-  project = var.project_id
-  role    = "roles/aiplatform.user"
-  member  = "serviceAccount:${google_service_account.scanner.email}"
-}
