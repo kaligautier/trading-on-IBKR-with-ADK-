@@ -26,7 +26,8 @@ resource "google_cloud_run_v2_service" "litellm" {
         container_port = 4000
       }
       resources {
-        limits            = { cpu = "2", memory = "4Gi" }
+        # Pin Cloud Run defaults to reset existing revisions as well.
+        limits            = { cpu = "1", memory = "512Mi" }
         cpu_idle          = false
         startup_cpu_boost = true
       }
