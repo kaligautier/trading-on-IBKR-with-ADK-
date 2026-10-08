@@ -9,8 +9,9 @@ import certifi
 
 
 class PublicDataHttpClient:
-    def __init__(self, opener: Callable = urlopen) -> None:
+    def __init__(self, opener: Callable = urlopen, timeout: float = 15) -> None:
         self._opener = opener
+        self._timeout = timeout
         self._ssl_context = ssl.create_default_context(cafile=certifi.where())
 
     def get_text(self, url: str) -> str:
@@ -18,7 +19,7 @@ class PublicDataHttpClient:
         for attempt in range(2):
             try:
                 with self._opener(
-                    request, timeout=15, context=self._ssl_context
+                    request, timeout=self._timeout, context=self._ssl_context
                 ) as response:
                     body = response.read(10_000_001)
                     if len(body) > 10_000_000:

@@ -43,6 +43,27 @@ def explanation():
 
 def unsourced_analysis_payload(keys, horizon="1d"):
     payload = analysis_payload(keys, horizon)
+    payload["macro_overview"] = {
+        "context": "Synthetic macro context; no external research was performed.",
+        "themes": [],
+        "data_gaps": ["No external macro evidence in this fixture."],
+    }
     for item in payload["themes"] + payload["asset_insights"]:
         item["interpretation"].pop("source_ids")
     return payload
+
+
+def research_critique_payload():
+    return {
+        "supported_findings": ["The supplied snapshot shows rising equities."],
+        "challenges": [
+            {
+                "claim": "A rate cut caused the equity move.",
+                "concern": "unsupported_fact",
+                "reasoning": "The supplied data establishes no rate cut.",
+                "suggested_revision": "Leave the catalyst unestablished.",
+            }
+        ],
+        "invalidation_conditions": ["Equities reverse their observed direction."],
+        "data_gaps": ["No verified rate announcement is available."],
+    }

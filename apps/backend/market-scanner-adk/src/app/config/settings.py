@@ -89,6 +89,14 @@ class Settings(BaseSettings):
         description="Gemini 3.8 Flash research reasoning effort.",
     )
 
+    CRITIC_THINKING_LEVEL: Literal["LOW", "MEDIUM", "HIGH"] = Field(
+        default="MEDIUM",
+        validation_alias=AliasChoices(
+            "MARKET_SCANNER_CRITIC_THINKING_LEVEL", "CRITIC_THINKING_LEVEL"
+        ),
+        description="Research critique reasoning effort.",
+    )
+
     SYNTHESIZER_THINKING_LEVEL: Literal["LOW", "MEDIUM", "HIGH"] = Field(
         default="LOW",
         validation_alias=AliasChoices(
@@ -99,6 +107,12 @@ class Settings(BaseSettings):
 
     MARKET_SCANNER_ASSET_KEYS: tuple[str, ...] | None = Field(
         default=None, description="Optional subset of catalog keys to collect."
+    )
+
+    FRED_API_KEY: str = Field(default="", repr=False)
+    MARKET_SCANNER_RESEARCH_TOOLS_ENABLED: bool = Field(
+        default=True,
+        description="Enable optional Yahoo news, FRED and Polymarket research.",
     )
 
     # Agent directory (computed from project structure)

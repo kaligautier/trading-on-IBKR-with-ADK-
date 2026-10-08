@@ -6,6 +6,7 @@ This repository contains the Market Scanner ADK source, database migrations,
 Terraform infrastructure, public MCP reference, and example outputs.
 
 For development and validation, see the [contribution guide](CONTRIBUTING.md).
+For the news tools and global macro report, see [macro research](docs/macro-research.md).
 
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENCE)
 

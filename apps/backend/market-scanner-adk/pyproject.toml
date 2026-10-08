@@ -28,6 +28,9 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["src/app"]
 
+[tool.hatch.build.targets.wheel.force-include]
+"third_party" = "app/third_party"
+
 [tool.ruff]
 target-version = "py312"
 line-length = 88

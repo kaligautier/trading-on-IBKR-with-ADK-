@@ -2,9 +2,12 @@
 
 from typing import Literal
 
+from pydantic import Field
+
 from app.models.market_report import (
     Family,
     Horizon,
+    MacroOverview,
     ReportModel,
     ReportSummary,
     ReportText,
@@ -30,5 +33,6 @@ class UnsourcedThemeInsight(ReportModel):
 
 
 class UnsourcedMarketAnalysis(ReportSummary):
+    macro_overview: MacroOverview = Field(...)
     themes: list[UnsourcedThemeInsight]
     asset_insights: list[UnsourcedAssetInsight]
