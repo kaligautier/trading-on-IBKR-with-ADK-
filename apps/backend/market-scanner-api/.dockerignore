@@ -1,0 +1,8 @@
+*
+!Dockerfile
+!pyproject.toml
+!uv.lock
+!start_server.sh
+!src/
+src/*
+!src/app/

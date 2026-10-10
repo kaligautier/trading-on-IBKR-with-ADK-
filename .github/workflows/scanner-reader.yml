@@ -1,0 +1,96 @@
+name: Scanner consultation API
+on:
+  pull_request:
+    paths:
+      - 'apps/backend/market-scanner-api/**'
+      - 'apps/backend/market-scanner-adk/src/app/models/**'
+      - 'apps/backend/market-scanner-adk/pyproject.toml'
+      - 'apps/backend/market-scanner-adk/uv.lock'
+      - 'apps/backend/market-scanner-adk/examples/report-v3.json'
+      - 'database/**'
+      - 'infra/reader/**'
+      - '.github/workflows/scanner-reader.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'apps/backend/market-scanner-api/**'
+      - 'apps/backend/market-scanner-adk/src/app/models/**'
+      - 'apps/backend/market-scanner-adk/pyproject.toml'
+      - 'apps/backend/market-scanner-adk/uv.lock'
+      - 'database/**'
+      - 'infra/reader/**'
+      - '.github/workflows/scanner-reader.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: scanner-reader-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  api:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:17-alpine@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24
+        env:
+          POSTGRES_PASSWORD: integration-only
+          POSTGRES_DB: scanner_reader_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready --health-interval 5s
+          --health-timeout 5s --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgresql://postgres:integration-only@localhost:5432/scanner_reader_test
+    defaults:
+      run:
+        working-directory: apps/backend/market-scanner-api
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e
+        with:
+          version: '0.12.2'
+          enable-cache: true
+      - run: uv sync --frozen --python 3.12
+      - run: uv run --frozen ruff check src scripts
+      - run: uv run --frozen ruff format --check src scripts
+      - run: uv run --frozen mypy
+      - run: uv run --frozen pytest -q
+      - name: Build and boot production image
+        run: |
+          docker build -t local/market-scanner-api:review .
+          uv run --frozen python scripts/container_smoke.py
+      - name: Audit locked runtime dependencies
+        run: |
+          uv export --frozen --no-dev --no-emit-project --format requirements-txt -o /tmp/reader-requirements.txt
+          uvx --python 3.12 --from pip-audit==2.10.1 pip-audit --disable-pip --no-deps -r /tmp/reader-requirements.txt
+  writer-contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e
+        with:
+          version: '0.12.2'
+          enable-cache: true
+      - run: uv sync --project apps/backend/market-scanner-adk --frozen --python 3.12
+      - name: Verify generated report contract
+        env:
+          GOOGLE_CLOUD_PROJECT: contract-test
+          LITELLM_API_BASE: http://127.0.0.1:4000
+          LITELLM_API_KEY: contract-test-placeholder
+          PYTHONPATH: apps/backend/market-scanner-adk/src
+        run: uv run --project apps/backend/market-scanner-adk --frozen python apps/backend/market-scanner-api/scripts/check_report_schema.py
+  infrastructure:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd
+        with:
+          terraform_version: '1.14.4'
+          terraform_wrapper: false
+      - run: terraform -chdir=infra/reader fmt -check -recursive
+      - run: terraform -chdir=infra/reader init -backend=false -input=false -lockfile=readonly
+      - run: terraform -chdir=infra/reader validate
+      - run: terraform -chdir=infra/reader test
