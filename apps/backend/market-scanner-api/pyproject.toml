@@ -41,8 +41,19 @@ select = [
     "B",  # flake8-bugbear
     "C4", # flake8-comprehensions
     "N",  # pep8-naming
+    "UP", # modern Python syntax
+    "ASYNC", # blocking calls and timeouts in async code
+    "SIM", # unnecessary complexity
+    "RUF", # additional correctness checks
+    "PIE", # redundant statements
+    "S", # security checks
 ]
 ignore = []
+
+[tool.ruff.lint.per-file-ignores]
+"src/test/**" = ["S101", "S105", "S106"] # Assertions and disposable test credentials.
+"scripts/**" = ["S101", "S603", "S607"] # Test assertions and fixed Docker commands.
+"src/app/repositories/market_scan_repository.py" = ["S608"] # Validated schema only; query values are bound.
 
 [tool.ruff.lint.isort]
 known-first-party = ["app"]
@@ -67,4 +78,10 @@ dev = [
 [tool.mypy]
 python_version = "3.12"
 strict = true
+plugins = ["pydantic.mypy"]
 files = ["src/app"]
+
+[tool.pydantic-mypy]
+init_typed = true
+init_forbid_extra = true
+warn_required_dynamic_aliases = true

@@ -1,7 +1,7 @@
 """Validated configuration; secrets are excluded from representations/errors."""
 
 import os
-from typing import Literal
+from typing import Literal, Self
 
 from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -40,13 +40,15 @@ class Settings(BaseSettings):
             raise ValueError("Repeated database URL options are unsupported")
         if url.query.get("sslmode") not in {None, "disable", "verify-full"}:
             raise ValueError("Use sslmode=verify-full, or disable for localhost")
-        if url.host not in {"localhost", "127.0.0.1", "::1"}:
-            if url.query.get("sslmode") != "verify-full":
-                raise ValueError("Remote PostgreSQL requires sslmode=verify-full")
+        if (
+            url.host not in {"localhost", "127.0.0.1", "::1"}
+            and url.query.get("sslmode") != "verify-full"
+        ):
+            raise ValueError("Remote PostgreSQL requires sslmode=verify-full")
         return value
 
     @model_validator(mode="after")
-    def validate_authentication(self) -> "Settings":
+    def validate_authentication(self) -> Self:
         if self.AUTH_MODE == "token" and len(self.API_TOKEN.get_secret_value()) < 16:
             raise ValueError("Configure an API_TOKEN of at least 16 characters")
         if self.AUTH_MODE == "cloud_run" and not os.getenv("K_SERVICE"):

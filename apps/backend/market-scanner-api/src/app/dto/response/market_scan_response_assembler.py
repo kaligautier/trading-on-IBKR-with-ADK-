@@ -1,18 +1,18 @@
 """Preserve report v3 JSON exactly, including decimal strings and nulls."""
 
 import json
-from datetime import date, datetime
+from datetime import date
 from importlib.resources import files
 from uuid import UUID
 
-from jsonschema import Draft202012Validator
+from jsonschema import Draft202012Validator, FormatChecker
 from jsonschema.exceptions import ValidationError
-from pydantic import BaseModel, ConfigDict, JsonValue
+from pydantic import AwareDatetime, BaseModel, ConfigDict, JsonValue
 
-from app.models.market_scan import StoredScan
+from app.models.market_scan import ScanSummary, StoredScan
 
 REPORT_SCHEMA = json.loads(files("app.schemas").joinpath("report-v3.json").read_text())
-VALIDATOR = Draft202012Validator(REPORT_SCHEMA)
+VALIDATOR = Draft202012Validator(REPORT_SCHEMA, format_checker=FormatChecker())
 
 
 class InvalidStoredReportError(Exception):
@@ -22,11 +22,13 @@ class InvalidStoredReportError(Exception):
 class MarketScanResponse(BaseModel):
     id: UUID
     scan_date: date
-    created_at: datetime
+    created_at: AwareDatetime
     report: dict[str, JsonValue]
 
 
 def assemble(scan: StoredScan) -> MarketScanResponse:
+    if not isinstance(scan.report, dict):
+        raise InvalidStoredReportError()
     try:
         VALIDATOR.validate(scan.report)
     except ValidationError:
@@ -43,7 +45,7 @@ class ScanSummaryResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: UUID
     scan_date: date
-    created_at: datetime
+    created_at: AwareDatetime
     regime: str
     summary: str
 
@@ -60,3 +62,10 @@ class ErrorDetail(BaseModel):
 
 class ErrorResponse(BaseModel):
     error: ErrorDetail
+
+
+def assemble_list(items: list[ScanSummary], next_page_token: str) -> ScanListResponse:
+    return ScanListResponse(
+        items=[ScanSummaryResponse.model_validate(item) for item in items],
+        next_page_token=next_page_token,
+    )

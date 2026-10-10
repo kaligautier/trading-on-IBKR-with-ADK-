@@ -2,7 +2,7 @@
 
 import re
 from collections.abc import Sequence
-from typing import Protocol, cast
+from typing import cast
 from uuid import UUID
 
 from asyncpg import PostgresError  # type: ignore[import-untyped]
@@ -13,22 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 
 from app.models.cursor import Cursor
 from app.models.market_scan import ScanSummary, StoredScan
-
-
-class StoreUnavailableError(Exception):
-    """The reader cannot currently query its store."""
-
-    def __init__(self, category: str = "unknown") -> None:
-        super().__init__()
-        self.category = category
-
-
-class ScanReader(Protocol):
-    async def latest(self) -> StoredScan | None: ...
-    async def get(self, scan_id: UUID) -> StoredScan | None: ...
-    async def list(
-        self, page_size: int, cursor: Cursor | None
-    ) -> list[ScanSummary]: ...
+from app.repositories.scan_reader import StoreUnavailableError
 
 
 class MarketScanRepository:
@@ -42,11 +27,13 @@ class MarketScanRepository:
         self, query: str, parameters: dict[str, object] | None = None
     ) -> Sequence[RowMapping]:
         try:
-            async with self._engine.connect() as connection:
-                async with connection.begin():
-                    await connection.execute(text("SET TRANSACTION READ ONLY"))
-                    result = await connection.execute(text(query), parameters or {})
-                    return result.mappings().all()
+            async with (
+                self._engine.connect() as connection,
+                connection.begin(),
+            ):
+                await connection.execute(text("SET TRANSACTION READ ONLY"))
+                result = await connection.execute(text(query), parameters or {})
+                return result.mappings().all()
         except (SQLAlchemyError, PostgresError, TimeoutError, OSError) as error:
             raise StoreUnavailableError(type(error).__name__) from None
 
@@ -83,5 +70,5 @@ class MarketScanRepository:
             id=row["id"],
             scan_date=row["scan_date"],
             created_at=row["created_at"],
-            report=cast(dict[str, JsonValue], row["report"]),
+            report=cast(JsonValue, row["report"]),
         )

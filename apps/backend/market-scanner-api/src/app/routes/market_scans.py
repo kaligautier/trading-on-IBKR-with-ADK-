@@ -9,8 +9,8 @@ from app.dto.response.market_scan_response_assembler import (
     ErrorResponse,
     MarketScanResponse,
     ScanListResponse,
-    ScanSummaryResponse,
     assemble,
+    assemble_list,
 )
 from app.services.market_scan_service import MarketScanService
 
@@ -22,7 +22,10 @@ router = APIRouter(
         401: {"model": ErrorResponse, "description": "Authentication required"},
         404: {"model": ErrorResponse, "description": "Scan not found"},
         422: {"model": ErrorResponse, "description": "Invalid request parameters"},
-        500: {"model": ErrorResponse, "description": "Invalid stored report"},
+        500: {
+            "model": ErrorResponse,
+            "description": "Internal error or invalid stored report",
+        },
         503: {"model": ErrorResponse, "description": "Storage unavailable"},
     },
 )
@@ -41,10 +44,7 @@ async def list_scans(
     page_token: Annotated[str, Query(max_length=512)] = "",
 ) -> ScanListResponse:
     items, next_token = await service.list_scans(page_size, page_token)
-    return ScanListResponse(
-        items=[ScanSummaryResponse.model_validate(item) for item in items],
-        next_page_token=next_token,
-    )
+    return assemble_list(items, next_token)
 
 
 @router.get("/{scan_id}", response_model=MarketScanResponse)

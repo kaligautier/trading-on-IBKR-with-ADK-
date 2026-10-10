@@ -42,6 +42,10 @@ Errors use `{ "error": { "code": "...", "message": "..." } }`:
 - `422 INVALID_ARGUMENT`: invalid UUID, page size or cursor.
 - `503 STORE_UNAVAILABLE`: database failure, timeout or missing schema.
 - `500 INVALID_STORED_REPORT`: stored JSON does not satisfy the v3 contract.
+- `500 INTERNAL_ERROR`: unexpected failure, sanitized and correlated.
+
+Unknown routes and unsupported methods use the same error envelope (`NOT_FOUND`
+and `METHOD_NOT_ALLOWED`); method errors retain the HTTP `Allow` header.
 
 Responses set `Cache-Control: no-store` and `X-Request-ID`. Structured completion
 logs include correlation ID, route template, status and duration, without request
@@ -90,6 +94,29 @@ curl -H "Authorization: Bearer $API_TOKEN" http://127.0.0.1:8080/market-scans/la
 
 The curl command expects `API_TOKEN` in your shell environment. For Aiven, also
 supply the reader URL with verified TLS and a locally downloaded project CA.
+
+## Python quality rules
+
+- Strict mypy with the Pydantic plugin; typed repository protocol keeps the use cases
+  independent of SQLAlchemy. Frozen, slotted stored records and timezone-aware DTOs.
+- All DTO conversion stays in the response assembler. Cursor validation is versioned,
+  and stored report validation checks dates as well as structure.
+- Ruff checks formatting, imports, modern Python syntax, async mistakes, simplification,
+  common bugs and security rules. The few security exclusions are documented next to
+  the configuration (disposable test credentials, fixed test commands, validated schema).
+- Lifespan owns and closes the engine; integration tests verify connection release.
+  Imports do not read environment configuration, connect to storage or configure logging.
+- Known failures become domain errors; the final HTTP boundary logs unexpected error
+  categories without sensitive messages. Request cancellation is not caught.
+- CI requires the full PostgreSQL suite and at least 90% combined coverage (including branches).
+  Production dependencies are locked and audited; tests and dev tools are excluded
+  from the non-root runtime image.
+
+These choices follow the repository's conventions and the principles in the
+[Google Python Style Guide](https://google.github.io/styleguide/pyguide.html), with
+[Ruff](https://docs.astral.sh/ruff/) as the repository linter and the
+[official Pydantic mypy plugin](https://docs.pydantic.dev/latest/integrations/mypy/).
+They are enforced checks, not a claim that every possible best practice applies.
 
 ## Verification
 

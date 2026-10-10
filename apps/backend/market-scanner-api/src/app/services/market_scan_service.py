@@ -4,7 +4,7 @@ from uuid import UUID
 
 from app.models.cursor import Cursor
 from app.models.market_scan import ScanSummary, StoredScan
-from app.repositories.market_scan_repository import ScanReader
+from app.repositories.scan_reader import ScanReader
 
 
 class ScanNotFoundError(Exception):

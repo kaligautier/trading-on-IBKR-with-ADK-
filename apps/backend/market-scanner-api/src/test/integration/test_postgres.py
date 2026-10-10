@@ -79,35 +79,37 @@ async def test_reader_pagination_detail_and_concurrent_insert(database):
     for number in range(1, 6):
         await insert(admin, number)
     application = create_app(settings)
-    async with application.router.lifespan_context(application):
-        async with httpx.AsyncClient(
+    async with (
+        application.router.lifespan_context(application),
+        httpx.AsyncClient(
             transport=httpx.ASGITransport(app=application),
             base_url="http://test",
             headers=HEADERS,
-        ) as client:
-            latest = await client.get("/market-scans/latest")
-            assert latest.status_code == 200
-            assert latest.json()["id"] == str(UUID(int=5))
-            assert latest.json()["report"] == REPORT
-            first = (await client.get("/market-scans", params={"page_size": 2})).json()
-            assert first["next_page_token"]
-            ids = [row["id"] for row in first["items"]]
-            # A newly committed latest scan must not shift the ongoing history.
-            await insert(admin, 6)
-            token = first["next_page_token"]
-            while token:
-                page = (
-                    await client.get(
-                        "/market-scans", params={"page_size": 2, "page_token": token}
-                    )
-                ).json()
-                ids.extend(row["id"] for row in page["items"])
-                token = page["next_page_token"]
-            assert ids == [str(UUID(int=n)) for n in range(5, 0, -1)]
-            detail = await client.get(f"/market-scans/{UUID(int=1)}")
-            assert detail.json()["report"] == REPORT
-            assert "session_id" not in detail.text
-            assert (await client.get("/ready")).status_code == 200
+        ) as client,
+    ):
+        latest = await client.get("/market-scans/latest")
+        assert latest.status_code == 200
+        assert latest.json()["id"] == str(UUID(int=5))
+        assert latest.json()["report"] == REPORT
+        first = (await client.get("/market-scans", params={"page_size": 2})).json()
+        assert first["next_page_token"]
+        ids = [row["id"] for row in first["items"]]
+        # A newly committed latest scan must not shift the ongoing history.
+        await insert(admin, 6)
+        token = first["next_page_token"]
+        while token:
+            page = (
+                await client.get(
+                    "/market-scans", params={"page_size": 2, "page_token": token}
+                )
+            ).json()
+            ids.extend(row["id"] for row in page["items"])
+            token = page["next_page_token"]
+        assert ids == [str(UUID(int=n)) for n in range(5, 0, -1)]
+        detail = await client.get(f"/market-scans/{UUID(int=1)}")
+        assert detail.json()["report"] == REPORT
+        assert "session_id" not in detail.text
+        assert (await client.get("/ready")).status_code == 200
     engine = create_engine(settings)
     try:
         async with engine.connect() as connection:
@@ -133,23 +135,25 @@ async def test_reader_pagination_detail_and_concurrent_insert(database):
 async def test_empty_store_invalid_report_and_unavailable_schema(database):
     admin, settings = database
     application = create_app(settings)
-    async with application.router.lifespan_context(application):
-        async with httpx.AsyncClient(
+    async with (
+        application.router.lifespan_context(application),
+        httpx.AsyncClient(
             transport=httpx.ASGITransport(app=application),
             base_url="http://test",
             headers=HEADERS,
-        ) as client:
-            assert (await client.get("/market-scans/latest")).status_code == 404
-            assert (await client.get("/market-scans")).json() == {
-                "items": [],
-                "next_page_token": "",
-            }
-            await insert(admin, 1, report=None)
-            assert (await client.get("/market-scans/latest")).status_code == 500
-            await admin.execute("DROP SCHEMA market_scanner CASCADE")
-            response = await client.get("/market-scans/latest")
-            assert response.status_code == 503
-            assert "integration-only" not in response.text
+        ) as client,
+    ):
+        assert (await client.get("/market-scans/latest")).status_code == 404
+        assert (await client.get("/market-scans")).json() == {
+            "items": [],
+            "next_page_token": "",
+        }
+        await insert(admin, 1, report=None)
+        assert (await client.get("/market-scans/latest")).status_code == 500
+        await admin.execute("DROP SCHEMA market_scanner CASCADE")
+        response = await client.get("/market-scans/latest")
+        assert response.status_code == 503
+        assert "integration-only" not in response.text
 
 
 async def test_other_schema_cannot_supply_a_report(database):
@@ -160,12 +164,35 @@ async def test_other_schema_cannot_supply_a_report(database):
             "GRANT SELECT ON public.market_scans TO market_scanner_reader"
         )
         application = create_app(settings)
-        async with application.router.lifespan_context(application):
-            async with httpx.AsyncClient(
+        async with (
+            application.router.lifespan_context(application),
+            httpx.AsyncClient(
                 transport=httpx.ASGITransport(app=application),
                 base_url="http://test",
                 headers=HEADERS,
-            ) as client:
-                assert (await client.get("/market-scans/latest")).status_code == 404
+            ) as client,
+        ):
+            assert (await client.get("/market-scans/latest")).status_code == 404
     finally:
         await admin.execute("DROP TABLE public.market_scans")
+
+
+async def test_shutdown_releases_database_connections(database):
+    admin, settings = database
+    application = create_app(settings)
+    count_connections = (
+        "SELECT count(*) FROM pg_stat_activity "
+        "WHERE application_name = 'market-scanner-api' "
+        "AND datname = current_database()"
+    )
+    async with (
+        application.router.lifespan_context(application),
+        httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=application),
+            base_url="http://test",
+            headers=HEADERS,
+        ) as client,
+    ):
+        assert (await client.get("/ready")).status_code == 200
+        assert await admin.fetchval(count_connections) == 1
+    assert await admin.fetchval(count_connections) == 0

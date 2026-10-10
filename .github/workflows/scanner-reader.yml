@@ -55,7 +55,7 @@ jobs:
       - run: uv run --frozen ruff check src scripts
       - run: uv run --frozen ruff format --check src scripts
       - run: uv run --frozen mypy
-      - run: uv run --frozen pytest -q
+      - run: uv run --frozen pytest --cov=app --cov-branch --cov-report=term-missing --cov-fail-under=90 -q
       - name: Build and boot production image
         run: |
           docker build -t local/market-scanner-api:review .

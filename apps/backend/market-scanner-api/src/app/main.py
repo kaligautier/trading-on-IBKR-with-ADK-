@@ -2,8 +2,11 @@
 
 import logging
 
-from app.application import create_app
+from fastapi import FastAPI
 
-logging.basicConfig(level=logging.INFO, format="%(message)s")
+from app.application import create_app as build_app
 
-__all__ = ["create_app"]
+
+def create_app() -> FastAPI:
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
+    return build_app()

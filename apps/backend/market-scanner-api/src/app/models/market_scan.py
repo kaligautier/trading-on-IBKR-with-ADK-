@@ -7,15 +7,15 @@ from uuid import UUID
 from pydantic import JsonValue
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class StoredScan:
     id: UUID
     scan_date: date
     created_at: datetime
-    report: dict[str, JsonValue]
+    report: JsonValue
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class ScanSummary:
     id: UUID
     scan_date: date

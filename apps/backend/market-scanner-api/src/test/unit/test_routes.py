@@ -85,7 +85,7 @@ def test_health_is_public_but_reports_and_docs_require_authentication():
 def test_database_errors_do_not_expose_credentials():
     class FailingRepository(Repository):
         async def latest(self):
-            from app.repositories.market_scan_repository import StoreUnavailableError
+            from app.repositories.scan_reader import StoreUnavailableError
 
             raise StoreUnavailableError() from RuntimeError("private-password")
 
@@ -142,3 +142,48 @@ def test_request_correlation_is_bounded_and_secrets_are_not_logged(caplog):
     assert response.headers["cache-control"] == "no-store"
     assert "reader-test" in caplog.text
     assert "local-test-token" not in caplog.text
+
+
+def test_unexpected_errors_are_sanitized_and_still_correlated(caplog):
+    import logging
+
+    class BrokenRepository(Repository):
+        async def latest(self):
+            raise RuntimeError("private-password")
+
+    with (
+        caplog.at_level(logging.INFO, logger="market_scanner_api"),
+        client(BrokenRepository()) as api,
+    ):
+        response = api.get(
+            "/market-scans/latest",
+            headers={**HEADERS, "X-Request-ID": "failed-request"},
+        )
+    assert response.status_code == 500
+    assert response.json()["error"]["code"] == "INTERNAL_ERROR"
+    assert response.headers["X-Request-ID"] == "failed-request"
+    assert '"status": 500' in caplog.text
+    assert "private-password" not in response.text + caplog.text
+
+
+def test_stored_dates_are_validated_not_just_treated_as_strings():
+    from copy import deepcopy
+    from dataclasses import replace
+
+    report = deepcopy(REPORT)
+    report["scope"]["observation_dates"] = ["2026-02-30"]
+    with client(Repository(replace(SCAN, report=report))) as api:
+        response = api.get("/market-scans/latest", headers=HEADERS)
+    assert response.status_code == 500
+    assert response.json()["error"]["code"] == "INVALID_STORED_REPORT"
+
+
+def test_framework_errors_use_the_same_envelope():
+    with client() as api:
+        missing = api.get("/unknown", headers=HEADERS)
+        disallowed = api.post("/market-scans/latest", headers=HEADERS)
+    assert missing.status_code == 404
+    assert missing.json()["error"]["code"] == "NOT_FOUND"
+    assert disallowed.status_code == 405
+    assert disallowed.json()["error"]["code"] == "METHOD_NOT_ALLOWED"
+    assert "GET" in disallowed.headers["allow"]

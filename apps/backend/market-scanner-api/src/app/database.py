@@ -10,7 +10,7 @@ from app.config.settings import Settings
 
 def create_engine(settings: Settings) -> AsyncEngine:
     url = make_url(settings.DATABASE_URL.get_secret_value())
-    tls = None
+    tls: ssl.SSLContext | bool = False
     if url.query.get("sslmode") == "verify-full":
         ca = url.query.get("sslrootcert")
         tls = ssl.create_default_context(cafile=str(ca) if ca else None)
