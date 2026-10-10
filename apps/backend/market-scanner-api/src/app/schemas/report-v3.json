@@ -1,0 +1,611 @@
+{
+  "$defs": {
+    "AssetAnalysis": {
+      "additionalProperties": false,
+      "properties": {
+        "asset_key": {
+          "title": "Asset Key",
+          "type": "string"
+        },
+        "horizon": {
+          "enum": [
+            "1d",
+            "1w",
+            "1m",
+            "3m",
+            "6m",
+            "ytd",
+            "1y",
+            "5y",
+            "level"
+          ],
+          "title": "Horizon",
+          "type": "string"
+        },
+        "observation": {
+          "description": "Observation from the snapshot.",
+          "title": "Observation",
+          "type": "string"
+        },
+        "interpretation": {
+          "$ref": "#/$defs/Interpretation"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "symbol": {
+          "title": "Symbol",
+          "type": "string"
+        },
+        "kind": {
+          "default": "market",
+          "enum": [
+            "market",
+            "macro"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "unit": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Unit"
+        },
+        "observed_on": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Observed On"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            }
+          ],
+          "title": "Value"
+        },
+        "horizons": {
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/HorizonData"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "title": "Horizons",
+          "type": "object"
+        },
+        "trend": {
+          "anyOf": [
+            {
+              "enum": [
+                "rising",
+                "stable",
+                "falling"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Trend"
+        },
+        "percentile_3y": {
+          "anyOf": [
+            {
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Percentile 3Y"
+        },
+        "history_points_3y": {
+          "default": 0,
+          "title": "History Points 3Y",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "asset_key",
+        "horizon",
+        "observation",
+        "interpretation",
+        "name",
+        "symbol",
+        "value",
+        "horizons"
+      ],
+      "title": "AssetAnalysis",
+      "type": "object"
+    },
+    "DataQuality": {
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "symbol": {
+          "title": "Symbol",
+          "type": "string"
+        },
+        "source": {
+          "title": "Source",
+          "type": "string"
+        },
+        "source_url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Url"
+        },
+        "observed_on": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Observed On"
+        },
+        "status": {
+          "enum": [
+            "available",
+            "stale",
+            "unavailable"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        }
+      },
+      "required": [
+        "name",
+        "symbol",
+        "source",
+        "status"
+      ],
+      "title": "DataQuality",
+      "type": "object"
+    },
+    "HorizonData": {
+      "description": "Validated market data for one time horizon.",
+      "properties": {
+        "change_pct": {
+          "description": "Percentage change.",
+          "title": "Change Pct",
+          "type": "number"
+        },
+        "ref_price": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            }
+          ],
+          "description": "Reference value at the start of the period.",
+          "title": "Ref Price"
+        },
+        "trend": {
+          "description": "Direction over this period.",
+          "enum": [
+            "rising",
+            "stable",
+            "falling"
+          ],
+          "title": "Trend",
+          "type": "string"
+        }
+      },
+      "required": [
+        "change_pct",
+        "ref_price",
+        "trend"
+      ],
+      "title": "HorizonData",
+      "type": "object"
+    },
+    "Interpretation": {
+      "additionalProperties": false,
+      "properties": {
+        "text": {
+          "title": "Text",
+          "type": "string"
+        },
+        "status": {
+          "description": "Documented requires a source; hypothesis indicates an inferred connection.",
+          "enum": [
+            "documented",
+            "hypothesis",
+            "unestablished"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "source_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Source Ids",
+          "type": "array"
+        }
+      },
+      "required": [
+        "text",
+        "status"
+      ],
+      "title": "Interpretation",
+      "type": "object"
+    },
+    "MacroOverview": {
+      "additionalProperties": false,
+      "properties": {
+        "context": {
+          "title": "Context",
+          "type": "string"
+        },
+        "themes": {
+          "items": {
+            "$ref": "#/$defs/MacroTheme"
+          },
+          "title": "Themes",
+          "type": "array"
+        },
+        "data_gaps": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Data Gaps",
+          "type": "array"
+        }
+      },
+      "required": [
+        "context",
+        "themes",
+        "data_gaps"
+      ],
+      "title": "MacroOverview",
+      "type": "object"
+    },
+    "MacroTheme": {
+      "additionalProperties": false,
+      "description": "Observation, reported context and conditional mechanism remain distinct.",
+      "properties": {
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "asset_keys": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Asset Keys",
+          "type": "array"
+        },
+        "observation": {
+          "title": "Observation",
+          "type": "string"
+        },
+        "development": {
+          "title": "Development",
+          "type": "string"
+        },
+        "transmission": {
+          "title": "Transmission",
+          "type": "string"
+        },
+        "counter_evidence": {
+          "title": "Counter Evidence",
+          "type": "string"
+        },
+        "uncertainty": {
+          "title": "Uncertainty",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "hypothesis",
+            "unestablished"
+          ],
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "title",
+        "asset_keys",
+        "observation",
+        "development",
+        "transmission",
+        "counter_evidence",
+        "uncertainty",
+        "status"
+      ],
+      "title": "MacroTheme",
+      "type": "object"
+    },
+    "ReportScope": {
+      "additionalProperties": false,
+      "properties": {
+        "requested": {
+          "title": "Requested",
+          "type": "integer"
+        },
+        "available": {
+          "title": "Available",
+          "type": "integer"
+        },
+        "observation_dates": {
+          "items": {
+            "format": "date",
+            "type": "string"
+          },
+          "title": "Observation Dates",
+          "type": "array"
+        },
+        "unavailable": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Unavailable",
+          "type": "array"
+        },
+        "stale": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Stale",
+          "type": "array"
+        }
+      },
+      "required": [
+        "requested",
+        "available",
+        "observation_dates",
+        "unavailable",
+        "stale"
+      ],
+      "title": "ReportScope",
+      "type": "object"
+    },
+    "ResearchSource": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "url": {
+          "format": "uri",
+          "maxLength": 2083,
+          "minLength": 1,
+          "title": "Url",
+          "type": "string"
+        },
+        "supported_claims": {
+          "description": "Response segments linked to this source by the provider; neither page quotations nor independent verification.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Supported Claims",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "url"
+      ],
+      "title": "ResearchSource",
+      "type": "object"
+    },
+    "ThemeAnalysis": {
+      "additionalProperties": false,
+      "properties": {
+        "family": {
+          "enum": [
+            "equities",
+            "volatility",
+            "rates_currencies",
+            "commodities",
+            "crypto",
+            "macro"
+          ],
+          "title": "Family",
+          "type": "string"
+        },
+        "observation": {
+          "title": "Observation",
+          "type": "string"
+        },
+        "interpretation": {
+          "$ref": "#/$defs/Interpretation"
+        },
+        "asset_keys": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Asset Keys",
+          "type": "array"
+        }
+      },
+      "required": [
+        "family",
+        "observation",
+        "interpretation",
+        "asset_keys"
+      ],
+      "title": "ThemeAnalysis",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "title": {
+      "title": "Title",
+      "type": "string"
+    },
+    "summary": {
+      "title": "Summary",
+      "type": "string"
+    },
+    "macro_overview": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/MacroOverview"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "regime": {
+      "description": "Diagnosis of the observed universe, without allocation advice.",
+      "enum": [
+        "risk-on",
+        "cautious",
+        "risk-off"
+      ],
+      "title": "Regime",
+      "type": "string"
+    },
+    "horizon": {
+      "enum": [
+        "1d",
+        "1w",
+        "1m",
+        "3m",
+        "6m",
+        "ytd",
+        "1y",
+        "5y",
+        "level"
+      ],
+      "title": "Horizon",
+      "type": "string"
+    },
+    "limitations": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Limitations",
+      "type": "array"
+    },
+    "watch_points": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Watch Points",
+      "type": "array"
+    },
+    "schema_version": {
+      "const": 3,
+      "default": 3,
+      "title": "Schema Version",
+      "type": "integer"
+    },
+    "scope": {
+      "$ref": "#/$defs/ReportScope"
+    },
+    "themes": {
+      "items": {
+        "$ref": "#/$defs/ThemeAnalysis"
+      },
+      "title": "Themes",
+      "type": "array"
+    },
+    "assets": {
+      "items": {
+        "$ref": "#/$defs/AssetAnalysis"
+      },
+      "title": "Assets",
+      "type": "array"
+    },
+    "sources": {
+      "items": {
+        "$ref": "#/$defs/ResearchSource"
+      },
+      "title": "Sources",
+      "type": "array"
+    },
+    "data_quality": {
+      "additionalProperties": {
+        "$ref": "#/$defs/DataQuality"
+      },
+      "title": "Data Quality",
+      "type": "object"
+    }
+  },
+  "required": [
+    "title",
+    "summary",
+    "regime",
+    "horizon",
+    "limitations",
+    "scope",
+    "themes",
+    "assets",
+    "sources",
+    "data_quality"
+  ],
+  "title": "MarketRegime",
+  "type": "object"
+}
