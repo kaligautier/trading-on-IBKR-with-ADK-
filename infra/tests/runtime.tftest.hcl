@@ -13,6 +13,13 @@ variables {
   image                   = "europe-west1-docker.pkg.dev/preprod-deep-copy/market-scanner/market-scanner-adk@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
   database_secret_version = "1"
   invoker_members         = ["serviceAccount:caller@preprod-deep-copy.iam.gserviceaccount.com"]
+  litellm_gateway = {
+    url         = "https://gateway.example.run.app"
+    key_secret  = "litellm-client-scanner"
+    key_version = "2"
+    network     = "private-services"
+    subnetwork  = "cloud-run-egress"
+  }
 }
 
 run "private_runtime" {
@@ -45,12 +52,12 @@ run "private_runtime" {
   }
   assert {
     condition = (
-      google_project_iam_member.vertex.role == "roles/aiplatform.user" &&
-      google_project_iam_member.vertex.member == "serviceAccount:${google_service_account.scanner.email}" &&
       [for env in google_cloud_run_v2_service.scanner.template[0].containers[0].env :
-      env.value if env.name == "GOOGLE_GENAI_USE_VERTEXAI"] == ["true"]
+      env.value if env.name == "GOOGLE_GENAI_USE_VERTEXAI"] == ["false"] &&
+      [for env in google_cloud_run_v2_service.scanner.template[0].containers[0].env :
+      env.value if env.name == "LITELLM_API_BASE"] == [var.litellm_gateway.url]
     )
-    error_message = "The scanner must call Vertex AI directly with its runtime identity."
+    error_message = "The scanner must route inference through LiteLLM."
   }
 }
 
@@ -127,4 +134,48 @@ run "independent_scan_job" {
     )
     error_message = "The dispatcher invokes the job; the job executes ADK without starting the HTTP server."
   }
+}
+
+run "gateway_for_api_and_worker" {
+  command = plan
+  assert {
+    condition = alltrue([
+      for envs in [
+        google_cloud_run_v2_service.scanner.template[0].containers[0].env,
+        google_cloud_run_v2_job.daily_scan.template[0].template[0].containers[0].env
+        ] : (
+        [for env in envs : env.value if env.name == "LITELLM_API_BASE"] == [var.litellm_gateway.url] &&
+        [for env in envs : env.value_source[0].secret_key_ref[0].version if env.name == "LITELLM_API_KEY"] == ["2"] &&
+        [for env in envs : env.value_source[0].secret_key_ref[0].secret if env.name == "LITELLM_API_KEY"] == [var.litellm_gateway.key_secret]
+      )
+    ])
+    error_message = "API and scheduled worker must share the gateway and pinned virtual-key secret."
+  }
+  assert {
+    condition = alltrue([
+      for vpc in [
+        google_cloud_run_v2_service.scanner.template[0].vpc_access[0],
+        google_cloud_run_v2_job.daily_scan.template[0].template[0].vpc_access[0]
+        ] : (
+        vpc.egress == "PRIVATE_RANGES_ONLY" &&
+        vpc.network_interfaces[0].network == var.litellm_gateway.network &&
+        vpc.network_interfaces[0].subnetwork == var.litellm_gateway.subnetwork
+      )
+    ])
+    error_message = "Both execution paths need the gateway VPC."
+  }
+}
+
+run "reject_mutable_gateway_key" {
+  command = plan
+  variables {
+    litellm_gateway = {
+      url         = "https://gateway.example.run.app"
+      key_secret  = "litellm-client-scanner"
+      key_version = "latest"
+      network     = "private-services"
+      subnetwork  = "cloud-run-egress"
+    }
+  }
+  expect_failures = [var.litellm_gateway]
 }

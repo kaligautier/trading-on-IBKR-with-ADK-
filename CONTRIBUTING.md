@@ -14,8 +14,9 @@ uv sync --frozen
 cp .env.example .env
 ```
 
-Configure `GOOGLE_CLOUD_PROJECT` in `.env` and authenticate locally with
-`gcloud auth application-default login`. Start the service with `just api 7777`.
+Configure `GOOGLE_CLOUD_PROJECT`, `LITELLM_API_BASE` and `LITELLM_API_KEY` in `.env`.
+The gateway must be reachable from your process; see
+[LiteLLM configuration](docs/adk-litellm.md). Start the service with `just api 7777`.
 Send `X-Market-Scanner-Token` with the configured token on API calls. For the
 ADK UI at <http://127.0.0.1:7777/dev-ui/>, you can clear `MARKET_SCANNER_TOKEN`
 only while the service is bound to localhost. Live scans call external providers

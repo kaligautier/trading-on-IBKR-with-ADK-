@@ -1,0 +1,148 @@
+name: Scanner checks
+
+on:
+  pull_request:
+    paths:
+      - 'apps/backend/market-scanner-adk/**'
+      - 'infra/**'
+      - '.github/workflows/scanner.yml'
+      - 'scripts/scanner_image_smoke.py'
+  push:
+    branches: [main]
+    paths:
+      - 'apps/backend/market-scanner-adk/**'
+      - 'infra/**'
+      - '.github/workflows/scanner.yml'
+      - 'scripts/scanner_image_smoke.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: scanner-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  application:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: apps/backend/market-scanner-adk
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
+        with:
+          version: '0.9.17'
+          enable-cache: true
+          cache-dependency-glob: apps/backend/market-scanner-adk/uv.lock
+      - name: Install locked dependencies
+        run: uv sync --frozen --python 3.12
+      - name: Lint application and tests
+        run: uv run --no-sync ruff check src ../../../scripts/scanner_image_smoke.py
+      - name: Check formatting
+        run: uv run --no-sync ruff format --check src/app ../../../scripts/scanner_image_smoke.py
+      - name: Test scanner and gateway failure handling
+        run: TZ=UTC uv run --no-sync pytest -q src/test/unit
+
+  infrastructure:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3
+        with:
+          terraform_version: '1.14.4'
+          terraform_wrapper: false
+      - name: Check runtime Terraform formatting
+        run: terraform -chdir=infra fmt -check
+      - name: Initialize providers without cloud backend
+        run: terraform -chdir=infra init -backend=false -input=false -lockfile=readonly
+      - name: Validate runtime infrastructure
+        run: terraform -chdir=infra validate
+      - name: Test runtime infrastructure with mocked providers
+        run: terraform -chdir=infra test
+
+  dependencies:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
+        with:
+          version: '0.9.17'
+      - name: Export locked runtime dependencies
+        run: uv export --project apps/backend/market-scanner-adk --frozen --no-dev --no-emit-project --format requirements-txt --output-file=${{ runner.temp }}/scanner-requirements.txt
+      - name: Audit runtime dependencies
+        run: uvx --from pip-audit==2.10.1 --python 3.12 pip-audit -r ${{ runner.temp }}/scanner-requirements.txt --disable-pip --no-deps
+
+  image:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Build Linux release image
+        run: docker build --platform linux/amd64 --tag scanner:verify apps/backend/market-scanner-adk
+      - name: Verify packaged runtime without cloud access
+        run: python3 scripts/scanner_image_smoke.py scanner:verify
+
+  publish:
+    # Publication is explicitly enabled by each repository owner, never by a PR.
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      github.event_name != 'pull_request' &&
+      vars.SCANNER_PUBLISH_ENABLED == 'true'
+    needs: [application, infrastructure, dependencies, image]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    environment: scanner-release
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+      GCP_REGION: ${{ vars.GCP_REGION }}
+      WIF_PROVIDER: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+      PUBLISHER: ${{ vars.GCP_ARTIFACT_PUBLISHER }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Validate release configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$GCP_PROJECT_ID" =~ ^[a-z][a-z0-9-]{4,28}[a-z0-9]$ ]]
+          [[ "$GCP_REGION" =~ ^[a-z]+-[a-z]+[0-9]+$ ]]
+          [[ "$WIF_PROVIDER" =~ ^projects/[0-9]+/locations/global/workloadIdentityPools/[a-z0-9-]+/providers/[a-z0-9-]+$ ]]
+          [[ "$PUBLISHER" == *@"$GCP_PROJECT_ID".iam.gserviceaccount.com ]]
+          echo "IMAGE=$GCP_REGION-docker.pkg.dev/$GCP_PROJECT_ID/market-scanner/market-scanner-adk:$GITHUB_SHA" >> "$GITHUB_ENV"
+      - name: Build release image before obtaining credentials
+        run: docker build --platform linux/amd64 --tag "$IMAGE" apps/backend/market-scanner-adk
+      - name: Verify the image to be published
+        run: python3 scripts/scanner_image_smoke.py "$IMAGE"
+      - id: auth
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
+        with:
+          project_id: ${{ env.GCP_PROJECT_ID }}
+          workload_identity_provider: ${{ env.WIF_PROVIDER }}
+          service_account: ${{ env.PUBLISHER }}
+          token_format: access_token
+          create_credentials_file: false
+      - name: Publish verified image and record its immutable reference
+        env:
+          ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
+          DOCKER_CONFIG: ${{ runner.temp }}/scanner-docker-auth
+        shell: bash
+        run: |
+          set -euo pipefail
+          registry="$GCP_REGION-docker.pkg.dev"
+          trap 'docker logout "$registry" >/dev/null 2>&1 || true' EXIT
+          printf '%s' "$ACCESS_TOKEN" | docker login -u oauth2accesstoken --password-stdin "$registry"
+          docker push "$IMAGE"
+          digest=$(docker inspect --format='{{index .RepoDigests 0}}' "$IMAGE")
+          [[ "$digest" =~ @sha256:[a-f0-9]{64}$ ]]
+          printf '### Scanner image\n\nCommit: `%s`\n\nTerraform input:\n```hcl\nimage = "%s"\n```\n' "$GITHUB_SHA" "$digest" >> "$GITHUB_STEP_SUMMARY"

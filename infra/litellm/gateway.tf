@@ -86,7 +86,7 @@ resource "google_cloud_run_v2_service" "gateway" {
       resources {
         # Pin Cloud Run defaults to reset existing revisions as well.
         limits   = { cpu = "1", memory = "512Mi" }
-        cpu_idle = false
+        cpu_idle = true
       }
       volume_mounts {
         name       = "gateway-routes"
@@ -108,7 +108,7 @@ resource "google_cloud_run_v2_service" "gateway" {
       args  = ["--config", "/etc/litellm/config.yaml", "--port", "4001", "--num_workers", "1"]
       resources {
         limits            = { cpu = "1", memory = "512Mi" }
-        cpu_idle          = false
+        cpu_idle          = true
         startup_cpu_boost = true
       }
       dynamic "env" {

@@ -5,6 +5,7 @@
 !.env.test
 *.pem
 *.key
+gha-creds-*.json
 # Python and build output
 .venv/
 __pycache__/
