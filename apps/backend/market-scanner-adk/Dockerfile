@@ -15,7 +15,7 @@ RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-reco
     && rm -rf /var/lib/apt/lists/*
 
 # Install UV package manager
-COPY --from=ghcr.io/astral-sh/uv:0.12.2 /uv /usr/local/bin/uv
+COPY --from=ghcr.io/astral-sh/uv:0.12.2@sha256:069a51314a7bb6031777a9273205fe1b0b19e914ef418207d1338b268df641dd /uv /usr/local/bin/uv
 
 # =============================================================================
 # Stage 2: Builder

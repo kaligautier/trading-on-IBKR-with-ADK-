@@ -44,6 +44,8 @@ Authenticate Terraform with Application Default Credentials first.
    `market-scanner-database-url`. Retain its numeric version.
 3. Build the application Dockerfile for `linux/amd64`, publish it to the
    bootstrapped `market-scanner` repository, and resolve its immutable digest.
+   The optional [image publication workflow](../docs/adk-litellm.md#image-publication)
+   automates this step after the scanner checks pass.
 4. Copy `config/release.local.tfvars.example` to `config/release.local.tfvars`.
    Set the image digest, numeric database secret version, explicit invoker identities,
    and required `litellm_gateway` object. Provision its scanner key and access grant

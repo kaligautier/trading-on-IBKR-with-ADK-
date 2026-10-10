@@ -1,4 +1,4 @@
-image                   = "europe-west1-docker.pkg.dev/preprod-deep-copy/market-scanner/market-scanner-adk@sha256:REPLACE_WITH_DIGEST"
+image                   = "europe-west1-docker.pkg.dev/YOUR_PROJECT/market-scanner/market-scanner-adk@sha256:REPLACE_WITH_DIGEST"
 database_secret_version = "1"
 invoker_members         = ["user:YOUR_EMAIL"]
 litellm_gateway = {

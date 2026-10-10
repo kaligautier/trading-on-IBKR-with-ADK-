@@ -75,6 +75,43 @@ VPC as the gateway. The scanner no longer receives `roles/aiplatform.user` from
 the runtime Terraform root. Review the plan before applying: this branch needs
 the matching application image and gateway configuration together.
 
+## Image publication
+
+`Scanner checks` builds the `linux/amd64` application image on pull requests and
+relevant pushes to `main`. An offline container test verifies startup, non-root
+execution, graph imports, required gateway configuration and worker failure
+without a database. It does not prove live inference or database persistence.
+
+To publish images, first apply the bootstrap stack in your own project, then:
+
+1. Configure [Workload Identity Federation](https://cloud.google.com/iam/docs/workload-identity-federation-with-deployment-pipelines)
+   for GitHub and a dedicated publisher service account. Restrict the provider
+   condition to your numeric repository and owner IDs, `refs/heads/main`, and
+   the `scanner.yml` workflow. Restrict impersonation to the `scanner-release`
+   environment subject; grant `roles/iam.workloadIdentityUser` on this account
+   only. Grant it `roles/artifactregistry.writer` on the `market-scanner`
+   repository only. It needs no Cloud Run, Terraform state or secret access.
+2. Create the GitHub environment `scanner-release`, restrict it to `main`, and
+   configure required reviewers according to your release policy. Protect
+   `main` with review and required Scanner/LiteLLM checks before merging.
+3. Set environment variables `GCP_PROJECT_ID`, `GCP_REGION`,
+   `GCP_WORKLOAD_IDENTITY_PROVIDER` (full provider resource name), and
+   `GCP_ARTIFACT_PUBLISHER` (service account email). Set the **repository**
+   Actions variable `SCANNER_PUBLISH_ENABLED=true` last.
+
+Publication runs only on `main`, after all Scanner checks pass. It can also be
+triggered with `workflow_dispatch` on `main`. Forks are disabled by default and
+must configure their own identity and registry. The release job builds and
+tests its image before requesting a short-lived token, then publishes that same
+image with the commit SHA tag. No service-account JSON key is used.
+
+The job summary records the immutable image reference for Terraform's `image`
+variable. Review the Terraform plan with the matching gateway configuration
+before deployment. Retain the previous image digest and configuration for
+rollback. Publication does not apply Terraform, migrate a database, or establish
+that a scan completed. GCP federation and GitHub protections are prerequisites
+configured outside this workflow; they are not created automatically.
+
 ## Validation
 
 From `apps/backend/market-scanner-adk`:
