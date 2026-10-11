@@ -33,6 +33,27 @@ variable "model" {
   default = "gemini-3.8-flash"
 }
 
+variable "litellm_gateway" {
+  description = "Required native LiteLLM gateway. Provision its client key and grant the scanner SA secret access in infra/litellm first."
+  type = object({
+    url         = string
+    key_secret  = string
+    key_version = string
+    network     = string
+    subnetwork  = string
+  })
+  nullable = false
+  validation {
+    condition = (
+      can(regex("^https://[a-zA-Z0-9.-]+/?$", var.litellm_gateway.url)) &&
+      can(regex("^[a-zA-Z0-9_-]+$", var.litellm_gateway.key_secret)) &&
+      can(regex("^[1-9][0-9]*$", var.litellm_gateway.key_version)) &&
+      var.litellm_gateway.network != "" && var.litellm_gateway.subnetwork != ""
+    )
+    error_message = "Use a root HTTPS gateway URL, secret ID, numeric key version and its Direct VPC network/subnetwork."
+  }
+}
+
 variable "database_secret_version" {
   description = "Numeric version of market-scanner-database-url containing the writer URL."
   type        = string

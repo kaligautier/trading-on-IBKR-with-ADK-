@@ -44,6 +44,8 @@ docs/
 .env.*
 **/.env
 **/.env.*
+**/gha-creds-*.json
+src/test/
 
 # Logs
 *.log

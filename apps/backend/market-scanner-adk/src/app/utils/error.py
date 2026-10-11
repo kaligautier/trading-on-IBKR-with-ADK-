@@ -13,6 +13,7 @@ class ErrorCode(Enum):
     TOOL_EXECUTION_ERROR = 3001
     MARKET_DATA_COLLECTION_ERROR = 3002
     MARKET_DATA_UNAVAILABLE = 3003
+    LITELLM_ERROR = 3004
 
 
 HTTP_STATUS_CODES = {
@@ -23,6 +24,7 @@ HTTP_STATUS_CODES = {
     ErrorCode.TOOL_EXECUTION_ERROR: 502,
     ErrorCode.MARKET_DATA_COLLECTION_ERROR: 502,
     ErrorCode.MARKET_DATA_UNAVAILABLE: 503,
+    ErrorCode.LITELLM_ERROR: 502,
 }
 
 
@@ -34,6 +36,7 @@ ERROR_MESSAGES = {
     ErrorCode.TOOL_EXECUTION_ERROR: "Tool execution failed",
     ErrorCode.MARKET_DATA_COLLECTION_ERROR: "Market data collection failed",
     ErrorCode.MARKET_DATA_UNAVAILABLE: "No available market data for analysis",
+    ErrorCode.LITELLM_ERROR: "LiteLLM gateway request failed",
 }
 
 
@@ -99,6 +102,13 @@ class MarketDataUnavailableError(AppError):
 
     def __init__(self, message: str | None = None, details: dict | None = None):
         super().__init__(ErrorCode.MARKET_DATA_UNAVAILABLE, message, details)
+
+
+class LiteLLMError(AppError):
+    """Inference failed at the gateway; the scan must stop without fallback."""
+
+    def __init__(self, message: str | None = None, details: dict | None = None):
+        super().__init__(ErrorCode.LITELLM_ERROR, message, details)
 
 
 class ConfigurationError(AppError):

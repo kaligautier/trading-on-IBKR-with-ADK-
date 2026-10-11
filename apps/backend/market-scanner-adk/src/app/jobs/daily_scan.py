@@ -16,6 +16,7 @@ from app.config.constants import MARKET_SCANNER, PERSIST_MARKET_SCAN
 from app.config.settings import settings
 from app.models.step_04_market_data import MarketData
 from app.services.database import close_database
+from app.utils.error import AppError, LiteLLMError
 from app.utils.logger import config_logger
 
 logger = logging.getLogger(__name__)
@@ -50,6 +51,8 @@ async def run_scan() -> dict[str, str | int]:
         ) as events:
             async for event in events:
                 if event.error_code:
+                    if event.error_code == LiteLLMError.__name__:
+                        raise LiteLLMError()
                     raise RuntimeError("ADK workflow failed")
                 if event.node_name == PERSIST_MARKET_SCAN and event.output:
                     report = MarketData.model_validate(event.output).market_regime
@@ -67,11 +70,17 @@ async def main() -> int:
         )
         return 0
     except Exception as error:
+        error_details = (
+            {"error_code": error.error_code.name, "error_details": error.details}
+            if isinstance(error, AppError)
+            else {}
+        )
         logger.error(
             "scheduled scan failed",
             extra={
                 "event": "scheduled_scan.failed",
                 "error_type": type(error).__name__,
+                **error_details,
             },
         )
         return 1
