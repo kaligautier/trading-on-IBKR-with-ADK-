@@ -27,8 +27,9 @@ resource "google_cloud_run_v2_service" "litellm" {
       }
       resources {
         # Pin Cloud Run defaults to reset existing revisions as well.
-        limits            = { cpu = "1", memory = "1Gi" }
-        cpu_idle          = true
+        limits = { cpu = "1", memory = "1Gi" }
+        # Batched spend writes must run after the response completes.
+        cpu_idle          = false
         startup_cpu_boost = true
       }
       dynamic "env" {

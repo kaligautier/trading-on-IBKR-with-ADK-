@@ -167,13 +167,17 @@ requests. The NGINX image is pinned by `gateway_filter_digest` and mirrored
 through the same Artifact Registry repository.
 Keep NGINX first in the container list: the provider preserves computed ports
 by list index when updating the original single-container service. Each service
-scales from zero to one instance and uses request-based billing (`cpu_idle = true`).
+scales from zero to one instance and uses instance-based billing (`cpu_idle = false`)
+so LiteLLM can persist its 60-second batched spend updates between requests.
 The admin container is limited to 1 vCPU and 1 GiB; the gateway has two containers,
 each limited to 1 vCPU and 512 MiB. Size memory from measured workload peaks.
-Startup, shutdown and health-check probes still consume billable resources.
-Request-based billing can delay background work. Verify LiteLLM's 60-second
-batched spend writes after an idle interval and cold start before relying on
-durable accounting. The Docker smoke does not simulate Cloud Run CPU throttling.
+CPU and memory are billed for the full instance lifetime, including idle periods;
+scaling to zero remains enabled and cold starts remain possible. LiteLLM also
+attempts to flush pending spend on graceful shutdown, but this does not guarantee
+persistence if shutdown fails or exceeds Cloud Run's grace period. Verify spend
+writes after an idle interval and a cold start before relying on durable accounting.
+The Docker smoke does not simulate Cloud Run CPU allocation or termination.
+See [Cloud Run background execution](https://cloud.google.com/run/docs/configuring/billing-settings#background_execution_considerations).
 The Scanner application uses this gateway; see
 [ADK configuration](../../docs/adk-litellm.md). Its dedicated verification job
 exercises the gateway with the same service account.
