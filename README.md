@@ -4,6 +4,8 @@ Deepcopy is a market research and trading automation project built with Google A
 
 This repository contains the Market Scanner ADK source, database migrations,
 Terraform infrastructure, public MCP reference, and example outputs.
+The [consultation API](apps/backend/market-scanner-api/README.md) serves persisted
+reports through a separate read-only backend service.
 
 For development and validation, see the [contribution guide](CONTRIBUTING.md).
 For the news tools and global macro report, see [macro research](docs/macro-research.md).
