@@ -107,7 +107,8 @@ resource "google_cloud_run_v2_service" "gateway" {
       image = local.proxy_image
       args  = ["--config", "/etc/litellm/config.yaml", "--port", "4001", "--num_workers", "1"]
       resources {
-        limits            = { cpu = "1", memory = "512Mi" }
+        limits = { cpu = "1", memory = "512Mi" }
+        # Batched spend writes must run after the response completes.
         cpu_idle          = false
         startup_cpu_boost = true
       }

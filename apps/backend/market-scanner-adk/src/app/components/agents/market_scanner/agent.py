@@ -4,7 +4,6 @@ from datetime import UTC, datetime
 
 from google.adk import Context, Event, Workflow
 from google.adk.agents import LlmAgent
-from google.adk.models import Gemini
 from google.adk.tools import google_search
 from google.adk.workflow import node
 from google.genai import types
@@ -45,6 +44,7 @@ from app.config.constants import (
     STATE_TREND_MARKET_DATA,
     STATE_WEB_ANALYSIS,
 )
+from app.config.llm import create_model
 from app.config.settings import settings
 from app.models.market_assets import AssetCatalog
 from app.models.step_02_trend_market_data import TrendMarketData
@@ -75,14 +75,7 @@ market_data_collection_service = MarketDataCollectionService(
 
 market_data_trend_service = MarketDataTrendService()
 
-gemini_model = Gemini(
-    model=settings.MODEL,
-    client_kwargs={
-        "enterprise": settings.GOOGLE_GENAI_USE_VERTEXAI,
-        "project": settings.GOOGLE_CLOUD_PROJECT,
-        "location": settings.GOOGLE_CLOUD_LOCATION,
-    },
-)
+gemini_model = create_model(settings)
 
 
 @node(name=GET_MARKET_DATA, rerun_on_resume=True)

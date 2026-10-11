@@ -43,11 +43,11 @@ class TestMarketScannerWorkflow:
 
         assert researcher.name == "market_web_researcher"
         assert researcher.model.model == settings.MODEL
-        assert researcher.model.client_kwargs == {
-            "enterprise": True,
-            "project": settings.GOOGLE_CLOUD_PROJECT,
-            "location": settings.GOOGLE_CLOUD_LOCATION,
-        }
+        assert researcher.model.client_kwargs["vertexai"] is False
+        assert researcher.model.client_kwargs["enterprise"] is False
+        assert researcher.model.client_kwargs["http_options"].base_url == (
+            settings.LITELLM_API_BASE.rstrip("/")
+        )
         assert researcher.after_model_callback is None
         assert researcher.mode == "single_turn"
         assert researcher.instruction

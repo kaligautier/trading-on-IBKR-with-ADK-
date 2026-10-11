@@ -9,6 +9,7 @@ reports through a separate read-only backend service.
 
 For development and validation, see the [contribution guide](CONTRIBUTING.md).
 For the news tools and global macro report, see [macro research](docs/macro-research.md).
+For ADK inference configuration, see [LiteLLM gateway integration](docs/adk-litellm.md).
 
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENCE)
 

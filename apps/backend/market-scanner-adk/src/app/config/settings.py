@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Literal
 
 from dotenv import find_dotenv, load_dotenv
-from pydantic import AliasChoices, Field, ValidationError
+from pydantic import AliasChoices, Field, SecretStr, ValidationError, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from app.utils.error import ConfigurationError
@@ -26,6 +26,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=".env",
         case_sensitive=True,
+        hide_input_in_errors=True,
     )
 
     # Auto-load .env file in non-Docker environments
@@ -80,6 +81,30 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices("MARKET_SCANNER_MODEL", "MODEL"),
         description="AI model to use for the agent",
     )
+    LITELLM_API_BASE: str
+    LITELLM_API_KEY: SecretStr = Field(repr=False)
+
+    @model_validator(mode="after")
+    def validate_litellm(self) -> "Settings":
+        """Fail before starting a scan when gateway configuration is incomplete."""
+        from urllib.parse import urlsplit
+
+        url = urlsplit(self.LITELLM_API_BASE)
+        if (
+            url.scheme not in {"http", "https"}
+            or not url.hostname
+            or url.username
+            or url.password
+            or url.query
+            or url.fragment
+            or url.path not in {"", "/"}
+        ):
+            raise ValueError("LITELLM_API_BASE must be the gateway root HTTP URL")
+        if url.scheme == "http" and url.hostname not in {"127.0.0.1", "::1"}:
+            raise ValueError("LITELLM_API_BASE requires HTTPS outside loopback")
+        if not self.LITELLM_API_KEY.get_secret_value().strip():
+            raise ValueError("LITELLM_API_KEY is required for the LiteLLM backend")
+        return self
 
     RESEARCHER_THINKING_LEVEL: Literal["LOW", "MEDIUM", "HIGH"] = Field(
         default="MEDIUM",
@@ -127,14 +152,15 @@ class Settings(BaseSettings):
         """Get the absolute path to the instructions templates directory."""
         return str(Path(__file__).parent.parent / "instructions" / "templates")
 
-    # Google Cloud Platform configuration (required for Vertex AI)
+    # GCP project is required by the job dispatcher. Legacy SDK options are
+    # accepted for compatibility; create_model explicitly disables Vertex.
     GOOGLE_APPLICATION_CREDENTIALS: str | None = Field(
         default=None,
         description="Optional path to local Application Default Credentials.",
     )
     GOOGLE_GENAI_USE_VERTEXAI: bool = Field(
-        default=True,
-        description="Enable Vertex AI for Google Generative AI (required)",
+        default=False,
+        description="Legacy setting; scanner inference always uses LiteLLM.",
     )
     GOOGLE_CLOUD_PROJECT: str = Field(
         description="GCP project ID (required)",
@@ -144,7 +170,7 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices(
             "MARKET_SCANNER_GOOGLE_CLOUD_LOCATION", "GOOGLE_CLOUD_LOCATION"
         ),
-        description="Vertex AI inference location, separate from the Cloud Run region.",
+        description="Legacy SDK location; the gateway configures inference routing.",
     )
 
     # Session management
