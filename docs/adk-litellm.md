@@ -42,7 +42,8 @@ configured gateway. Configuration errors hide raw input values.
 
 ## Errors
 
-SDK API, transport and response validation failures become `LiteLLMError` with code `LITELLM_ERROR` (3004), HTTP 502 and message
+SDK API, transport, JSON decoding and response validation failures become
+`LiteLLMError` with code `LITELLM_ERROR` (3004), HTTP 502 and message
 `LiteLLM gateway request failed`. Safe diagnostic details contain the exception
 type and, for HTTP errors, the upstream status. Raw upstream messages and
 credentials are excluded from the custom exception and its displayed traceback.

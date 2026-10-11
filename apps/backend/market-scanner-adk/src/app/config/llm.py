@@ -1,6 +1,7 @@
 """Route ADK's native Gemini requests through the private LiteLLM gateway."""
 
 import asyncio
+import json
 
 import httpx
 from google.adk.models import Gemini
@@ -20,6 +21,8 @@ class LiteLLMGatewayModel(Gemini):
                 yield response
         except (
             errors.APIError,
+            errors.UnknownApiResponseError,
+            json.JSONDecodeError,
             httpx.TransportError,
             asyncio.TimeoutError,
             ValidationError,

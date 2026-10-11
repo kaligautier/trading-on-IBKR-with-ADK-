@@ -1,6 +1,7 @@
 """Exercise the real ADK and GenAI transport against a gateway HTTP stub."""
 
 import json
+import traceback
 from unittest.mock import AsyncMock
 
 import httpx
@@ -97,7 +98,8 @@ def should_allow_plaintext_loopback_gateways_for_local_development(base):
 
 
 @pytest.mark.parametrize("stream", [False, True])
-async def should_hide_invalid_gateway_response_details(stream):
+@pytest.mark.parametrize("malformed_json", [False, True])
+async def should_hide_invalid_gateway_response_details(stream, malformed_json):
     marker = "PRIVATE-RESPONSE-WITH-sk-offline-test"
 
     async def respond(request):
@@ -112,13 +114,16 @@ async def should_hide_invalid_gateway_response_details(stream):
                 }
             ]
         }
+        payload = '{"' + marker + '":' if malformed_json else json.dumps(body)
         if stream:
             return httpx.Response(
                 200,
                 headers={"content-type": "text/event-stream"},
-                text="data: " + json.dumps(body) + "\n\n",
+                text="data: " + payload + "\n\n",
             )
-        return httpx.Response(200, json=body)
+        return httpx.Response(
+            200, headers={"content-type": "application/json"}, text=payload
+        )
 
     model = create_model(gateway_config())
     model.client_kwargs["http_options"].async_client_args = {
@@ -138,7 +143,10 @@ async def should_hide_invalid_gateway_response_details(stream):
     finally:
         await model.api_client.aio.aclose()
         model.api_client.close()
+    assert raised.value.status_code == 502
+    assert raised.value.error_code is ErrorCode.LITELLM_ERROR
     assert marker not in str(raised.value)
+    assert marker not in "".join(traceback.format_exception(raised.value))
 
 
 @pytest.mark.parametrize("stream", [False, True])
@@ -323,7 +331,7 @@ async def should_propagate_gateway_failure_without_calling_vertex(status):
 
 
 @pytest.mark.parametrize("route", ["/run", "/run_sse"])
-@pytest.mark.parametrize("failure", ["http", "invalid_response"])
+@pytest.mark.parametrize("failure", ["http", "invalid_response", "malformed_json"])
 async def should_expose_custom_error_over_adk_http_without_persisting(
     monkeypatch, caplog, route, failure
 ):
@@ -335,6 +343,12 @@ async def should_expose_custom_error_over_adk_http_without_persisting(
 
     async def reject(request):
         calls.append(request)
+        if failure == "malformed_json":
+            return httpx.Response(
+                200,
+                headers={"content-type": "application/json"},
+                text='{"PRIVATE body sk-offline-test":',
+            )
         if failure == "invalid_response":
             return httpx.Response(
                 200,
@@ -376,7 +390,8 @@ async def should_expose_custom_error_over_adk_http_without_persisting(
     monkeypatch.setattr(scanner.MarketScanPersistence, "save", save)
     try:
         async with httpx.AsyncClient(
-            transport=httpx.ASGITransport(app=create_app()), base_url="http://scanner"
+            transport=httpx.ASGITransport(app=create_app(), raise_app_exceptions=False),
+            base_url="http://scanner"
         ) as client:
             session = await client.post(
                 "/apps/market_scanner/users/gateway-test/sessions", json={"state": {}}
@@ -407,8 +422,9 @@ async def should_expose_custom_error_over_adk_http_without_persisting(
         assert "sk-offline-test" not in text
 
 
+@pytest.mark.parametrize("malformed_json", [False, True])
 async def should_fail_scheduled_worker_with_custom_code_and_no_persistence(
-    monkeypatch, caplog
+    monkeypatch, caplog, malformed_json
 ):
     from app.config.settings import settings
     from app.jobs import daily_scan
@@ -418,6 +434,12 @@ async def should_fail_scheduled_worker_with_custom_code_and_no_persistence(
     async def reject(request):
         calls.append(request)
         assert request.url.host == "gateway.example"
+        if malformed_json:
+            return httpx.Response(
+                200,
+                headers={"content-type": "application/json"},
+                text='{"PRIVATE body":',
+            )
         return httpx.Response(
             403,
             json={
