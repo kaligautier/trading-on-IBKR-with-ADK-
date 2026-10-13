@@ -24,3 +24,9 @@ dist/
 context/
 # Personal planning notes
 BEST_PRATICE.TODO
+
+# Frontend build output
+node_modules/
+.next/
+out/
+*.tsbuildinfo

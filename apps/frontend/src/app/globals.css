@@ -1,0 +1,117 @@
+@import "tailwindcss";
+
+@theme inline {
+  /* ── Surface Hierarchy (warm cream) ── */
+  --color-surface: #faf9f6;
+  --color-surface-low: #f3f2ee;
+  --color-surface-lowest: #ffffff;
+  --color-surface-high: #e8e6e1;
+  --color-surface-highest: #d8d6d0;
+
+  /* ── Primary (Indigo — used sparingly) ── */
+  --color-primary: #4a40e0;
+  --color-primary-container: #7b74f5;
+  --color-primary-dim: #3830b0;
+
+  /* ── On-Surface (Text & Icons) ── */
+  --color-on-surface: #111111;
+  --color-on-surface-variant: #555555;
+  --color-on-surface-muted: #666666;
+
+  /* ── Outline ── */
+  --color-outline-variant: #d8d6d0;
+  --color-outline-control: #817f78;
+  --color-inverse-divider: rgba(255, 255, 255, 0.2);
+
+  /* ── Semantic (Finance) ── */
+  --color-success: #16a34a;
+  --color-success-container: rgba(220, 252, 231, 0.8);
+  --color-on-success-container: #166534;
+
+  --color-danger: #dc2626;
+  --color-danger-container: rgba(254, 226, 226, 0.8);
+  --color-on-danger-container: #b91c1c;
+
+  --color-warning: #d97706;
+  --color-warning-container: rgba(254, 243, 199, 0.8);
+  --color-on-warning-container: #b45309;
+
+  /* ── Aliases ── */
+  --color-background: #faf9f6;
+  --color-foreground: #111111;
+
+  /* ── Display Font (Manrope) ── */
+  --font-display: var(--font-manrope), ui-sans-serif, system-ui, sans-serif;
+}
+
+body {
+  background: var(--color-background);
+  color: var(--color-foreground);
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+[id] {
+  scroll-margin-top: 6rem;
+}
+
+*:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+@utility animate-marquee {
+  animation: marquee 20s linear infinite;
+}
+
+@utility animate-marquee-reverse {
+  animation: marquee 25s linear infinite reverse;
+}
+
+@keyframes dropdown-in {
+  from { opacity: 0; transform: translateY(-4px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@utility animate-dropdown-in {
+  animation: dropdown-in 150ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.product-row {
+  position: relative;
+}
+
+.product-row::after {
+  position: absolute;
+  right: 0;
+  bottom: -1px;
+  left: 0;
+  height: 1px;
+  content: "";
+  background: var(--color-primary-container);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 300ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.product-row:hover::after,
+.product-row:focus-within::after {
+  transform: scaleX(1);
+}
+
+.product-destination-icon {
+  transition: transform 180ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.product-destination:hover .product-destination-icon,
+.product-destination:focus-visible .product-destination-icon {
+  transform: translate(3px, 3px);
+}
