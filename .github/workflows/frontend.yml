@@ -1,0 +1,42 @@
+name: Public scanner frontend
+on:
+  pull_request:
+    paths:
+      - 'apps/frontend/**'
+      - 'apps/backend/market-scanner-adk/examples/report-v3.json'
+      - 'infra/frontend/**'
+      - '.github/workflows/frontend.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'apps/frontend/**'
+      - 'apps/backend/market-scanner-adk/examples/report-v3.json'
+      - 'infra/frontend/**'
+      - '.github/workflows/frontend.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: public-frontend-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  frontend:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: apps/frontend
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: apps/frontend/package-lock.json
+      - run: npm install --global npm@11.19.1 --ignore-scripts
+      - run: npm ci --ignore-scripts
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm audit --omit=dev --audit-level=high
+      - run: npm run build
