@@ -40,3 +40,30 @@ jobs:
       - run: npm test
       - run: npm audit --omit=dev --audit-level=high
       - run: npm run build
+      - name: Boot standalone container
+        run: |
+          docker build -t local/market-scanner-front:review .
+          docker run -d --name front-review -p 127.0.0.1:3199:3000 local/market-scanner-front:review
+          trap 'docker logs front-review; docker rm -f front-review' EXIT
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:3199/health; then break; fi
+            sleep 1
+          done
+          curl --fail --silent http://127.0.0.1:3199/health
+          curl --fail --silent http://127.0.0.1:3199/docs -o /tmp/front-docs.html
+          curl --fail --silent http://127.0.0.1:3199/ -o /tmp/front-landing.html
+          grep -q 'temporairement indisponible' /tmp/front-landing.html
+          grep -q 'Market Scanner' /tmp/front-docs.html
+  infrastructure:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd
+        with:
+          terraform_version: '1.14.4'
+          terraform_wrapper: false
+      - run: terraform -chdir=infra/frontend fmt -check -recursive
+      - run: terraform -chdir=infra/frontend init -backend=false -input=false -lockfile=readonly
+      - run: terraform -chdir=infra/frontend validate
+      - run: terraform -chdir=infra/frontend test
