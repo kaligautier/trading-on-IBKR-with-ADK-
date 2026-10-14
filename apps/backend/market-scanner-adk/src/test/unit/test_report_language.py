@@ -27,6 +27,7 @@ def should_publish_the_documented_english_v3_contract():
         "title",
         "summary",
         "macro_overview",
+        "arbitration",
         "regime",
         "horizon",
         "limitations",

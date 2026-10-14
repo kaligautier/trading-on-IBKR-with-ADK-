@@ -377,6 +377,58 @@
       "title": "MacroTheme",
       "type": "object"
     },
+    "ReportArbitration": {
+      "additionalProperties": false,
+      "description": "Concise public justification, separate from internal research and critique.",
+      "properties": {
+        "decision_rationale": {
+          "maxLength": 500,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Decision Rationale",
+          "type": "string"
+        },
+        "supporting_factors": {
+          "items": {
+            "maxLength": 500,
+            "minLength": 1,
+            "pattern": "\\S",
+            "type": "string"
+          },
+          "maxItems": 3,
+          "minItems": 1,
+          "title": "Supporting Factors",
+          "type": "array"
+        },
+        "main_counterargument": {
+          "maxLength": 500,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Main Counterargument",
+          "type": "string"
+        },
+        "invalidation_conditions": {
+          "items": {
+            "maxLength": 500,
+            "minLength": 1,
+            "pattern": "\\S",
+            "type": "string"
+          },
+          "maxItems": 3,
+          "minItems": 0,
+          "title": "Invalidation Conditions",
+          "type": "array"
+        }
+      },
+      "required": [
+        "decision_rationale",
+        "supporting_factors",
+        "main_counterargument",
+        "invalidation_conditions"
+      ],
+      "title": "ReportArbitration",
+      "type": "object"
+    },
     "ReportScope": {
       "additionalProperties": false,
       "properties": {
@@ -510,6 +562,17 @@
       "anyOf": [
         {
           "$ref": "#/$defs/MacroOverview"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "arbitration": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ReportArbitration"
         },
         {
           "type": "null"

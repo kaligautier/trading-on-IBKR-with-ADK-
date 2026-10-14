@@ -71,9 +71,10 @@ callbacks record its start/end. It cannot independently verify external claims.
 
 The synthesizer weighs the review against the original evidence, corrects substantiated
 issues and retains supported macro context. Disagreement alone does not force a
-cautious regime. The critique stays internal; public report v3 and database schemas
-are unchanged. The new report still carries macro context, counter-evidence, gaps
-and watch points through the existing fields.
+cautious regime. The critique stays internal. A concise public arbitration now
+explains the selected diagnosis without exposing the critique transcript or
+internal reasoning. The report also carries macro context, counter-evidence,
+gaps and watch points through the existing fields.
 
 ## Report and writing contract
 
@@ -86,6 +87,24 @@ may appear. The new fields are carried through assembly and stored in the existi
 `market_scans.report` JSONB; no database migration is required. Existing summary,
 family insights and asset calculations remain available. Consumers with a strict
 field allowlist should add `macro_overview` before consuming the extended payload.
+
+Report v3 also accepts an optional `arbitration` (absent or `null` in historical
+reports). New synthesis output requires a non-null object with:
+
+- `decision_rationale`: the factual justification for the chosen diagnosis.
+- `supporting_factors`: one to three distinct supporting observations.
+- `main_counterargument`: the strongest opposing observation or material gap.
+- `invalidation_conditions`: zero to three observable changes that would challenge
+  the diagnosis; an empty list is valid when the evidence supports none.
+
+Every text is nonempty and at most 500 Unicode characters. The producer validates
+these bounds in Python; the public serialization schema also applies them at the
+reader boundary. The provider input schema remains free of unsupported string and
+list bounds. Add `arbitration` to strict consumer allowlists before using new reports.
+It passes unchanged through assembly and the existing JSONB storage; no migration
+or additional model call is needed. Legacy reports remain readable and the frontend
+explicitly states when arbitration is absent. The public summary never substitutes
+for missing research sources or converts hypotheses into verified claims.
 
 The prompt seeks substantive policy/growth/inflation/earnings/geopolitical context,
 conditional transmission channels, contradictory evidence and material gaps. It
