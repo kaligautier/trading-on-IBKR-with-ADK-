@@ -109,6 +109,22 @@ function macro(value: unknown) {
     }),
   }
 }
+function arbitrationText(value: unknown): string {
+  const result = text(value).trim()
+  return result.length > 0 && [...result].length <= 500 ? result : invalid()
+}
+function arbitration(value: unknown) {
+  const item = object(value)
+  const fields = ["decision_rationale", "supporting_factors", "main_counterargument", "invalidation_conditions"]
+  if (Object.keys(item).some(key => !fields.includes(key))) return invalid()
+  const supporting_factors = list(item.supporting_factors, arbitrationText)
+  const invalidation_conditions = list(item.invalidation_conditions, arbitrationText)
+  if (supporting_factors.length < 1 || supporting_factors.length > 3 || invalidation_conditions.length > 3) return invalid()
+  return {
+    decision_rationale: arbitrationText(item.decision_rationale), supporting_factors,
+    main_counterargument: arbitrationText(item.main_counterargument), invalidation_conditions,
+  }
+}
 function report(value: unknown) {
   const item = object(value)
   if (item.schema_version !== 3) return invalid()
@@ -126,6 +142,7 @@ function report(value: unknown) {
     regime: choice(item.regime, ["risk-on", "cautious", "risk-off"]),
     horizon: choice(item.horizon, [...HORIZONS, "level"]), assets, themes, sources,
     limitations: list(item.limitations, text), watch_points: list(item.watch_points, text),
+    arbitration: nullable(item.arbitration, arbitration),
     macro_overview: nullable(item.macro_overview, macro),
     scope: {
       available: count(scope.available), requested: count(scope.requested),
