@@ -75,3 +75,60 @@ test("retains provenance and failure reasons for assets excluded from the snapsh
   assert.equal(report.assets.some(asset => asset.asset_key === "missing_asset"), false)
   assert.deepEqual(report.data_quality.missing_asset, input.report.data_quality.missing_asset)
 })
+
+function arbitration() {
+  return {
+    decision_rationale: "The observations are mixed across asset classes.",
+    supporting_factors: ["Equities held steady.", "Index volatility stayed moderate."],
+    main_counterargument: "Elevated rates could put pressure on equities.",
+    invalidation_conditions: ["A broad equity decline accompanied by higher volatility."],
+  }
+}
+
+test("accepts old reports without manufacturing an arbitration", () => {
+  for (const value of [undefined, null]) {
+    const input = fixture()
+    if (value === undefined) delete input.report.arbitration
+    else input.report.arbitration = value
+    assert.equal(parseScan(input).report.arbitration, null)
+  }
+})
+
+test("preserves the public arbitration and allows no stated invalidation condition", () => {
+  const input = fixture()
+  input.report.arbitration = arbitration()
+  assert.deepEqual(parseScan(input).report.arbitration, input.report.arbitration)
+  input.report.arbitration.invalidation_conditions = []
+  assert.deepEqual(parseScan(input).report.arbitration?.invalidation_conditions, [])
+})
+
+test("rejects malformed arbitration instead of silently showing a legacy report", () => {
+  const invalidValues = [
+    "A balanced market", [], {},
+    { ...arbitration(), decision_rationale: " " },
+    { ...arbitration(), decision_rationale: "a".repeat(501) },
+    { ...arbitration(), supporting_factors: [] },
+    { ...arbitration(), supporting_factors: ["One", "Two", "Three", "Four"] },
+    { ...arbitration(), supporting_factors: [null] },
+    { ...arbitration(), supporting_factors: ["a".repeat(501)] },
+    { ...arbitration(), main_counterargument: undefined },
+    { ...arbitration(), main_counterargument: "\t" },
+    { ...arbitration(), invalidation_conditions: [" "] },
+    { ...arbitration(), invalidation_conditions: ["One", "Two", "Three", "Four"] },
+    { ...arbitration(), invalidation_conditions: "None" },
+    { ...arbitration(), internal_review: "This is not a public field" },
+  ]
+  for (const value of invalidValues) {
+    const input = fixture()
+    input.report.arbitration = value
+    assert.throws(() => parseScan(input), /Invalid report/)
+  }
+})
+
+test("matches the producer's character limit for Unicode arbitration text", () => {
+  const input = fixture()
+  input.report.arbitration = { ...arbitration(), decision_rationale: "𐐀".repeat(500) }
+  assert.equal(parseScan(input).report.arbitration?.decision_rationale, "𐐀".repeat(500))
+  input.report.arbitration.decision_rationale += "𐐀"
+  assert.throws(() => parseScan(input), /Invalid report/)
+})
