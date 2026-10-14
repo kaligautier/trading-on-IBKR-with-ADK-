@@ -2,6 +2,7 @@ import type { Metadata } from "next"
 import { Inter, Manrope } from "next/font/google"
 import { headers } from "next/headers"
 import "./globals.css"
+import { AnimateObserver } from "@/components/animate-observer"
 
 const inter = Inter({ subsets: ["latin"] })
 const manrope = Manrope({ subsets: ["latin"], variable: "--font-manrope" })
@@ -17,6 +18,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html lang="fr" data-scroll-behavior="smooth">
       <body className={`${inter.className} ${manrope.variable}`}>
+        <AnimateObserver />
         {children}
       </body>
     </html>
