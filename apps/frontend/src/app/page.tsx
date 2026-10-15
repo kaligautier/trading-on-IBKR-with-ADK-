@@ -7,6 +7,7 @@ import { RulesSection } from "@/components/landing/rules-section"
 import { MarketScannerSection } from "@/components/landing/market-scanner-section"
 import { SecuritySection } from "@/components/landing/security-section"
 import { TechSection } from "@/components/landing/tech-section"
+import { EngineeringSection } from "@/components/landing/engineering-section"
 import { McpSection } from "@/components/landing/mcp-section"
 import { DisclaimerSection } from "@/components/landing/disclaimer-section"
 import { CtaSection } from "@/components/landing/cta-section"
@@ -30,6 +31,7 @@ export default function LandingPage() {
           <MarketScannerSection />
           <McpSection />
         </div>
+        <EngineeringSection />
         <LogosSection />
         <TechSection />
         <DisclaimerSection />
