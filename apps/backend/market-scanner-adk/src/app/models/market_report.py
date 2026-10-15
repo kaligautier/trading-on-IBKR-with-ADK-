@@ -9,9 +9,12 @@ from pydantic import (
     BaseModel,
     ConfigDict,
     Field,
+    GetJsonSchemaHandler,
     HttpUrl,
     model_validator,
 )
+from pydantic.json_schema import JsonSchemaValue
+from pydantic_core import CoreSchema
 
 Regime = Literal["risk-on", "cautious", "risk-off"]
 Horizon = Literal["1d", "1w", "1m", "3m", "6m", "ytd", "1y", "5y", "level"]
@@ -113,10 +116,56 @@ class MacroOverview(ReportModel):
         return self
 
 
+class ReportArbitration(ReportModel):
+    """Concise public justification, separate from internal research and critique."""
+
+    decision_rationale: ReportText
+    supporting_factors: list[ReportText]
+    main_counterargument: ReportText
+    invalidation_conditions: list[ReportText]
+
+    @model_validator(mode="after")
+    def validate_summary(self):
+        if not 1 <= len(self.supporting_factors) <= 3:
+            raise ValueError("Arbitration requires one to three supporting factors")
+        if len(self.invalidation_conditions) > 3:
+            raise ValueError("Arbitration allows at most three invalidation conditions")
+        texts = [
+            self.decision_rationale,
+            self.main_counterargument,
+            *self.supporting_factors,
+            *self.invalidation_conditions,
+        ]
+        if any(not text or len(text) > 500 for text in texts):
+            raise ValueError("Arbitration text must contain 1 to 500 characters")
+        return self
+
+    @classmethod
+    def __get_pydantic_json_schema__(
+        cls, core_schema: CoreSchema, handler: GetJsonSchemaHandler
+    ) -> JsonSchemaValue:
+        schema = super().__get_pydantic_json_schema__(core_schema, handler)
+        # Keep provider input schemas compatible; enforce the same bounds when
+        # the reader validates persisted JSON using the serialization schema.
+        if handler.mode == "serialization":
+            properties = schema["properties"]
+            text_bounds = {"minLength": 1, "maxLength": 500, "pattern": r"\S"}
+            for name in ("decision_rationale", "main_counterargument"):
+                properties[name].update(text_bounds)
+            for name, minimum in (
+                ("supporting_factors", 1),
+                ("invalidation_conditions", 0),
+            ):
+                properties[name].update(minItems=minimum, maxItems=3)
+                properties[name]["items"].update(text_bounds)
+        return schema
+
+
 class ReportSummary(ReportModel):
     title: ReportText
     summary: ReportText
     macro_overview: MacroOverview | None = None
+    arbitration: ReportArbitration | None = None
     regime: Regime = Field(
         description="Diagnosis of the observed universe, without allocation advice."
     )
