@@ -10,7 +10,10 @@ const PRODUCT_ITEMS = [
   { href: "#deep-copy", label: "Deep Copy", mobileLabel: "Piloter un portefeuille" },
 ]
 
-const NAV_ITEMS = [{ href: "#security", label: "Sécurité" }]
+const NAV_ITEMS = [
+  { href: "#security", label: "Sécurité" },
+  { href: "#engineering", label: "Engineering" },
+]
 
 const RESOURCE_ITEMS = [
   { href: "/docs", label: "Documentation" },
