@@ -1,10 +1,13 @@
 """Exercise the HTTP contract independently from PostgreSQL."""
 
 import json
+from copy import deepcopy
+from dataclasses import replace
 from datetime import UTC, date, datetime
 from pathlib import Path
 from uuid import UUID
 
+import pytest
 from fastapi.testclient import TestClient
 
 from app.application import create_app
@@ -64,6 +67,42 @@ def test_latest_preserves_the_persisted_report():
     assert response.json()["report"] == REPORT
     assert response.json()["id"] == str(SCAN.id)
     assert "session_id" not in response.json()
+
+
+@pytest.mark.parametrize("arbitration", ["missing", "null", "populated"])
+def test_reader_preserves_new_and_legacy_arbitration_without_inventing_it(arbitration):
+    report = deepcopy(REPORT)
+    if arbitration == "missing":
+        report.pop("arbitration")
+    elif arbitration == "null":
+        report["arbitration"] = None
+    with client(Repository(replace(SCAN, report=report))) as api:
+        response = api.get("/market-scans/latest", headers=HEADERS)
+    assert response.status_code == 200
+    assert response.json()["report"] == report
+
+
+@pytest.mark.parametrize(
+    "field, value",
+    [
+        ("decision_rationale", "   "),
+        ("decision_rationale", "x" * 501),
+        ("main_counterargument", ""),
+        ("supporting_factors", []),
+        ("supporting_factors", ["Observation"] * 4),
+        ("supporting_factors", ["   "]),
+        ("invalidation_conditions", ["Condition"] * 4),
+        ("invalidation_conditions", [""]),
+        ("research_critique", {"challenges": []}),
+    ],
+)
+def test_reader_rejects_malformed_public_arbitration(field, value):
+    report = deepcopy(REPORT)
+    report["arbitration"][field] = value
+    with client(Repository(replace(SCAN, report=report))) as api:
+        response = api.get("/market-scans/latest", headers=HEADERS)
+    assert response.status_code == 500
+    assert response.json()["error"]["code"] == "INVALID_STORED_REPORT"
 
 
 def test_absent_report_is_not_a_database_outage():

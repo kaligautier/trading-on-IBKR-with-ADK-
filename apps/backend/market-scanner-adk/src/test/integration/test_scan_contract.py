@@ -17,7 +17,11 @@ from app.models.structured_output.research_critique import ResearchCritique
 from app.services.market_scan_persistence import MarketScanPersistence
 from test.integration import test_shared_database
 from test.integration.test_shared_database import ROLES, run_liquibase
-from test.report_fixtures import research_critique_payload, unsourced_analysis_payload
+from test.report_fixtures import (
+    arbitration_payload,
+    research_critique_payload,
+    unsourced_analysis_payload,
+)
 from test.unit.components.agents.test_regime_workflow import market_data, run_graph
 
 shared_database = test_shared_database.shared_database
@@ -120,6 +124,7 @@ async def should_round_trip_the_25_asset_graph(local_schema, monkeypatch, missin
     assert persisted == expected
     assert persisted.schema_version == 3
     assert persisted.regime == "cautious"
+    assert persisted.arbitration.model_dump() == arbitration_payload()
     assert all(
         item.interpretation.status in {"documented", "hypothesis", "unestablished"}
         for item in persisted.assets

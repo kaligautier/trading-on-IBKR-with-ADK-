@@ -8,6 +8,7 @@ from app.models.market_report import (
     Family,
     Horizon,
     MacroOverview,
+    ReportArbitration,
     ReportModel,
     ReportSummary,
     ReportText,
@@ -34,5 +35,6 @@ class UnsourcedThemeInsight(ReportModel):
 
 class UnsourcedMarketAnalysis(ReportSummary):
     macro_overview: MacroOverview = Field(...)
+    arbitration: ReportArbitration = Field(...)
     themes: list[UnsourcedThemeInsight]
     asset_insights: list[UnsourcedAssetInsight]
