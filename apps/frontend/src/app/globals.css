@@ -677,14 +677,13 @@ html {
 }
 
 @keyframes agent-signal-trace {
-  0% { opacity: 0; transform: translateY(0) scale(0.7); }
+  0% { opacity: 0; top: 1.25rem; transform: scale(0.7); }
   12% { opacity: 1; }
   88% { opacity: 1; }
-  100% { opacity: 0; transform: translateY(var(--signal-distance)) scale(1); }
+  100% { opacity: 0; top: calc(100% - 1.25rem); transform: scale(1); }
 }
 
 .orchestration-timeline {
-  --signal-distance: calc(100% - 2.5rem);
   --timeline-axis: 4.25rem;
   position: relative;
   isolation: isolate;
@@ -747,6 +746,11 @@ html {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+
   html {
     scroll-behavior: auto;
   }
