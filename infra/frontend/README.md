@@ -15,6 +15,19 @@ permissions. The image must live in the destination registry so deleting the old
 project cannot remove the deployed artifact. Cloud Run's invoker check is disabled
 only for the public frontend; the reader continues to enforce IAM.
 
+`preprod.tfvars` records the deployed image digest and desired domain mappings.
+Both backend configurations are versioned. Reconcile the live release without
+any local variable file:
+
+```sh
+terraform -chdir=infra/frontend init -backend-config=preprod.backend.hcl
+terraform -chdir=infra/frontend plan -var-file=preprod.tfvars -out=frontend.tfplan
+terraform -chdir=infra/frontend apply frontend.tfplan
+```
+
+Image updates and domain changes belong in reviewed changes to `preprod.tfvars`.
+The following sections describe initial provisioning and subsequent image builds.
+
 ## Prerequisites
 
 Apply `infra/bootstrap` and `infra/reader` first. They own the state bucket,
@@ -32,8 +45,7 @@ plan before applying it. Each root has a distinct backend prefix.
 
 ```sh
 terraform -chdir=infra/frontend/build init \
-  -backend-config=bucket=preprod-deep-copy-tfstate \
-  -backend-config=prefix=market-scanner/frontend-build
+  -backend-config=preprod.backend.hcl
 terraform -chdir=infra/frontend/build plan -out=build.tfplan
 terraform -chdir=infra/frontend/build apply build.tfplan
 
@@ -53,22 +65,24 @@ the multi-stage Dockerfile runs the Next.js standalone server as `node`, listeni
 on `0.0.0.0:3000`. Backend access is configured only at runtime. No secrets or
 backend access are required to compile the landing.
 
-Copy the resulting `sha256:...` digest into ignored
-`infra/frontend/release.local.tfvars`:
+Update the image in checked-in `infra/frontend/preprod.tfvars` with the resulting
+`sha256:...` digest and review that change before deploying it. Never reuse a
+mutable tag or a digest from Demo ADK.
 
-```hcl
-image = "europe-west1-docker.pkg.dev/preprod-deep-copy/market-scanner/deepcopy-front@sha256:REPLACE_WITH_BUILD_DIGEST"
-enable_domain_mappings = false
-```
+For the first deployment only, stage without domains using a command-line
+override as shown below. The variable defaults to false for unconfigured
+environments, while the versioned preprod configuration preserves the live domains.
 
 ## Stage the new service
 
+Skip this section when reconciling an already deployed release: disabling its
+domain mappings is intentionally blocked by `prevent_destroy`.
+
 ```sh
 terraform -chdir=infra/frontend init \
-  -backend-config=bucket=preprod-deep-copy-tfstate \
-  -backend-config=prefix=market-scanner/frontend
+  -backend-config=preprod.backend.hcl
 terraform -chdir=infra/frontend plan \
-  -var-file=preprod.tfvars -var-file=release.local.tfvars -out=frontend.tfplan
+  -var-file=preprod.tfvars -var=enable_domain_mappings=false -out=frontend.tfplan
 terraform -chdir=infra/frontend apply frontend.tfplan
 terraform -chdir=infra/frontend output -raw service_url
 ```
@@ -87,9 +101,10 @@ Preserve the existing Squarespace verification TXT. If Google requires another
 verification token, add it there; tokens and domain ownership are account setup
 prerequisites, not secrets to commit to this repository.
 
-After validating the staged service, set `enable_domain_mappings = true` in the
-release file and generate/review/apply another saved plan using the commands
-above. It creates mappings for `deepcopy.fr` and `www.deepcopy.fr`, with
+After validating the staged service, use the versioned preprod configuration
+without the staging override and generate/review/apply another saved plan using
+the reconciliation commands at the top of this document. It creates mappings
+for `deepcopy.fr` and `www.deepcopy.fr`, with
 `force_override = true`, transferring routing from Demo ADK to the new service.
 Google manages the HTTPS certificates. Provisioning can cause an interruption;
 keep the old project available until HTTPS and real reader access work through
@@ -104,7 +119,7 @@ not manage the authoritative Squarespace zone.
 Once mappings exist, keep the flag true: `prevent_destroy` intentionally blocks
 removing them, including toggling the flag off. Service deletion is also
 protected. To roll back an application release, restore the previous destination
-image digest and apply a reviewed plan; no domain change is required.
+image digest in `preprod.tfvars` and apply a reviewed plan; no domain change is required.
 
 **Demo ADK retirement is separate.** `mcp.deepcopy.fr` is excluded. Its existing
 mapping must be resolved, and the old project's other resources and dependencies
