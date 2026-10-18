@@ -13,9 +13,10 @@ Specification: [public frontend](../docs/specs/public-frontend.md).
    macro analysis in keyboard-accessible disclosures. Preserve historical reports.
 8. Run accessibility/responsive checks, review commit size and verify live behavior.
 
-The maintainer requested landing work in the existing PR #12. Consolidate the
-application slices there in dependency-ordered commits, each below 1,000 changed
-lines excluding only the generated npm lockfile. Report lockfile size separately.
-Cloud Run deployment remains a follow-up, outside the current landing/arbitration
-review. Local fixture checks do not establish live synthesis quality.
+Keep the frontend in PR #12 and review the scanner arbitration producer/API
+changes in a separate backend PR. Both PRs target main independently; the frontend
+supports reports without arbitration. Keep frontend slices in dependency-ordered
+commits, each below 1,000 changed lines excluding only the generated npm lockfile.
+Report lockfile size separately. Cloud Run deployment remains a separate follow-up.
+Local fixture checks do not establish live synthesis quality.
 Do not merge PRs automatically. Deploy only the reviewed and tested final image.

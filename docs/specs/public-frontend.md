@@ -39,8 +39,9 @@ Visitors need no account. Host the frontend on public Cloud Run with Terraform.
 10. Put the report conclusion and concise public arbitration before the detailed
     observations. Keep figures/assets and family/macro analysis collapsed initially,
     with native keyboard-accessible disclosures. Keep source caveats visible.
-11. Require arbitration for newly generated reports; accept absent or null
-    arbitration in historical reports without fabricating a justification.
+11. Display arbitration when supplied; accept absent or null arbitration in
+    historical reports without fabricating a justification. Requiring arbitration
+    from new synthesis output belongs to the separate backend change.
 
 ## Applicable BEST_PRATICE.todo
 
@@ -59,11 +60,12 @@ Visitors need no account. Host the frontend on public Cloud Run with Terraform.
 
 ## Delivery and operations
 
-The current review consolidates the application foundation, landing sections and
-motion, public documentation, reader contract/transport, scanner rendering and
-public arbitration in the existing PR #12 at the maintainer's request. Use
-dependency-ordered commits below the size limit. Cloud Run delivery remains a
-separate follow-up; local checks do not prove deployment or live model quality.
+PR #12 contains the frontend foundation, landing sections and motion, public
+documentation, reader client/transport and scanner rendering. A separate backend
+PR introduces public arbitration in synthesis output and the reader API contract.
+Both PRs target main independently: the frontend accepts existing reports without
+arbitration. Use dependency-ordered commits below the size limit. Cloud Run delivery
+remains a separate follow-up; local checks do not prove deployment or live model quality.
 Every slice states what it validates and what remains pending.
 Deploy the exact tested image digest; document its source commit, URL, readiness,
 anonymous frontend response and denied anonymous reader response. Roll back by
