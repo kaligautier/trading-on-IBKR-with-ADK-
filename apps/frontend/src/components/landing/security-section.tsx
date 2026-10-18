@@ -3,39 +3,39 @@ import { Code2, Container, Globe, Shield, Eye, KeyRound } from "lucide-react"
 const securityItems = [
   {
     icon: Code2,
-    stat: "Architecture documentée",
-    title: "Transparence technique",
-    desc: "Chaque composant de l'architecture est documenté : algorithmes, règles de risque et décisions automatisées sont décrits publiquement dans nos docs.",
+    stat: "Documented architecture",
+    title: "Technical transparency",
+    desc: "Each architecture component is documented: algorithms, risk rules and automated decisions are described in our public documentation.",
   },
   {
     icon: Globe,
-    stat: "API officielle IBKR",
-    title: "Connexion directe",
-    desc: "Deep Copy se connecte uniquement via l'API officielle Interactive Brokers. Aucun scraping, aucun contournement, aucun accès non autorisé.",
+    stat: "Official IBKR API",
+    title: "Direct connection",
+    desc: "Deep Copy connects only through the official Interactive Brokers API, without scraping, bypasses or unauthorised access.",
   },
   {
     icon: KeyRound,
-    stat: "Authentification 2FA",
-    title: "Double vérification",
-    desc: "Chaque connexion à votre gateway IBKR nécessite une authentification à deux facteurs. Aucune session ne peut être ouverte sans votre validation.",
+    stat: "Two-factor authentication",
+    title: "Two-step verification",
+    desc: "Each connection to your IBKR gateway requires two-factor authentication. A session cannot be opened without your approval.",
   },
   {
     icon: Container,
-    stat: "1 conteneur = 1 utilisateur",
-    title: "Isolation dédiée",
-    desc: "Chaque gateway IBKR fonctionne dans un conteneur Docker dédié. Vos sessions sont isolées de celles des autres utilisateurs.",
+    stat: "1 container = 1 user",
+    title: "Dedicated isolation",
+    desc: "Each IBKR gateway runs in a dedicated Docker container. Your sessions are isolated from those of other users.",
   },
   {
     icon: Eye,
-    stat: "Chaque action loguée",
-    title: "Traçabilité complète",
-    desc: "Les agents analysent, recommandent et exécutent uniquement dans le cadre autorisé. Chaque décision, appel LLM et ordre transmis est tracé.",
+    stat: "Every action logged",
+    title: "Full traceability",
+    desc: "Agents analyse, recommend and execute within authorised boundaries. Every decision, LLM call and submitted order is logged.",
   },
   {
     icon: Shield,
-    stat: "Zéro tracking tiers",
-    title: "Aucune donnée revendue",
-    desc: "Pas de publicité, pas de revente de données, pas d'exploitation commerciale de votre portefeuille. Vos données restent strictement privées.",
+    stat: "No third-party tracking",
+    title: "No data reselling",
+    desc: "No advertising, data reselling or commercial use of your portfolio. Your data remains private.",
   },
 ]
 
@@ -46,15 +46,14 @@ export function SecuritySection() {
         <div id="security" data-animate="section-heading" className="mb-14 grid gap-8 scroll-mt-20 md:grid-cols-12">
           <div className="md:col-span-7">
             <h2 className="text-4xl md:text-5xl lg:text-6xl font-bold tracking-[-0.03em] leading-[1.12] md:leading-[1.08] font-display">
-              Une infrastructure lisible,
+              Understandable infrastructure,
               <br />
-              <span className="text-on-surface-muted font-medium">des limites vérifiables.</span>
+              <span className="text-on-surface-muted font-medium">verifiable boundaries.</span>
             </h2>
           </div>
           <div className="self-end md:col-span-5">
             <p className="text-on-surface-variant leading-relaxed text-sm">
-              Code ouvert, infrastructure isolée, connexion via l'API officielle IBKR
-              et authentification forte. Vous gardez le contrôle à chaque étape.
+              Open source code, isolated infrastructure, the official IBKR API and strong authentication. You stay in control at every step.
             </p>
           </div>
         </div>

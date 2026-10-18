@@ -20,13 +20,12 @@ export function MarketScannerSection() {
             <h2 id="market-scanner-title" className="text-4xl md:text-5xl lg:text-6xl font-bold tracking-[-0.03em] leading-[1.12] md:leading-[1.08] font-display">
               Market Scanner.
               <br />
-              <span className="text-on-surface-muted font-medium">Le marché, en un rapport.</span>
+              <span className="text-on-surface-muted font-medium">The market, in one report.</span>
             </h2>
           </div>
           <div className="self-end md:col-span-5">
             <p className="text-on-surface-variant leading-relaxed text-sm">
-              Consultez les mouvements des principaux indices, la volatilité et le contexte économique.
-              Retrouvez ci-dessous le dernier rapport publié, en accès libre et sans compte.
+              Explore major indices, volatility and the economic context. Read the latest published report below, freely available without an account.
             </p>
           </div>
         </div>

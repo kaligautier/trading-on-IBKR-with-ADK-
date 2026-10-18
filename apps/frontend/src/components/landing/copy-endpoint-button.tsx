@@ -6,12 +6,12 @@ import { Check, Copy } from "lucide-react"
 type CopyState = "idle" | "copied" | "error"
 
 const COPY_LABELS: Record<CopyState, string> = {
-  idle: "Copier l’endpoint",
-  copied: "Endpoint copié",
-  error: "Copie impossible — réessayer",
+  idle: "Copy endpoint",
+  copied: "Endpoint copied",
+  error: "Copy failed — try again",
 }
 
-export function CopyEndpointButton({ value, label = "Copier l’endpoint", inverted = false }: { value: string; label?: string; inverted?: boolean }) {
+export function CopyEndpointButton({ value, label = "Copy endpoint", inverted = false }: { value: string; label?: string; inverted?: boolean }) {
   const [state, setState] = useState<CopyState>("idle")
 
   async function copyEndpoint() {

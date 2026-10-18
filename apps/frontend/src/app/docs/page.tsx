@@ -2,9 +2,9 @@ import type { Metadata } from "next"
 import ApiDocsPage from "@/components/mcp-docs/page"
 
 export const metadata: Metadata = {
-  title: "Deep Copy — Documentation MCP Momentum",
+  title: "Deep Copy — Momentum MCP documentation",
   description:
-    "Connecter un client MCP 2026-07-28 au serveur public Momentum de Deep Copy.",
+    "Connect an MCP 2026-07-28 client to the public Deep Copy Momentum server.",
 }
 
 export default function DocsPage() {
