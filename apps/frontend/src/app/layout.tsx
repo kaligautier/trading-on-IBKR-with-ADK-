@@ -8,8 +8,8 @@ const inter = Inter({ subsets: ["latin"] })
 const manrope = Manrope({ subsets: ["latin"], variable: "--font-manrope" })
 
 export const metadata: Metadata = {
-  title: "Deep Copy — Deep Copy, Market Scanner et Momentum MCP",
-  description: "Trois produits pour piloter un compte IBKR en paper trading, lire le régime de marché et connecter les analyses Momentum à vos agents.",
+  title: "Deep Copy — Analyses de marché et expérimentation agentique",
+  description: "Un projet d’IA appliquée aux marchés : rapports en accès libre, analyses pour vos assistants via Momentum MCP et expérimentation de trading en simulation.",
 }
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
