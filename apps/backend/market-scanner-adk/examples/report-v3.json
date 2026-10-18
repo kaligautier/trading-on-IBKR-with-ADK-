@@ -75,6 +75,16 @@
         "reason": null
       }
     },
-    "macro_overview": null
+    "macro_overview": null,
+    "arbitration": {
+      "decision_rationale": "The limited synthetic observations support caution.",
+      "supporting_factors": [
+        "Only a limited synthetic snapshot is available."
+      ],
+      "main_counterargument": "The observed benchmark rose over the selected horizon.",
+      "invalidation_conditions": [
+        "A reversal in the observed benchmark direction."
+      ]
+    }
   }
 }

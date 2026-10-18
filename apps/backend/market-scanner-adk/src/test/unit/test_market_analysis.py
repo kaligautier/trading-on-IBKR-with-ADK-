@@ -6,11 +6,15 @@ import pytest
 from pydantic import ValidationError
 
 from app.models.structured_output.market_analysis import MarketAnalysis
+from app.models.structured_output.unsourced_market_analysis import (
+    UnsourcedMarketAnalysis,
+)
 from test.report_fixtures import analysis_payload
 
 
-def should_expose_a_provider_compatible_output_schema_directly():
-    schema = json.dumps(MarketAnalysis.model_json_schema())
+@pytest.mark.parametrize("model", [MarketAnalysis, UnsourcedMarketAnalysis])
+def should_expose_a_provider_compatible_output_schema_directly(model):
+    schema = json.dumps(model.model_json_schema())
     for keyword in ("minLength", "maxLength", "minItems", "maxItems"):
         assert keyword not in schema
     assert '"required"' in schema and '"enum"' in schema

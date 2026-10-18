@@ -12,6 +12,7 @@ def analysis_payload(keys, horizon="1d"):
         "horizon": horizon,
         "limitations": ["Synthetic data; no valuation is provided."],
         "watch_points": ["A reversal in the observed direction."],
+        "arbitration": arbitration_payload(),
         "themes": [
             {
                 "family": family,
@@ -38,6 +39,17 @@ def explanation():
         "text": "No verified catalyst in this synthetic data.",
         "status": "unestablished",
         "source_ids": [],
+    }
+
+
+def arbitration_payload():
+    return {
+        "decision_rationale": "The limited synthetic observations support caution.",
+        "supporting_factors": ["Only a limited synthetic snapshot is available."],
+        "main_counterargument": (
+            "The observed benchmark rose over the selected horizon."
+        ),
+        "invalidation_conditions": ["A reversal in the observed benchmark direction."],
     }
 
 

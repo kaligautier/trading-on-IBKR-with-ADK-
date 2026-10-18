@@ -18,7 +18,7 @@ from app.services.market_scan_persistence import (
     MarketScanPersistence,
 )
 from app.utils.wide_event import wide_event
-from test.report_fixtures import analysis_payload, explanation
+from test.report_fixtures import analysis_payload, arbitration_payload, explanation
 from test.unit.services.test_market_scan_assembler import data_for
 
 
@@ -191,3 +191,6 @@ async def should_store_the_complete_versioned_report_without_an_allocation():
     assert "NULL, CAST(:data_quality" in sql
     assert "recommendation" not in parameters
     assert MarketRegime.model_validate_json(parameters["report"]) == report
+    stored = json.loads(parameters["report"])
+    assert stored["arbitration"] == arbitration_payload()
+    assert "research_critique" not in stored
