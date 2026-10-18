@@ -1,7 +1,7 @@
 name: Pull request size
 
 on:
-  pull_request:
+  pull_request_target:
     types: [opened, synchronize, reopened, edited, ready_for_review]
 
 permissions:
@@ -20,6 +20,8 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
+          # The proposed PR cannot change its own counting/exclusion policy.
+          ref: ${{ github.event.repository.default_branch }}
           persist-credentials: false
       - name: Test the PR rules
         run: python3 -m unittest discover -s .github/scripts -p 'test_pr_*.py' -v

@@ -65,6 +65,9 @@ repository.
   or be changed independently. They do not increase the component count.
   Split coordinated changes into dependent PRs. This check does not replace
   code review or the existing PR size limit.
+  Enforcement uses the default branch's trusted rules, never scripts from the
+  proposed PR or a dependent PR's base branch. A separate read-only workflow
+  tests proposed policy changes before they become enforcement rules on merge.
 - Keep each PR at or below 1,000 changed lines (additions + deletions).
   Generated `package-lock.json` and `uv.lock` files are excluded from this count
   but must remain versioned and subject to dependency/security checks. All other
