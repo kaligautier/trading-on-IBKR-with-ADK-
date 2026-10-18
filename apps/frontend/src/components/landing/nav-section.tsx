@@ -4,14 +4,10 @@ import { useState, useEffect, useRef } from "react"
 import Link from "next/link"
 import { Menu, X } from "lucide-react"
 
-const PRODUCT_ITEMS = [
-  { href: "#market-scanner", label: "Market Scanner", mobileLabel: "Voir le marché" },
-  { href: "#momentum-mcp", label: "Momentum MCP", mobileLabel: "Connecter ses agents" },
-  { href: "#deep-copy", label: "Deep Copy", mobileLabel: "Piloter un portefeuille" },
-]
-
 const NAV_ITEMS = [
-  { href: "#security", label: "Sécurité" },
+  { href: "#market-scanner", label: "Market Scanner" },
+  { href: "#momentum-mcp", label: "Momentum" },
+  { href: "#deep-copy", label: "Trading expérimental" },
   { href: "#engineering", label: "Engineering" },
 ]
 
@@ -67,21 +63,6 @@ export function NavSection() {
         </a>
 
         <div className="hidden items-center gap-5 text-sm text-on-surface-variant xl:flex">
-          <div className="flex items-center gap-3" aria-label="Produits">
-            <a href="#products" className="inline-flex min-h-11 items-center font-medium text-on-surface whitespace-nowrap transition-colors hover:text-primary-dim">
-              Produits
-            </a>
-            <span className="h-4 w-px bg-outline-variant" aria-hidden="true" />
-            {PRODUCT_ITEMS.map((item) => (
-              <a
-                key={item.href}
-                href={item.href}
-                className="inline-flex min-h-11 items-center whitespace-nowrap transition-colors hover:text-on-surface"
-              >
-                {item.label}
-              </a>
-            ))}
-          </div>
           {NAV_ITEMS.map((item) => (
             <a
               key={item.href}
@@ -97,9 +78,8 @@ export function NavSection() {
           <Link
             href="/docs"
             prefetch={false}
-            className="flex min-h-11 items-center gap-1.5 rounded-full bg-on-surface px-4 text-xs font-medium text-surface-lowest transition-colors hover:bg-on-surface/80"
+            className="inline-flex min-h-11 items-center px-3 text-sm text-on-surface-variant underline underline-offset-4 transition-colors hover:text-on-surface"
           >
-            <div className="h-1.5 w-1.5 rounded-full bg-primary-container" />
             Documentation
           </Link>
         </div>
@@ -108,7 +88,7 @@ export function NavSection() {
           <Link
             href="/docs"
             prefetch={false}
-            className="inline-flex min-h-11 items-center rounded-full bg-on-surface px-3.5 text-xs font-medium text-surface-lowest transition-colors hover:bg-on-surface/80 sm:px-4"
+            className="inline-flex min-h-11 items-center px-3 text-xs text-on-surface-variant underline underline-offset-4 transition-colors hover:text-on-surface sm:text-sm"
           >
             Documentation
           </Link>
@@ -133,28 +113,6 @@ export function NavSection() {
           className="max-h-[calc(100dvh-4rem)] overflow-y-auto overscroll-contain border-t border-outline-variant bg-surface px-4 pb-5 pt-3 sm:px-6 xl:hidden"
         >
           <div className="mx-auto grid max-w-6xl gap-1 sm:grid-cols-2">
-            <a
-              href="#products"
-              data-mobile-menu-item
-              onClick={() => setMobileOpen(false)}
-              className="flex min-h-12 items-center rounded-xl px-3 text-sm font-semibold text-on-surface transition-colors hover:bg-surface-low"
-            >
-              Produits
-            </a>
-            {PRODUCT_ITEMS.map((item) => (
-              <a
-                key={item.href}
-                href={item.href}
-                data-mobile-menu-item
-                onClick={() => setMobileOpen(false)}
-                className="flex min-h-12 items-center rounded-xl px-3 text-sm font-medium text-on-surface-variant transition-colors hover:bg-surface-low hover:text-on-surface"
-              >
-                <span className="flex flex-col">
-                  <span>{item.mobileLabel}</span>
-                  <span className="text-xs font-normal text-on-surface-muted">{item.label}</span>
-                </span>
-              </a>
-            ))}
             {NAV_ITEMS.map((item) => (
               <a
                 key={item.href}
