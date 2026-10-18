@@ -54,9 +54,10 @@ const TOC_SECTIONS: TocSection[] = [
       { id: "tool-latest_analyses", number: "2.4", title: "latest_analyses" },
       { id: "tool-get_analysis", number: "2.5", title: "get_analysis" },
       { id: "tool-get_recommendations", number: "2.6", title: "get_recommendations" },
-      { id: "tool-suggest_ticker", number: "2.7", title: "suggest_ticker" },
-      { id: "tool-get_suggestion_status", number: "2.8", title: "get_suggestion_status" },
-      { id: "moderation", number: "2.9", title: "Modération" },
+      { id: "tool-latest_market_scan", number: "2.7", title: "latest_market_scan" },
+      { id: "tool-suggest_ticker", number: "2.8", title: "suggest_ticker" },
+      { id: "tool-get_suggestion_status", number: "2.9", title: "get_suggestion_status" },
+      { id: "moderation", number: "2.10", title: "Modération" },
     ],
   },
   {
@@ -380,6 +381,10 @@ function McpSection() {
 
       <SectionTitle>MCP Tools</SectionTitle>
 
+      <p className="mb-6 max-w-2xl text-sm text-on-surface-variant">
+        List tools return their arrays in <InlineCode>result.structuredContent.result</InlineCode>. Pass an item&apos;s <InlineCode>id</InlineCode> as <InlineCode>analysis_id</InlineCode> to <InlineCode>get_analysis</InlineCode>.
+      </p>
+
       <div className="mt-6">
         <ToolDoc
           id="tool-list_analyses"
@@ -390,7 +395,7 @@ function McpSection() {
             { name: "limit", type: "int", default: "50", description: "Nombre de résultats (max 200)" },
             { name: "offset", type: "int", default: "0", description: "Décalage pour pagination" },
           ]}
-          responseFields={["ticker", "rating", "executive_summary", "price_target", "entry_price", "stop_loss", "rsi", "rsi_signal", "trend_direction", "key_support", "key_resistance", "pe_ratio", "peg_ratio", "beta"]}
+          responseFields={["id", "analysis_date", "ticker", "rating", "executive_summary", "price_target", "entry_price", "stop_loss", "rsi", "rsi_signal", "trend_direction", "key_support", "key_resistance", "pe_ratio", "peg_ratio", "beta"]}
         />
         <ToolDoc
           id="tool-latest_analyses"
@@ -400,7 +405,7 @@ function McpSection() {
             { name: "ticker", type: "str | None", default: "None", description: "Un seul ticker" },
             { name: "rating", type: "str | None", default: "None", description: "Comma-separated: Buy,Overweight,Hold,Underweight,Sell" },
           ]}
-          responseFields={["ticker", "rating", "executive_summary", "price_target", "trader_action", "rsi", "trend_direction"]}
+          responseFields={["id", "ticker", "rating", "executive_summary", "price_target", "trader_action", "rsi", "trend_direction"]}
         />
         <ToolDoc
           id="tool-get_analysis"
@@ -419,7 +424,14 @@ function McpSection() {
             { name: "rating", type: "str", default: '"Buy,Overweight"', description: "Ratings cibles" },
             { name: "limit", type: "int", default: "10", description: "Max résultats (max 100)" },
           ]}
-          responseFields={["ticker", "rating", "price_target", "entry_price", "stop_loss", "position_size", "risk_reward_ratio"]}
+          responseFields={["id", "ticker", "rating", "price_target", "entry_price", "stop_loss", "position_size", "risk_reward_ratio"]}
+        />
+        <ToolDoc
+          id="tool-latest_market_scan"
+          name="latest_market_scan"
+          description="Returns the latest daily market regime and normalized asset signals. No parameters: send an empty arguments object ({})."
+          params={[]}
+          responseFields={["id", "scan_date", "created_at", "regime", "summary", "recommendation", "assets", "signals", "session_id"]}
         />
         <ToolDoc
           id="tool-suggest_ticker"
@@ -427,9 +439,9 @@ function McpSection() {
           description="Propose un ticker à analyser. Une analyse ou suggestion existante est retournée sans nouvelle écriture ; sinon une suggestion unique est créée pour modération."
           params={[
             { name: "symbol", type: "str", default: "required", description: "Symbole boursier (ex: ASML)" },
-            { name: "reason", type: "str | None", default: "None", description: "Pourquoi ce ticker mérite une analyse" },
+            { name: "reason", type: "str", default: '""', description: "Why this ticker deserves analysis (maximum 500 characters)" },
           ]}
-          responseFields={["suggestion_id | analysis_id | job_id", "symbol", "status", "created_at", "created"]}
+          responseFields={["id", "symbol", "reason", "source", "status", "review_reason", "created_at", "reviewed_at"]}
         />
         <ToolDoc
           id="tool-get_suggestion_status"
@@ -438,7 +450,7 @@ function McpSection() {
           params={[
             { name: "suggestion_id", type: "str (UUID)", default: "required", description: "Identifiant retourné par suggest_ticker" },
           ]}
-          responseFields={["suggestion_id", "symbol", "status", "created_at", "reviewed_at", "review_reason"]}
+          responseFields={["id", "symbol", "status", "created_at", "reviewed_at", "review_reason"]}
         />
       </div>
 
