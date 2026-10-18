@@ -18,6 +18,14 @@ test("accepts the producer's published report-v3 example", () => {
   assert.equal(scan.report.summary, input.report.summary)
 })
 
+test("defaults omitted watch points but rejects an explicit null", () => {
+  const input = fixture()
+  delete input.report.watch_points
+  assert.deepEqual(parseScan(input).report.watch_points, [])
+  input.report.watch_points = null
+  assert.throws(() => parseScan(input), /Invalid report/)
+})
+
 test("preserves exact decimal values and missing horizons", () => {
   const input = fixture()
   input.report.assets[0].value = "40310000000000.123456"

@@ -125,7 +125,7 @@ function report(value: unknown) {
     schema_version: 3 as const, title: text(item.title), summary: text(item.summary),
     regime: choice(item.regime, ["risk-on", "cautious", "risk-off"]),
     horizon: choice(item.horizon, [...HORIZONS, "level"]), assets, themes, sources,
-    limitations: list(item.limitations, text), watch_points: list(item.watch_points, text),
+    limitations: list(item.limitations, text), watch_points: item.watch_points === undefined ? [] : list(item.watch_points, text),
     macro_overview: nullable(item.macro_overview, macro),
     scope: {
       available: count(scope.available), requested: count(scope.requested),
