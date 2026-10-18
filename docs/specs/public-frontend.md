@@ -34,8 +34,13 @@ Visitors need no account. Host the frontend on public Cloud Run with Terraform.
    grant. Reader anonymous access remains denied after deployment.
 8. Verify local lint/types/build, boundary tests, responsive keyboard/browser
    behavior and live anonymous access with the persisted report ID and date.
-9. Every PR stays below 1,000 changed lines of code and documentation. Only the
+9. Every commit stays below 1,000 changed lines of code and documentation. Only the
    generated npm lockfile is excluded; report its size separately in the PR.
+10. Put the report conclusion and concise public arbitration before the detailed
+    observations. Keep figures/assets and family/macro analysis collapsed initially,
+    with native keyboard-accessible disclosures. Keep source caveats visible.
+11. Require arbitration for newly generated reports; accept absent or null
+    arbitration in historical reports without fabricating a justification.
 
 ## Applicable BEST_PRATICE.todo
 
@@ -44,7 +49,7 @@ Visitors need no account. Host the frontend on public Cloud Run with Terraform.
 | SOLID / Object Calisthenics | Focused parsing, transport and rendering responsibilities; small functions/classes where useful, no speculative abstraction. |
 | Useful clean architecture | UI depends on a report contract; server transport owns IAM and network details. |
 | just commands | Repeatable install, dev, lint, typecheck, test, build and infrastructure checks. |
-| Small PRs | Review each dependency-ordered slice against its actual base before opening. |
+| Small commits | Keep each dependency-ordered commit below 1,000 authored changed lines; report generated lockfile size separately. |
 | Official documentation | Next.js bundled version documentation, Google Cloud Run and Terraform provider documentation. |
 | Scientific papers | No new trading method or agent algorithm in this change; not applicable. |
 | Terraform / Cloud Run | Dedicated frontend Terraform root and reproducible container deployment. |
@@ -54,9 +59,12 @@ Visitors need no account. Host the frontend on public Cloud Run with Terraform.
 
 ## Delivery and operations
 
-Use dependency-ordered PRs for the application foundation, landing sections and
-motion, public documentation, reader contract/transport, scanner rendering, and
-Cloud Run delivery. Every slice states what it validates and what remains pending.
+The current review consolidates the application foundation, landing sections and
+motion, public documentation, reader contract/transport, scanner rendering and
+public arbitration in the existing PR #12 at the maintainer's request. Use
+dependency-ordered commits below the size limit. Cloud Run delivery remains a
+separate follow-up; local checks do not prove deployment or live model quality.
+Every slice states what it validates and what remains pending.
 Deploy the exact tested image digest; document its source commit, URL, readiness,
 anonymous frontend response and denied anonymous reader response. Roll back by
 restoring the previous frontend digest through Terraform.
