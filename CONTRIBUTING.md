@@ -55,6 +55,10 @@ repository.
 
 ## Pull requests
 
+- Keep each PR at or below 1,000 changed lines (additions + deletions), including
+  generated files and lockfiles. The `PR size` CI check fails above this limit;
+  split larger changes into smaller PRs. The count applies to the whole PR,
+  not to each commit. Binary files contribute GitHub's reported line count.
 - Explain what changed and why; link a related issue when available.
 - Include the validation commands and results, and identify anything not tested.
 - Update the relevant documentation when configuration or behavior changes.
