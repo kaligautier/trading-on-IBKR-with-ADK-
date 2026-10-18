@@ -23,32 +23,14 @@ export function NavSection() {
   const mobileNavigationRef = useRef<HTMLDivElement>(null)
   const wasMobileOpen = useRef(false)
 
-  function handleMobileNavigationKeyDown(event: React.KeyboardEvent<HTMLDivElement>) {
-    if (event.key !== "Tab") return
-
-    const menuItems = Array.from(
-      mobileNavigationRef.current?.querySelectorAll<HTMLElement>("[data-mobile-menu-item]") ?? [],
-    )
-    const firstMenuItem = menuItems[0]
-    const lastMenuItem = menuItems.at(-1)
-    const activeElement = document.activeElement
-
-    if (!firstMenuItem || !lastMenuItem) return
-    if (event.shiftKey && activeElement === firstMenuItem) {
-      event.preventDefault()
-      lastMenuItem.focus()
-      return
-    }
-    if (!event.shiftKey && activeElement === lastMenuItem) {
-      event.preventDefault()
-      firstMenuItem.focus()
-    }
-  }
-
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 20)
+    const frame = window.requestAnimationFrame(onScroll)
     window.addEventListener("scroll", onScroll, { passive: true })
-    return () => window.removeEventListener("scroll", onScroll)
+    return () => {
+      window.cancelAnimationFrame(frame)
+      window.removeEventListener("scroll", onScroll)
+    }
   }, [])
 
   useEffect(() => {
@@ -145,7 +127,6 @@ export function NavSection() {
         <div
           ref={mobileNavigationRef}
           id="mobile-navigation"
-          onKeyDown={handleMobileNavigationKeyDown}
           className="max-h-[calc(100dvh-4rem)] overflow-y-auto overscroll-contain border-t border-outline-variant bg-surface px-4 pb-5 pt-3 sm:px-6 xl:hidden"
         >
           <div className="mx-auto grid max-w-6xl gap-1 sm:grid-cols-2">
