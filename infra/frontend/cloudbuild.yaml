@@ -1,0 +1,10 @@
+# Run from the repository root with the restricted gcloudignore below.
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args: ['build', '-f', 'infra/frontend/Dockerfile', '-t', '${_IMAGE}:$BUILD_ID', '.']
+images: ['${_IMAGE}:$BUILD_ID']
+substitutions:
+  _IMAGE: europe-west1-docker.pkg.dev/preprod-deep-copy/market-scanner/deepcopy-front
+options:
+  logging: CLOUD_LOGGING_ONLY
+timeout: 1200s

@@ -1,0 +1,21 @@
+# Allowlist: never upload backend, infra state, local dependencies or credentials.
+**
+!apps/
+!apps/frontend/
+!apps/frontend/package.json
+!apps/frontend/package-lock.json
+!apps/frontend/next.config.ts
+!apps/frontend/next-env.d.ts
+!apps/frontend/tsconfig.json
+!apps/frontend/postcss.config.mjs
+!apps/frontend/public/
+!apps/frontend/public/**
+!apps/frontend/src/
+!apps/frontend/src/**
+!infra/
+!infra/frontend/
+!infra/frontend/Dockerfile
+!infra/frontend/cloudbuild.yaml
+**/.env*
+**/*.pem
+**/*.key
