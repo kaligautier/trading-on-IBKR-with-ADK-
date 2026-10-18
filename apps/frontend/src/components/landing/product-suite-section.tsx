@@ -9,13 +9,12 @@ export function ProductSuiteSection() {
       <div className="mx-auto max-w-6xl px-6">
         <div data-animate="section-heading" className="grid gap-7 pb-14 md:grid-cols-12 md:pb-16">
           <h2 id="products-title" className="max-w-3xl font-display text-4xl font-semibold leading-[1.12] tracking-[-0.03em] md:col-span-8 md:text-6xl md:leading-[1.08]">
-            Observer. Connecter. Orchestrer.
+            Observe. Connect. Orchestrate.
             <br />
-            <span className="font-medium text-surface-highest">Un écosystème, trois usages.</span>
+            <span className="font-medium text-surface-highest">One ecosystem, three use cases.</span>
           </h2>
           <p className="max-w-md self-end text-base leading-relaxed text-surface-highest md:col-span-4">
-            Observez le régime de marché, connectez vos agents aux analyses d’actions, puis
-            orchestrez leur passage à l’action sur Interactive Brokers.
+            Observe the market regime, connect your agents to stock analysis, then orchestrate their execution on Interactive Brokers.
           </p>
         </div>
 

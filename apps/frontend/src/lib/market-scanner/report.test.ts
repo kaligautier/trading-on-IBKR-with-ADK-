@@ -25,7 +25,7 @@ test("preserves exact decimal values and missing horizons", () => {
   const asset = parseScan(input).report.assets[0]
   assert.equal(asset.value, "40310000000000.123456")
   assert.equal(asset.horizons["5y"], null)
-  assert.equal(formatValue(asset.value).replaceAll("\u202f", " "), "40 310 000 000 000,123456")
+  assert.equal(formatValue(asset.value), "40,310,000,000,000.123456")
 })
 
 test("rejects incompatible versions and invalid nested data", () => {
@@ -53,7 +53,7 @@ test("only exposes HTTP(S) source links without credentials", () => {
 })
 
 test("preserves the sign of exact decimals between minus one and zero", () => {
-  assert.equal(formatValue("-0.25"), "-0,25")
+  assert.equal(formatValue("-0.25"), "-0.25")
 })
 
 test("retains provenance and failure reasons for assets excluded from the snapshot", () => {

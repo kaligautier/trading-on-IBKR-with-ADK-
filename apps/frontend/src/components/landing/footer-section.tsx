@@ -14,16 +14,16 @@ export function FooterSection() {
               </div>
               <span className="text-sm font-semibold">Deep Copy</span>
             </div>
-            <p className="mt-2 text-xs leading-relaxed text-on-surface-muted">Un projet d’IA appliquée aux marchés financiers.</p>
+            <p className="mt-2 text-xs leading-relaxed text-on-surface-muted">An AI project for financial markets.</p>
           </div>
           <div className="flex flex-wrap items-center gap-x-5 gap-y-3 text-xs text-on-surface-muted">
             <a href="#market-scanner" className={FOOTER_LINK_CLASS}>Market Scanner</a>
             <a href="#momentum-mcp" className={FOOTER_LINK_CLASS}>Momentum</a>
-            <a href="#deep-copy" className={FOOTER_LINK_CLASS}>Trading expérimental</a>
+            <a href="#deep-copy" className={FOOTER_LINK_CLASS}>Experimental trading</a>
             <a href="#engineering" className={FOOTER_LINK_CLASS}>Engineering</a>
             <Link href="/docs" className={FOOTER_LINK_CLASS}>Documentation</Link>
             <Link href="https://deepcopy.fr/legal/privacy" className={FOOTER_LINK_CLASS}>
-              Confidentialité
+              Privacy
             </Link>
             <span>© 2026 Deep Copy</span>
           </div>

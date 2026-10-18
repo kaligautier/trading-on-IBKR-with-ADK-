@@ -3,42 +3,42 @@ import { Eye, Brain, Zap, ShieldCheck, LineChart, Bot } from "lucide-react"
 const agents = [
   {
     icon: Eye,
-    name: "Veille",
+    name: "Monitoring",
     role: "Market Watcher",
-    desc: "Surveille les marchés en continu et détecte les opportunités d'achat en temps réel.",
+    desc: "Monitors markets continuously and identifies buying opportunities in real time.",
   },
   {
     icon: Brain,
-    name: "Stratégie",
+    name: "Strategy",
     role: "Portfolio Strategist",
-    desc: "Analyse votre allocation, calibre votre profil de risque et recommande des ajustements.",
+    desc: "Analyses your allocation, assesses your risk profile and recommends adjustments.",
   },
   {
     icon: ShieldCheck,
-    name: "Risque",
+    name: "Risk",
     role: "Risk Manager",
-    desc: "Surveille en continu les limites de drawdown définies et ne valide que les ordres conformes.",
+    desc: "Continuously monitors drawdown limits and only approves compliant orders.",
   },
   {
     icon: Zap,
     name: "Trader",
     role: "Execution Engine",
-    desc: "Exécute les ordres sur Interactive Brokers : DCA, rééquilibrage, ordres conditionnels.",
+    desc: "Executes orders on Interactive Brokers: DCA, rebalancing and conditional orders.",
   },
   {
     icon: LineChart,
     name: "Reporting",
     role: "Performance Analyst",
-    desc: "Génère vos rapports de performance et synthétise l'activité de l'équipe chaque semaine.",
+    desc: "Generates performance reports and summarises weekly agent activity.",
   },
 ]
 
 const orchestrationLogs = [
-  { time: "08:59", agent: "Veille", action: "Signal détecté : IWDA sous MM50, zone d'achat", type: "warn" },
-  { time: "09:00", agent: "Stratégie", action: "Validation : cohérent avec allocation cible (+2% ETF World)", type: "info" },
-  { time: "09:00", agent: "Risque", action: "Vérification : exposition OK, drawdown 4.2% < limite 12%", type: "ok" },
-  { time: "09:01", agent: "Trader", action: "Ordre simulé : Achat 3x IWDA @ 82,34 € via IBKR paper", type: "ok" },
-  { time: "09:02", agent: "Reporting", action: "Portefeuille simulé mis à jour. Variation du mois : +2,4 %", type: "muted" },
+  { time: "08:59", agent: "Monitoring", action: "Signal detected: IWDA below its 50-day moving average, potential buying zone", type: "warn" },
+  { time: "09:00", agent: "Strategy", action: "Validation: consistent with target allocation (+2% World ETF)", type: "info" },
+  { time: "09:00", agent: "Risk", action: "Check: exposure OK, drawdown 4.2% < 12% limit", type: "ok" },
+  { time: "09:01", agent: "Trader", action: "Simulated order: buy 3 IWDA at EUR 82.34 via IBKR paper trading", type: "ok" },
+  { time: "09:02", agent: "Reporting", action: "Simulated portfolio updated. Monthly change: +2.4%", type: "muted" },
 ]
 
 const logColor: Record<string, string> = {
@@ -55,15 +55,14 @@ export function AgentsSection() {
         <div id="agents" data-animate="section-heading" className="mb-14 grid gap-8 scroll-mt-20 md:mb-16 md:grid-cols-12">
           <div className="md:col-span-7">
             <h2 className="text-4xl md:text-5xl lg:text-6xl font-bold tracking-[-0.03em] leading-[1.12] md:leading-[1.08] font-display">
-              De l&apos;analyse à l&apos;ordre simulé.
+              From analysis to a simulated order.
               <br />
-              <span className="text-on-surface-muted font-medium">Chaque étape reste lisible.</span>
+              <span className="text-on-surface-muted font-medium">Every step stays understandable.</span>
             </h2>
           </div>
           <div className="self-end md:col-span-5">
             <p className="text-on-surface-variant leading-relaxed text-sm">
-              Vous connectez votre compte Interactive Brokers paper. Cinq agents spécialisés analysent
-              le portefeuille, vérifient vos règles et documentent chaque simulation dans un journal commun.
+              Connect your Interactive Brokers paper trading account. Five specialised agents analyse the portfolio, check your rules and document each simulation in a shared log.
             </p>
           </div>
         </div>
@@ -77,14 +76,14 @@ export function AgentsSection() {
           >
             <div className="mb-5 flex flex-wrap items-center gap-3 border-b border-outline-variant pb-5 md:mb-6">
               <Bot className="h-4 w-4 text-on-surface-variant" aria-hidden="true" />
-              <h3 className="font-display text-sm font-semibold">Scénario de paper trading</h3>
+              <h3 className="font-display text-sm font-semibold">Paper trading scenario</h3>
               <div className="ml-auto flex items-center gap-1.5">
                 <span
                   data-motion-marker="agent-signal"
                   className="agent-status-signal"
                   aria-hidden="true"
                 />
-                <span className="text-xs text-on-surface-muted">Démonstration illustrative</span>
+                <span className="text-xs text-on-surface-muted">Illustrative demonstration</span>
               </div>
             </div>
             <div className="orchestration-timeline">

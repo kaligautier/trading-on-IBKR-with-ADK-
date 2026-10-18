@@ -4,48 +4,48 @@ const REPOSITORY = "https://github.com/kaligautier/trading-on-IBKR-with-ADK-"
 
 const DECISIONS = [
   {
-    title: "Pourquoi séparer production et consultation ?",
-    summary: "Une analyse peut servir à plusieurs lecteurs, sans multiplier les appels aux agents.",
-    choice: "Le workflow collecte les données, appelle les agents et enregistre le rapport dans PostgreSQL. Une API de lecture distincte sert ensuite ce résultat au site. Ouvrir la page ne déclenche aucun nouveau scan.",
-    benefit: "Le coût de génération est partagé entre les consultations. La lecture n’attend pas les agents et le dernier rapport enregistré reste accessible si une nouvelle analyse échoue.",
-    tradeoff: "Un rapport disponible peut être ancien : sa date doit rester visible. Le producteur et le lecteur partagent aussi un format de rapport dont il faut maintenir la compatibilité.",
-    link: "Lire le contrat de l’API de consultation",
+    title: "Why separate report generation from reading?",
+    summary: "One analysis can serve many readers without repeating agent calls.",
+    choice: "The workflow collects data, calls the agents and saves the report in PostgreSQL. A separate read API then serves that result to the site. Opening the page does not trigger another scan.",
+    benefit: "The generation cost is shared across readers. Reading does not wait for the agents, and the latest saved report remains available if a new analysis fails.",
+    tradeoff: "An available report can be old, so its date must remain visible. The producer and reader also share a report format that must stay compatible.",
+    link: "Read the API contract",
     path: "apps/backend/market-scanner-api/README.md",
   },
   {
-    title: "Pourquoi garder les calculs en Python ?",
-    summary: "Des chiffres calculés de façon reproductible, puis une interprétation par les agents.",
-    choice: "Python calcule les variations et les percentiles à partir d’observations datées. Les agents reçoivent ce relevé pour rechercher le contexte et proposer un diagnostic. À l’assemblage, les chiffres sont repris depuis les données calculées.",
-    benefit: "Les calculs peuvent être testés avec des entrées connues. Leur exactitude se vérifie séparément de la qualité des explications produites par le modèle.",
-    tradeoff: "Le code reste dépendant de la qualité et de la fraîcheur des données. Le régime de marché proposé par les agents reste une interprétation qualitative.",
-    link: "Voir les calculs",
+    title: "Why keep calculations in Python?",
+    summary: "Reproducible calculations, followed by an interpretation from the agents.",
+    choice: "Python calculates changes and percentiles from dated observations. The agents use this snapshot to research the context and propose a diagnosis. During assembly, figures come from the calculated data.",
+    benefit: "Calculations can be tested with known inputs. Their accuracy can be checked separately from the quality of the explanations produced by the model.",
+    tradeoff: "The code still depends on data quality and freshness. The market regime proposed by the agents remains a qualitative interpretation.",
+    link: "Explore the calculations",
     path: "apps/backend/market-scanner-adk/src/app/services/market_data_trend_service.py",
   },
   {
-    title: "Pourquoi ajouter une relecture critique ?",
-    summary: "Une explication convaincante peut encore contenir des contradictions.",
-    choice: "Après la recherche, un agent critique examine les dates, les contradictions et les explications causales. Le synthétiseur confronte ces objections aux éléments disponibles avant de rédiger le rapport et les raisons de son diagnostic.",
-    benefit: "Le workflow prévoit une étape pour contester l’analyse et expliciter ses limites. Une critique qui ne respecte pas le format attendu arrête le scan avant la synthèse et la sauvegarde.",
-    tradeoff: "Cette étape ajoute un appel au modèle. Le critique utilise le même modèle et aucun outil externe : sa relecture ne constitue pas une vérification indépendante des faits.",
-    link: "Lire le workflow de recherche",
+    title: "Why add a critical review?",
+    summary: "A convincing explanation can still contain contradictions.",
+    choice: "After research, a critic agent reviews dates, contradictions and causal explanations. The synthesiser weighs these objections against the available evidence before writing the report and explaining its diagnosis.",
+    benefit: "The workflow includes a step to challenge the analysis and make its limits explicit. A critique that does not match the expected format stops the scan before synthesis and persistence.",
+    tradeoff: "This step adds a model call. The critic uses the same model and no external tools, so its review is not an independent fact check.",
+    link: "Explore the research workflow",
     path: "docs/macro-research.md#research-critique-and-arbitration",
   },
   {
-    title: "Pourquoi lancer les scans en tâche de fond ?",
-    summary: "Accepter une demande et terminer une analyse sont deux états différents.",
-    choice: "Le déclenchement planifié soumet un Cloud Run Job, qui exécute le workflow. Le code du job exige un rapport persisté avant de considérer le traitement comme réussi.",
-    benefit: "L’analyse avance sans garder une requête HTTP ouverte pendant toute sa durée. Un lancement accepté ne suffit pas à annoncer qu’un nouveau rapport est disponible.",
-    tradeoff: "La session des agents reste en mémoire pendant le job. Conserver le rapport final ne permet donc pas de reprendre automatiquement le graphe à l’étape interrompue.",
-    link: "Voir l’exécution du job",
+    title: "Why run scans as background jobs?",
+    summary: "Accepting a request and completing an analysis are different states.",
+    choice: "The scheduled trigger submits a Cloud Run Job that runs the workflow. The job requires a persisted report before it considers the run successful.",
+    benefit: "The analysis runs without keeping an HTTP request open throughout. An accepted launch is not enough to announce that a new report is available.",
+    tradeoff: "The agent session stays in memory during the job. Saving the final report does not allow the graph to resume automatically from an interrupted step.",
+    link: "Explore the job runner",
     path: "apps/backend/market-scanner-adk/src/app/jobs/daily_scan.py",
   },
 ]
 
 const PIPELINE = [
-  { title: "Données", detail: "Collecte et calculs Python" },
-  { title: "Analyse", detail: "Recherche, critique, synthèse" },
-  { title: "Persistance", detail: "Validation et sauvegarde PostgreSQL" },
-  { title: "Consultation", detail: "API de lecture, puis affichage sur le site" },
+  { title: "Data", detail: "Data collection and Python calculations" },
+  { title: "Analysis", detail: "Research, review and synthesis" },
+  { title: "Persistence", detail: "Validation and PostgreSQL storage" },
+  { title: "Reading", detail: "Read API, then display on the site" },
 ]
 
 export function EngineeringSection() {
@@ -57,15 +57,13 @@ export function EngineeringSection() {
             <h2 id="engineering-title" className="text-balance font-display text-4xl font-bold leading-tight tracking-tight md:text-5xl">
               Engineering.
               <br />
-              <span className="font-medium text-on-surface-muted">Les choix derrière Deep Copy.</span>
+              <span className="font-medium text-on-surface-muted">The choices behind Deep Copy.</span>
             </h2>
             <p className="mt-6 max-w-prose text-base leading-relaxed text-on-surface-variant">
-              Le Market Scanner sert de fil conducteur : pourquoi séparer les étapes,
-              où placer les contrôles et quels compromis accepter.
-              Chaque choix renvoie au code du projet.
+              Market Scanner is the example: why separate the stages, where to enforce checks and which tradeoffs to accept. Each choice links to the project code.
             </p>
             <a href={REPOSITORY} className="mt-5 inline-flex min-h-11 items-center gap-2 text-sm font-semibold underline decoration-outline-control underline-offset-4 transition-colors hover:text-primary-dim">
-              Explorer le code sur GitHub <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
+              Explore the code on GitHub <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
             </a>
           </div>
           <div className="min-w-0 divide-y divide-outline-variant border-y border-outline-variant lg:col-span-7">
@@ -83,15 +81,15 @@ export function EngineeringSection() {
                 <div className="pb-6">
                   <dl className="space-y-5 text-sm leading-relaxed">
                     <div>
-                      <dt className="font-semibold">Le choix</dt>
+                      <dt className="font-semibold">The choice</dt>
                       <dd className="mt-1 text-on-surface-variant">{decision.choice}</dd>
                     </div>
                     <div>
-                      <dt className="font-semibold">Ce que cela apporte</dt>
+                      <dt className="font-semibold">The benefit</dt>
                       <dd className="mt-1 text-on-surface-variant">{decision.benefit}</dd>
                     </div>
                     <div>
-                      <dt className="font-semibold">Le compromis</dt>
+                      <dt className="font-semibold">The tradeoff</dt>
                       <dd className="mt-1 text-on-surface-variant">{decision.tradeoff}</dd>
                     </div>
                   </dl>
@@ -103,7 +101,7 @@ export function EngineeringSection() {
             ))}
           </div>
         </div>
-        <ol aria-label="Du relevé de marché au rapport consultable" className="mt-12 grid gap-6 border-t border-outline-variant pt-8 sm:grid-cols-2 lg:grid-cols-4">
+        <ol aria-label="From market snapshot to published report" className="mt-12 grid gap-6 border-t border-outline-variant pt-8 sm:grid-cols-2 lg:grid-cols-4">
           {PIPELINE.map((step, index) => (
             <li key={step.title} className="min-w-0">
               <div className="flex items-center justify-between gap-3">
@@ -115,15 +113,13 @@ export function EngineeringSection() {
           ))}
         </ol>
         <div className="mt-10 grid gap-4 border-t border-outline-variant pt-8 lg:grid-cols-12 lg:gap-16">
-          <h3 className="font-display text-lg font-semibold lg:col-span-5">Ce que les tests vérifient.</h3>
+          <h3 className="font-display text-lg font-semibold lg:col-span-5">What the tests check.</h3>
           <div className="min-w-0 lg:col-span-7">
             <p className="max-w-prose text-sm leading-relaxed text-on-surface-variant">
-              Les tests couvrent notamment les calculs, le format des rapports et leur restitution
-              par l’API. Ces vérifications portent sur le fonctionnement du logiciel.
-              Elles ne mesurent pas sa capacité à prévoir les marchés.
+              Tests cover calculations, report formatting and API responses. These checks verify software behaviour. They do not measure its ability to predict markets.
             </p>
             <a href={`${REPOSITORY}/tree/main/apps/backend/market-scanner-api/src/test`} className="mt-2 inline-flex min-h-11 items-center gap-2 text-sm font-medium underline decoration-outline-control underline-offset-4 transition-colors hover:text-primary-dim">
-              Examiner les tests de l’API <ArrowUpRight className="h-4 w-4 shrink-0" aria-hidden="true" />
+              Explore the API tests <ArrowUpRight className="h-4 w-4 shrink-0" aria-hidden="true" />
             </a>
           </div>
         </div>

@@ -1,6 +1,6 @@
 export const HORIZONS = ["1d", "1w", "1m", "3m", "6m", "ytd", "1y", "5y"] as const
 export type Horizon = typeof HORIZONS[number]
-export const HORIZON_LABELS = { "1d": "1 j", "1w": "1 sem", "1m": "1 mois", "3m": "3 mois", "6m": "6 mois", ytd: "Année", "1y": "1 an", "5y": "5 ans" }
+export const HORIZON_LABELS = { "1d": "1d", "1w": "1w", "1m": "1m", "3m": "3m", "6m": "6m", ytd: "YTD", "1y": "1y", "5y": "5y" }
 
 function invalid(): never { throw new Error("Invalid report-v3 response") }
 function object(value: unknown): Record<string, unknown> {
@@ -49,10 +49,10 @@ export function safeSourceUrl(value: unknown): string | null {
   } catch { return null }
 }
 export function formatValue(value: number | string): string {
-  if (typeof value === "number") return new Intl.NumberFormat("fr-FR", { maximumFractionDigits: Math.abs(value) < 10 ? 4 : 2 }).format(value)
+  if (typeof value === "number") return new Intl.NumberFormat("en-GB", { maximumFractionDigits: Math.abs(value) < 10 ? 4 : 2 }).format(value)
   const [integer, fraction] = value.split(".")
-  const formatted = integer === "-0" ? "-0" : new Intl.NumberFormat("fr-FR").format(BigInt(integer))
-  return fraction ? `${formatted},${fraction}` : formatted
+  const formatted = integer === "-0" ? "-0" : new Intl.NumberFormat("en-GB").format(BigInt(integer))
+  return fraction ? `${formatted}.${fraction}` : formatted
 }
 function interpretation(value: unknown) {
   const item = object(value)

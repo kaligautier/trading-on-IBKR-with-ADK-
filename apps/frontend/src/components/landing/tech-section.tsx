@@ -5,9 +5,9 @@ export function TechSection() {
         <div id="tech" data-animate="section-heading" className="grid md:grid-cols-12 gap-8 mb-12 scroll-mt-20">
           <div className="md:col-span-7">
             <h2 className="text-4xl md:text-5xl lg:text-6xl font-bold tracking-[-0.03em] leading-[1.12] md:leading-[1.08] font-display mb-6">
-              L&apos;architecture relie les trois produits,
+              The architecture connects all three products,
               <br />
-              <span className="text-on-surface-muted font-medium">de bout en bout.</span>
+              <span className="text-on-surface-muted font-medium">from end to end.</span>
             </h2>
           </div>
         </div>
@@ -24,7 +24,7 @@ export function TechSection() {
           />
           <div className="relative z-1 flex flex-col gap-5">
             <div data-motion-item={0} className="flex justify-center">
-              <ArchBlock label="Utilisateur" sub="Navigateur" />
+              <ArchBlock label="User" sub="Browser" />
             </div>
             <Arrow />
             <div data-motion-item={1} className="flex justify-center">
@@ -36,22 +36,22 @@ export function TechSection() {
             </div>
             <Arrow />
             <div data-motion-item={3} className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              <ArchBlock label="Google ADK" sub="Agents IA · Gemini 2.5 Flash" />
-              <ArchBlock label="PostgreSQL 16" sub="SQLAlchemy · Données utilisateur" />
-              <ArchBlock label="Redis 7" sub="Cache régime de marché · Sessions" />
+              <ArchBlock label="Google ADK" sub="AI agents · Gemini 2.5 Flash" />
+              <ArchBlock label="PostgreSQL 16" sub="SQLAlchemy · User data" />
+              <ArchBlock label="Redis 7" sub="Market regime cache · Sessions" />
             </div>
             <Arrow />
             <div data-motion-item={4} className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <ArchBlock label="Docker SDK" sub="Provisionne 1 conteneur isolé par utilisateur" />
-              <ArchBlock label="MCP IBKR" sub="Serveur MCP · Gateway API Interactive Brokers" />
+              <ArchBlock label="Docker SDK" sub="Provisions 1 isolated container per user" />
+              <ArchBlock label="MCP IBKR" sub="MCP server · Interactive Brokers Gateway API" />
             </div>
             <Arrow />
             <div data-motion-item={5} className="flex justify-center">
-              <ArchBlock label="Google Cloud Platform" sub="Hébergé en Europe · Cloud Run · Cloud SQL · Secret Manager" />
+              <ArchBlock label="Google Cloud Platform" sub="Hosted in Europe · Cloud Run · Cloud SQL · Secret Manager" />
             </div>
             <Arrow />
             <div data-motion-item={6} className="flex justify-center">
-              <ArchBlock label="Interactive Brokers" sub="Marchés financiers" />
+              <ArchBlock label="Interactive Brokers" sub="Financial markets" />
             </div>
           </div>
         </div>

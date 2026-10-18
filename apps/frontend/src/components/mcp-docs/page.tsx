@@ -40,30 +40,30 @@ type TocSection = { id: string; number: string; title: string; desc: string; sub
 const TOC_SECTIONS: TocSection[] = [
   {
     id: "scanner", number: "01", title: "Market Scanner",
-    desc: "Lire le rapport quotidien sans compte.", subs: [],
+    desc: "Read the daily report without an account.", subs: [],
   },
   {
     id: "mcp-tools",
     number: "02",
     title: "MCP Tools",
-    desc: "Branche n'importe quel LLM aux analyses de marché via le Model Context Protocol.",
+    desc: "Connect any LLM to market analysis through the Model Context Protocol.",
     subs: [
       { id: "quickstart", number: "2.1", title: "Quickstart" },
-      { id: "protocol-2026", number: "2.2", title: "Protocole 2026-07-28" },
+      { id: "protocol-2026", number: "2.2", title: "Protocol 2026-07-28" },
       { id: "tool-list_analyses", number: "2.3", title: "list_analyses" },
       { id: "tool-latest_analyses", number: "2.4", title: "latest_analyses" },
       { id: "tool-get_analysis", number: "2.5", title: "get_analysis" },
       { id: "tool-get_recommendations", number: "2.6", title: "get_recommendations" },
       { id: "tool-suggest_ticker", number: "2.7", title: "suggest_ticker" },
       { id: "tool-get_suggestion_status", number: "2.8", title: "get_suggestion_status" },
-      { id: "moderation", number: "2.9", title: "Modération" },
+      { id: "moderation", number: "2.9", title: "Moderation" },
     ],
   },
   {
     id: "connecter",
     number: "03",
-    title: "Connecter un agent",
-    desc: "Accède aux analyses publiques avec ton agent.",
+    title: "Connect an agent",
+    desc: "Access public analysis with your agent.",
     subs: [],
   },
 ]
@@ -210,9 +210,9 @@ function HeroSection() {
 
 function DocsChoiceSection() {
   return (
-    <section className="pb-10" aria-label="Choisir une documentation">
+    <section className="pb-10" aria-label="Choose a documentation guide">
       <p className="mb-4 text-xs font-medium uppercase tracking-[0.15em] text-on-surface-muted">
-        Deux produits, deux usages
+        Two products, two use cases
       </p>
       <div className="grid gap-4 sm:grid-cols-2">
         <a
@@ -220,16 +220,16 @@ function DocsChoiceSection() {
           className="group rounded-2xl border border-on-surface/10 bg-surface-low p-6 transition hover:border-on-surface/25 hover:bg-surface-high"
         >
           <span className="text-[10px] font-medium uppercase tracking-[0.15em] text-on-surface-muted">
-            MCP public
+            Public MCP
           </span>
           <h2 className="mt-3 font-display text-xl font-semibold text-on-surface">
-            Voir la documentation MCP
+            Read the MCP documentation
           </h2>
           <p className="mt-2 text-sm leading-relaxed text-on-surface-variant">
-            Un service indépendant pour connecter n&apos;importe quel agent aux analyses Momentum publiques.
+            An independent service that connects any agent to public Momentum analysis.
           </p>
           <span className="mt-5 inline-block text-xs font-medium text-on-surface underline underline-offset-4">
-            Consulter les outils →
+            Explore the tools →
           </span>
         </a>
 
@@ -241,13 +241,13 @@ function DocsChoiceSection() {
             Market Scanner
           </span>
           <h2 className="mt-3 font-display text-xl font-semibold text-on-surface">
-            Consulter le Market Scanner
+            Read the Market Scanner
           </h2>
           <p className="mt-2 text-sm leading-relaxed text-on-surface-variant">
-            Le rapport quotidien, ses observations, ses horizons et ses limites, sans connexion.
+            The daily report, its observations, horizons and limitations, with no login required.
           </p>
           <span className="mt-5 inline-block text-xs font-medium text-on-surface underline underline-offset-4">
-            Comprendre le rapport →
+            Understand the report →
           </span>
         </Link>
       </div>
@@ -264,15 +264,10 @@ function ScannerDocs() {
     <section id="scanner" className="py-12 scroll-mt-20">
       <SectionTitle>Market Scanner</SectionTitle>
       <p className="text-on-surface-variant mb-6 leading-relaxed">
-        Le rapport quotidien est consultable sans compte depuis la page d’accueil.
-        Sa date de publication et les dates d’observation permettent de distinguer
-        une analyse récente de données de marché plus anciennes.
+        The daily report is available on the homepage without an account. Its publication date and observation dates distinguish a recent analysis from older market data.
       </p>
       <p className="text-on-surface-variant mb-6 leading-relaxed">
-        Les huit horizons vont d’un jour à cinq ans, avec une mesure depuis le
-        début de l’année. Une valeur manquante reste indisponible. Les limites,
-        sources et hypothèses accompagnent les observations ; le régime de marché
-        ne constitue ni une probabilité de gain ni une recommandation d’investissement.
+        The eight horizons range from one day to five years, including year to date. Missing values remain unavailable. Limitations, sources and hypotheses accompany the observations; the market regime is neither a probability of profit nor an investment recommendation.
       </p>
       <PublicActions />
     </section>
@@ -285,23 +280,21 @@ function McpSection() {
       <SectionTitle id="quickstart">Quickstart</SectionTitle>
 
       <p className="text-on-surface-variant mb-6 max-w-2xl leading-relaxed">
-        Le serveur Momentum expose publiquement les analyses et accepte les suggestions de tickers.
-        Il est accessible sans clé API via l&apos;endpoint HTTP suivant :
+        The Momentum server provides public analysis and accepts ticker suggestions. It is available without an API key at this HTTP endpoint:
       </p>
 
       <CodeBlock
-        title="URL du serveur MCP public"
+        title="Public MCP server URL"
         language="text"
         code={`https://mcp.deepcopy.fr`}
       />
 
       <p className="text-on-surface-variant mb-6 max-w-2xl leading-relaxed">
-        Dans un client compatible MCP <InlineCode>2026-07-28</InlineCode>, renseigne simplement cette URL.
-        Le client g&egrave;re ensuite la d&eacute;couverte du serveur et les en-t&ecirc;tes de transport.
+        In an MCP-compatible client <InlineCode>2026-07-28</InlineCode>, enter this URL. The client then handles server discovery and transport headers.
       </p>
 
       <CodeBlock
-        title="claude_desktop_config.json (client compatible)"
+        title="claude_desktop_config.json (compatible client)"
         language="json"
         code={`{
   "mcpServers": {
@@ -312,17 +305,15 @@ function McpSection() {
 }`}
       />
 
-      <SectionTitle id="protocol-2026">Protocole MCP 2026-07-28</SectionTitle>
+      <SectionTitle id="protocol-2026">MCP protocol 2026-07-28</SectionTitle>
       <p className="text-on-surface-variant mb-6 max-w-2xl leading-relaxed">
-        Le serveur utilise le protocole MCP moderne en <strong className="text-on-surface">Streamable HTTP stateless</strong>.
-        Chaque appel est un <InlineCode>POST</InlineCode> ind&eacute;pendant : il n&apos;y a plus de handshake
-        <InlineCode>initialize</InlineCode>, de session <InlineCode>Mcp-Session-Id</InlineCode> ou de requ&ecirc;te
-        <InlineCode>notifications/initialized</InlineCode>. Les informations du client et la version sont
-        envoy&eacute;es dans <InlineCode>params._meta</InlineCode> &agrave; chaque requ&ecirc;te.
+        The server uses the modern MCP protocol over <strong className="text-on-surface">stateless Streamable HTTP</strong>. Each call is an independent <InlineCode>POST</InlineCode> request: there is no{" "}
+        <InlineCode>initialize</InlineCode> handshake, <InlineCode>Mcp-Session-Id</InlineCode> session or{" "}
+        <InlineCode>notifications/initialized</InlineCode> request. Client information and the protocol version are sent in <InlineCode>params._meta</InlineCode> with every request.
       </p>
 
       <CodeBlock
-        title="Découvrir les capacités du serveur"
+        title="Discover server capabilities"
         language="bash"
         code={`curl https://mcp.deepcopy.fr \\
   -H 'Content-Type: application/json' \\
@@ -336,7 +327,7 @@ function McpSection() {
     "params": {
       "_meta": {
         "io.modelcontextprotocol/protocolVersion": "2026-07-28",
-        "io.modelcontextprotocol/clientInfo": {"name": "mon-client", "version": "1.0.0"},
+        "io.modelcontextprotocol/clientInfo": {"name": "my-client", "version": "1.0.0"},
         "io.modelcontextprotocol/clientCapabilities": {}
       }
     }
@@ -344,13 +335,12 @@ function McpSection() {
       />
 
       <p className="text-on-surface-variant mb-6 max-w-2xl leading-relaxed">
-        Pour un appel <InlineCode>tools/call</InlineCode>, le client reprend ces m&eacute;tadonn&eacute;es et ajoute
-        <InlineCode>Mcp-Name</InlineCode> avec le nom de l&apos;outil. Les valeurs des en-t&ecirc;tes doivent correspondre
-        au contenu JSON-RPC ; le serveur rejette les requ&ecirc;tes incoh&eacute;rentes.
+        For a <InlineCode>tools/call</InlineCode> call, the client reuses this metadata and adds{" "}
+        <InlineCode>Mcp-Name</InlineCode> with the tool name. Header values must match the JSON-RPC payload; the server rejects inconsistent requests.
       </p>
 
       <CodeBlock
-        title="Appeler list_analyses"
+        title="Call list_analyses"
         language="bash"
         code={`curl https://mcp.deepcopy.fr \\
   -H 'Content-Type: application/json' \\
@@ -367,7 +357,7 @@ function McpSection() {
       "arguments": {"ticker": "ASML", "limit": 10, "offset": 0},
       "_meta": {
         "io.modelcontextprotocol/protocolVersion": "2026-07-28",
-        "io.modelcontextprotocol/clientInfo": {"name": "mon-client", "version": "1.0.0"},
+        "io.modelcontextprotocol/clientInfo": {"name": "my-client", "version": "1.0.0"},
         "io.modelcontextprotocol/clientCapabilities": {}
       }
     }
@@ -375,7 +365,7 @@ function McpSection() {
       />
 
       <p className="text-xs text-on-surface-muted mb-8 max-w-2xl">
-        R&eacute;f&eacute;rence : <a className="underline hover:text-on-surface" href="https://modelcontextprotocol.io/specification/2026-07-28/basic/transports/streamable-http" target="_blank" rel="noopener noreferrer">sp&eacute;cification Streamable HTTP MCP 2026-07-28</a>.
+        Reference: <a className="underline hover:text-on-surface" href="https://modelcontextprotocol.io/specification/2026-07-28/basic/transports/streamable-http" target="_blank" rel="noopener noreferrer">MCP 2026-07-28 Streamable HTTP specification</a>.
       </p>
 
       <SectionTitle>MCP Tools</SectionTitle>
@@ -384,20 +374,20 @@ function McpSection() {
         <ToolDoc
           id="tool-list_analyses"
           name="list_analyses"
-          description="Liste paginée des analyses avec filtre par ticker. Retourne un résumé : rating, prix, RSI, tendance, PE ratio."
+          description="Paginated analyses with an optional ticker filter. Returns a summary: rating, price, RSI, trend and P/E ratio."
           params={[
-            { name: "ticker", type: "str | None", default: "None", description: "Filtre par symbole (ex: AAPL)" },
-            { name: "limit", type: "int", default: "50", description: "Nombre de résultats (max 200)" },
-            { name: "offset", type: "int", default: "0", description: "Décalage pour pagination" },
+            { name: "ticker", type: "str | None", default: "None", description: "Filter by symbol (e.g. AAPL)" },
+            { name: "limit", type: "int", default: "50", description: "Number of results (maximum 200)" },
+            { name: "offset", type: "int", default: "0", description: "Pagination offset" },
           ]}
           responseFields={["ticker", "rating", "executive_summary", "price_target", "entry_price", "stop_loss", "rsi", "rsi_signal", "trend_direction", "key_support", "key_resistance", "pe_ratio", "peg_ratio", "beta"]}
         />
         <ToolDoc
           id="tool-latest_analyses"
           name="latest_analyses"
-          description="Dernière analyse par ticker. Filtre optionnel par portfolio rating."
+          description="Latest analysis for each ticker, with an optional portfolio rating filter."
           params={[
-            { name: "ticker", type: "str | None", default: "None", description: "Un seul ticker" },
+            { name: "ticker", type: "str | None", default: "None", description: "A single ticker" },
             { name: "rating", type: "str | None", default: "None", description: "Comma-separated: Buy,Overweight,Hold,Underweight,Sell" },
           ]}
           responseFields={["ticker", "rating", "executive_summary", "price_target", "trader_action", "rsi", "trend_direction"]}
@@ -405,38 +395,38 @@ function McpSection() {
         <ToolDoc
           id="tool-get_analysis"
           name="get_analysis"
-          description="Détail complet : indicateurs techniques, fondamentaux, sentiment, news, débats bull/bear, décision portfolio."
+          description="Full report: technical indicators, fundamentals, sentiment, news, bull/bear debates and portfolio decision."
           params={[
-            { name: "analysis_id", type: "str (UUID)", default: "required", description: "Identifiant de l'analyse" },
+            { name: "analysis_id", type: "str (UUID)", default: "required", description: "Analysis identifier" },
           ]}
           responseFields={["technical_indicators", "fundamentals", "sentiment", "news", "research_plan", "trader_proposal", "portfolio_decision", "debate_arguments", "run_stats"]}
         />
         <ToolDoc
           id="tool-get_recommendations"
           name="get_recommendations"
-          description="Recommandations actives filtrées par rating. Idéal pour « quoi acheter ? »."
+          description="Active recommendations filtered by rating, for queries about potential purchases."
           params={[
-            { name: "rating", type: "str", default: '"Buy,Overweight"', description: "Ratings cibles" },
-            { name: "limit", type: "int", default: "10", description: "Max résultats (max 100)" },
+            { name: "rating", type: "str", default: '"Buy,Overweight"', description: "Target ratings" },
+            { name: "limit", type: "int", default: "10", description: "Number of results (maximum 100)" },
           ]}
           responseFields={["ticker", "rating", "price_target", "entry_price", "stop_loss", "position_size", "risk_reward_ratio"]}
         />
         <ToolDoc
           id="tool-suggest_ticker"
           name="suggest_ticker"
-          description="Propose un ticker à analyser. Une analyse ou suggestion existante est retournée sans nouvelle écriture ; sinon une suggestion unique est créée pour modération."
+          description="Suggest a ticker for analysis. An existing analysis or suggestion is returned without another write; otherwise, a single suggestion is created for moderation."
           params={[
-            { name: "symbol", type: "str", default: "required", description: "Symbole boursier (ex: ASML)" },
-            { name: "reason", type: "str | None", default: "None", description: "Pourquoi ce ticker mérite une analyse" },
+            { name: "symbol", type: "str", default: "required", description: "Stock symbol (e.g. ASML)" },
+            { name: "reason", type: "str | None", default: "None", description: "Why this ticker deserves analysis" },
           ]}
           responseFields={["suggestion_id | analysis_id | job_id", "symbol", "status", "created_at", "created"]}
         />
         <ToolDoc
           id="tool-get_suggestion_status"
           name="get_suggestion_status"
-          description="Consulte la décision de modération associée à une suggestion."
+          description="Read the moderation decision for a suggestion."
           params={[
-            { name: "suggestion_id", type: "str (UUID)", default: "required", description: "Identifiant retourné par suggest_ticker" },
+            { name: "suggestion_id", type: "str (UUID)", default: "required", description: "Identifier returned by suggest_ticker" },
           ]}
           responseFields={["suggestion_id", "symbol", "status", "created_at", "reviewed_at", "review_reason"]}
         />
@@ -451,17 +441,15 @@ function ModerationWorkflow() {
   return (
     <section id="moderation" className="scroll-mt-24 border-t border-on-surface/10 py-10">
       <h3 className="font-display text-xl font-semibold text-on-surface">
-        Une suggestion, pas un ordre d&apos;analyse
+        A suggestion for review
       </h3>
       <p className="mt-2 max-w-2xl text-sm leading-relaxed text-on-surface-variant">
-        Un ticker inconnu est sauvegardé une seule fois avec le statut <InlineCode>pending</InlineCode>.
-        Si une analyse ou une proposition existe déjà, elle est renvoyée sans écriture.
-        L&apos;administrateur peut ensuite approuver ou rejeter une nouvelle proposition.
+        An unknown ticker is saved once with the status <InlineCode>pending</InlineCode>. If an analysis or suggestion already exists, it is returned without another write. An administrator can then approve or reject a new suggestion.
       </p>
       <div className="mt-5 grid gap-3 sm:grid-cols-3">
-        <WorkflowStep number="1" title="Proposition" detail="Le LLM appelle suggest_ticker." />
-        <WorkflowStep number="2" title="Modération" detail="L’administrateur vérifie la demande." />
-        <WorkflowStep number="3" title="Analyse" detail="Un job est créé après approbation." />
+        <WorkflowStep number="1" title="Suggestion" detail="The LLM calls suggest_ticker." />
+        <WorkflowStep number="2" title="Moderation" detail="An administrator reviews the request." />
+        <WorkflowStep number="3" title="Analysis" detail="A job is created after approval." />
       </div>
     </section>
   )
@@ -494,10 +482,10 @@ function CtaSection() {
     <section id="connecter" className="py-16 scroll-mt-20">
       <div className="rounded-2xl border border-on-surface/5 bg-surface-low p-8 md:p-12 text-center">
         <h2 className="text-2xl md:text-3xl font-bold text-on-surface mb-4 font-display">
-          Connectez votre LLM aux march&eacute;s
+          Connect your LLM to market analysis
         </h2>
         <p className="text-on-surface-variant mb-6 max-w-md mx-auto">
-          Le MCP Momentum est public et sans clé API.
+          Momentum MCP is public and requires no API key.
         </p>
         <CopyEndpoint />
         <div className="flex justify-center mt-6">
@@ -527,7 +515,7 @@ function Footer() {
             deepcopy.fr
           </a>
           <a href="https://deepcopy.fr/legal/privacy" className="hover:text-on-surface transition">
-            Confidentialit&eacute;
+            Privacy
           </a>
           <span>&copy; 2026 Deep Copy</span>
         </div>
@@ -572,7 +560,7 @@ function CodeBlock({ title, language, code }: { title: string; language: string;
         </div>
         <div className="flex items-center gap-2">
           <span className="text-[10px] font-mono text-slate-500 uppercase">{language}</span>
-          <CopyEndpointButton value={code} label="Copier le code" inverted />
+          <CopyEndpointButton value={code} label="Copy code" inverted />
         </div>
       </div>
       <pre className="p-4 overflow-x-auto text-[13px] leading-relaxed font-mono text-slate-300 bg-[#1e1e2e]">
@@ -610,7 +598,7 @@ function ToolDoc({
 
       <div className="min-w-0">
         <div className="text-[11px] font-medium uppercase tracking-wider text-on-surface-muted">
-          Paramètres
+          Parameters
         </div>
         <dl className="mt-1 divide-y divide-on-surface/10">
           {params.map((p) => (
@@ -620,11 +608,11 @@ function ToolDoc({
                 <span className="font-mono text-xs text-on-surface-muted">{p.type}</span>
                 {p.default === "required" ? (
                   <span className="text-[10px] font-medium uppercase tracking-wide text-amber-600 dark:text-amber-400">
-                    requis
+                    required
                   </span>
                 ) : (
                   <span className="text-xs text-on-surface-muted">
-                    défaut <span className="font-mono text-on-surface-variant">{p.default}</span>
+                    default <span className="font-mono text-on-surface-variant">{p.default}</span>
                   </span>
                 )}
               </dt>
@@ -636,7 +624,7 @@ function ToolDoc({
         </dl>
 
         <div className="mt-7 text-[11px] font-medium uppercase tracking-wider text-on-surface-muted">
-          Réponse
+          Response
         </div>
         <div className="mt-2.5 flex flex-wrap gap-x-5 gap-y-2">
           {responseFields.map((f) => (
