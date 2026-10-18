@@ -1,0 +1,25 @@
+name: Pull request policy tests
+
+on:
+  pull_request:
+    paths:
+      - '.github/scripts/**'
+      - '.github/workflows/pr-*.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-policy-tests-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  policy-tests:
+    name: PR policy tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - run: python3 -m unittest discover -s .github/scripts -p 'test_pr_*.py' -v

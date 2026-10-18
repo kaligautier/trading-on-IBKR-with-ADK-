@@ -55,8 +55,23 @@ repository.
 
 ## Pull requests
 
-- Keep each PR at or below 1,000 changed lines (additions + deletions), including
-  generated files and lockfiles. The `PR size` CI check fails above this limit;
+- Change at most one application component per PR. Each `apps/backend/<service>`
+  directory is a separate component; `apps/frontend` (and any other
+  `apps/<application>` directory) is also a component. The `PR component scope`
+  CI check rejects changes spanning two components, including file moves between
+  them. Tests, configuration and lockfiles inside a component count toward it.
+  Shared files outside these directories (for example `.github`, `docs`,
+  `database`, `infra` and root documentation) may accompany a component change
+  or be changed independently. They do not increase the component count.
+  Split coordinated changes into dependent PRs. This check does not replace
+  code review or the existing PR size limit.
+  Enforcement uses the default branch's trusted rules, never scripts from the
+  proposed PR or a dependent PR's base branch. A separate read-only workflow
+  tests proposed policy changes before they become enforcement rules on merge.
+- Keep each PR at or below 1,000 changed lines (additions + deletions).
+  Generated `package-lock.json` and `uv.lock` files are excluded from this count
+  but must remain versioned and subject to dependency/security checks. All other
+  files count. The `PR size` CI check fails above this limit;
   split larger changes into smaller PRs. The count applies to the whole PR,
   not to each commit. Binary files contribute GitHub's reported line count.
 - Explain what changed and why; link a related issue when available.
