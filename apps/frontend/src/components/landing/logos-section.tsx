@@ -26,7 +26,7 @@ export function LogosSection() {
           data-animate="section-heading"
           className="mb-12 text-center font-display text-xl font-semibold tracking-[-0.02em] text-on-surface-variant"
         >
-          Les technologies mobilisées par l&apos;écosystème
+          The technologies behind the ecosystem
         </h2>
         <div data-animate="logo-rails" className="flex flex-col gap-8">
           <div data-motion-item={0} className="relative overflow-hidden">

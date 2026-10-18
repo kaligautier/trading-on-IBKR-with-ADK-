@@ -1,13 +1,13 @@
 import { formatValue, type MarketAsset, type MarketScan } from "@/lib/market-scanner/report"
 
 type Report = MarketScan["report"]
-const STATUS = { documented: "Documenté", hypothesis: "Hypothèse", unestablished: "Non établi" }
-const QUALITY = { available: "Disponible", stale: "Ancienne", unavailable: "Indisponible" }
+const STATUS = { documented: "Documented", hypothesis: "Hypothesis", unestablished: "Unestablished" }
+const QUALITY = { available: "Available", stale: "Stale", unavailable: "Unavailable" }
 
 function SourceLinks({ ids, sources }: { ids: string[]; sources: Report["sources"] }) {
   return sources.filter(source => ids.includes(source.id)).map(source => source.url ? (
     <a key={source.id} href={source.url} target="_blank" rel="noopener noreferrer" className="mr-3 inline-flex min-h-11 items-center break-words text-xs underline underline-offset-4">{source.title}</a>
-  ) : <span key={source.id} className="text-xs">{source.title} · lien indisponible</span>)
+  ) : <span key={source.id} className="text-xs">{source.title} · link unavailable</span>)
 }
 
 export function AssetDetails({ asset, quality, sources }: { asset: MarketAsset; quality?: Report["data_quality"][string]; sources: Report["sources"] }) {
@@ -15,11 +15,11 @@ export function AssetDetails({ asset, quality, sources }: { asset: MarketAsset; 
     <details id={`asset-${asset.asset_key}`} className="group border-t border-outline-variant py-2">
       <summary className="min-h-11 cursor-pointer py-3 text-sm font-semibold">{asset.name} <span className="ml-2 font-normal text-on-surface-muted">{formatValue(asset.value)} {asset.unit}</span></summary>
       <div className="space-y-3 pb-5 text-sm leading-relaxed">
-        <p className="text-xs text-on-surface-muted">Observation : {asset.observed_on ?? "date inconnue"} · Percentile sur 3 ans : {asset.percentile_3y === null ? "indisponible" : `${(asset.percentile_3y * 100).toLocaleString("fr-FR", { maximumFractionDigits: 1 })} %`}</p>
+        <p className="text-xs text-on-surface-muted">Observed on: {asset.observed_on ?? "unknown date"} · 3-year percentile: {asset.percentile_3y === null ? "unavailable" : `${(asset.percentile_3y * 100).toLocaleString("en-GB", { maximumFractionDigits: 1 })} %`}</p>
         <p><strong>Observation.</strong> {asset.observation}</p>
         <p><strong>{STATUS[asset.interpretation.status]}.</strong> {asset.interpretation.text}</p>
         <SourceLinks ids={asset.interpretation.source_ids} sources={sources} />
-        {quality && <p className="text-xs text-on-surface-variant">Donnée {QUALITY[quality.status].toLowerCase()} · {quality.source_url ? <a href={quality.source_url} target="_blank" rel="noopener noreferrer" className="underline underline-offset-4">{quality.source}</a> : quality.source}{quality.reason ? ` · ${quality.reason}` : ""}</p>}
+        {quality && <p className="text-xs text-on-surface-variant">Data: {QUALITY[quality.status].toLowerCase()} · {quality.source_url ? <a href={quality.source_url} target="_blank" rel="noopener noreferrer" className="underline underline-offset-4">{quality.source}</a> : quality.source}{quality.reason ? ` · ${quality.reason}` : ""}</p>}
       </div>
     </details>
   )
@@ -35,22 +35,22 @@ export function Evidence({ scan }: { scan: MarketScan }) {
   return (
     <div className="space-y-6">
       <details className="rounded-xl border border-outline-variant px-4 sm:px-6">
-        <summary className="min-h-11 cursor-pointer py-5 font-display text-lg font-semibold">Analyses par famille et contexte macroéconomique</summary>
+        <summary className="min-h-11 cursor-pointer py-5 font-display text-lg font-semibold">Asset class analysis and macroeconomic context</summary>
         <div className="space-y-8 pb-6">
           <section className="space-y-4" aria-labelledby="themes-title">
-            <h3 id="themes-title" className="font-display text-xl font-bold">Lecture par famille d’actifs</h3>
+            <h3 id="themes-title" className="font-display text-xl font-bold">Analysis by asset class</h3>
             {report.themes.map((theme, index) => <details key={index} className="border-t border-outline-variant py-2"><summary className="min-h-11 cursor-pointer py-3 font-medium">{theme.family}</summary><p className="mb-3 text-sm leading-relaxed">{theme.observation}</p><p className="text-sm leading-relaxed"><strong>{STATUS[theme.interpretation.status]}.</strong> {theme.interpretation.text}</p><SourceLinks ids={theme.interpretation.source_ids} sources={report.sources} /></details>)}
           </section>
           {report.macro_overview && <section className="space-y-4" aria-labelledby="macro-title">
-            <h3 id="macro-title" className="font-display text-xl font-bold">Contexte macroéconomique</h3>
+            <h3 id="macro-title" className="font-display text-xl font-bold">Macroeconomic context</h3>
             <p className="text-sm leading-relaxed">{report.macro_overview.context}</p>
             {report.macro_overview.themes.map((theme, index) => (
               <details key={index} className="border-t border-outline-variant py-2">
                 <summary className="min-h-11 cursor-pointer py-3 text-sm font-semibold">{theme.title} · {STATUS[theme.status]}</summary>
                 <dl className="space-y-3 pb-4 text-sm leading-relaxed">{[
-                  ["Observation", theme.observation], ["Contexte rapporté", theme.development],
-                  ["Mécanisme envisagé", theme.transmission], ["Éléments contradictoires", theme.counter_evidence],
-                  ["Incertitudes", theme.uncertainty],
+                  ["Observation", theme.observation], ["Reported context", theme.development],
+                  ["Proposed mechanism", theme.transmission], ["Counter-evidence", theme.counter_evidence],
+                  ["Uncertainty", theme.uncertainty],
                 ].map(([label, text]) => <div key={label}><dt className="font-semibold">{label}</dt><dd className="text-on-surface-variant">{text}</dd></div>)}</dl>
               </details>
             ))}
@@ -59,26 +59,26 @@ export function Evidence({ scan }: { scan: MarketScan }) {
       </details>
       {(report.limitations.length > 0 || (report.macro_overview?.data_gaps.length ?? 0) > 0) && (
         <details className="rounded-xl border border-outline-variant px-4 sm:px-6">
-          <summary className="min-h-11 cursor-pointer py-5 font-semibold">Limites du rapport et données manquantes</summary>
+          <summary className="min-h-11 cursor-pointer py-5 font-semibold">Report limitations and missing data</summary>
           <div className="space-y-5 pb-6">
-            <TextList title="Limites du rapport" items={report.limitations} />
-            {report.macro_overview && <TextList title="Données manquantes" items={report.macro_overview.data_gaps} />}
+            <TextList title="Report limitations" items={report.limitations} />
+            {report.macro_overview && <TextList title="Missing data" items={report.macro_overview.data_gaps} />}
           </div>
         </details>
       )}
       <section className="space-y-3" aria-labelledby="sources-title">
-        <h3 id="sources-title" className="font-display text-xl font-bold">Sources et couverture</h3>
-        <p className="text-xs text-on-surface-muted">Dates d’observation : {report.scope.observation_dates.join(", ") || "non renseignées"}.</p>
-        {report.scope.stale.length > 0 && <p className="text-sm">Données anciennes : {report.scope.stale.join(", ")}</p>}
-        {report.scope.unavailable.length > 0 && <p className="text-sm">Actifs indisponibles : {report.scope.unavailable.join(", ")}</p>}
+        <h3 id="sources-title" className="font-display text-xl font-bold">Sources and coverage</h3>
+        <p className="text-xs text-on-surface-muted">Observation dates: {report.scope.observation_dates.join(", ") || "not provided"}.</p>
+        {report.scope.stale.length > 0 && <p className="text-sm">Stale data: {report.scope.stale.join(", ")}</p>}
+        {report.scope.unavailable.length > 0 && <p className="text-sm">Unavailable assets: {report.scope.unavailable.join(", ")}</p>}
         {Object.entries(report.data_quality).filter(([, quality]) => quality.status === "unavailable").map(([key, quality]) => (
           <div key={key} className="border-l-2 border-outline-variant pl-4 text-sm">
-            <p className="font-semibold">{quality.name} · Indisponible</p>
-            <p className="mt-1 text-on-surface-variant">{quality.reason ?? "Le fournisseur n’a pas précisé de motif."}</p>
+            <p className="font-semibold">{quality.name} · Unavailable</p>
+            <p className="mt-1 text-on-surface-variant">{quality.reason ?? "The provider did not specify a reason."}</p>
             <p className="mt-1 text-xs">{quality.source_url ? <a href={quality.source_url} target="_blank" rel="noopener noreferrer" className="underline underline-offset-4">{quality.source}</a> : quality.source}</p>
           </div>
         ))}
-        {report.sources.length ? <SourceLinks ids={report.sources.map(source => source.id)} sources={report.sources} /> : <p className="text-sm text-on-surface-variant">Aucune référence de recherche n’est jointe à ce rapport. Les interprétations restent à distinguer des observations chiffrées et de leurs fournisseurs.</p>}
+        {report.sources.length ? <SourceLinks ids={report.sources.map(source => source.id)} sources={report.sources} /> : <p className="text-sm text-on-surface-variant">No research references are attached to this report. Interpretations should be distinguished from numerical observations and their data providers.</p>}
       </section>
     </div>
   )

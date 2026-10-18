@@ -7,7 +7,7 @@ import { Menu, X } from "lucide-react"
 const NAV_ITEMS = [
   { href: "#market-scanner", label: "Market Scanner" },
   { href: "#momentum-mcp", label: "Momentum" },
-  { href: "#deep-copy", label: "Trading expérimental" },
+  { href: "#deep-copy", label: "Experimental trading" },
   { href: "#engineering", label: "Engineering" },
 ]
 
@@ -53,9 +53,9 @@ export function NavSection() {
   }, [mobileOpen])
 
   return (
-    <nav aria-label="Navigation principale" className={`fixed top-0 z-50 w-full transition-all duration-300 ${scrolled || mobileOpen ? "border-b border-outline-variant bg-surface/95 backdrop-blur-xl" : "bg-transparent"}`}>
+    <nav aria-label="Main navigation" className={`fixed top-0 z-50 w-full transition-all duration-300 ${scrolled || mobileOpen ? "border-b border-outline-variant bg-surface/95 backdrop-blur-xl" : "bg-transparent"}`}>
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-3 px-4 sm:px-6">
-        <a href="#" className="flex min-h-11 min-w-11 shrink-0 items-center gap-2" aria-label="Deep Copy — revenir en haut">
+        <a href="#" className="flex min-h-11 min-w-11 shrink-0 items-center gap-2" aria-label="Deep Copy — back to top">
           <div className="w-7 h-7 rounded-lg bg-on-surface flex items-center justify-center font-bold text-xs text-surface-lowest">
             DC
           </div>
@@ -97,7 +97,7 @@ export function NavSection() {
             type="button"
             aria-expanded={mobileOpen}
             aria-controls="mobile-navigation"
-            aria-label={mobileOpen ? "Fermer le menu" : "Ouvrir le menu"}
+            aria-label={mobileOpen ? "Close menu" : "Open menu"}
             onClick={() => setMobileOpen((open) => !open)}
             className="inline-flex h-11 w-11 items-center justify-center rounded-full text-on-surface transition-colors hover:bg-surface-low"
           >
