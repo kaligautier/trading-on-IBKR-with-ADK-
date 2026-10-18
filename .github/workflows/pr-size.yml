@@ -5,6 +5,7 @@ on:
     types: [opened, synchronize, reopened, edited, ready_for_review]
 
 permissions:
+  contents: read
   pull-requests: read
 
 concurrency:
@@ -17,40 +18,23 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 2
     steps:
-      - name: Enforce the 1,000-line limit
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Test the PR rules
+        run: python3 -m unittest discover -s .github/scripts -p 'test_pr_*.py' -v
+      - name: Read all changed files
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
-          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           set -euo pipefail
-          gh api "repos/${GH_REPO}/pulls/${PR_NUMBER}" > "$RUNNER_TEMP/pr-size.json"
-          python3 - <<'PY'
-          import json
-          import os
-          from pathlib import Path
-
-          report = json.loads((Path(os.environ["RUNNER_TEMP"]) / "pr-size.json").read_text())
-          if report.get("head", {}).get("sha") != os.environ["PR_HEAD_SHA"]:
-              raise SystemExit("::error::PR head changed; the latest run must validate its size.")
-          counts = [report.get("additions"), report.get("deletions")]
-          if any(type(value) is not int or value < 0 for value in counts):
-              raise SystemExit("::error::GitHub did not return valid PR line counts.")
-
-          additions, deletions = counts
-          total = additions + deletions
-          limit = 1000
-          summary = (
-              f"### PR size: {total} / {limit} lines\n\n"
-              f"{additions} additions + {deletions} deletions. "
-              "All files count, including generated files and lockfiles.\n"
-          )
-          Path(os.environ["GITHUB_STEP_SUMMARY"]).write_text(summary)
-          print(summary)
-          if total > limit:
-              raise SystemExit(
-                  f"::error::PR changes {total} lines; the maximum is {limit}. "
-                  "Split this change into smaller PRs."
-              )
-          PY
+          gh api --paginate --slurp "repos/${GH_REPO}/pulls/${PR_NUMBER}/files?per_page=100" > "$RUNNER_TEMP/pr-files.json"
+          gh api "repos/${GH_REPO}/pulls/${PR_NUMBER}" > "$RUNNER_TEMP/pr.json"
+      - name: Enforce the 1,000-line limit excluding lockfiles
+        env:
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          python3 .github/scripts/check_pr_size.py \
+            "$RUNNER_TEMP/pr.json" "$RUNNER_TEMP/pr-files.json" "$PR_HEAD_SHA"

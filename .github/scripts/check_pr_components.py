@@ -5,6 +5,8 @@ import os
 import sys
 from pathlib import Path, PurePosixPath
 
+from pr_files import changed_files
+
 
 def component_for(path: str) -> str | None:
     parts = PurePosixPath(path).parts
@@ -16,27 +18,9 @@ def component_for(path: str) -> str | None:
 
 
 def changed_components(report: dict, pages: list, expected_head: str) -> list[str]:
-    if not expected_head or report.get("head", {}).get("sha") != expected_head:
-        raise ValueError("PR head changed; the latest run must validate its scope.")
-    count = report.get("changed_files")
-    if type(count) is not int or count < 0:
-        raise ValueError("GitHub did not return a valid changed-file count.")
-    if not isinstance(pages, list) or any(not isinstance(page, list) for page in pages):
-        raise ValueError("GitHub did not return paginated PR files.")
-    files = [entry for page in pages for entry in page]
-    if len(files) != count:
-        raise ValueError("Incomplete PR file list; scope cannot be verified.")
-
     components = set()
-    seen = set()
-    for entry in files:
-        if not isinstance(entry, dict) or not isinstance(entry.get("filename"), str):
-            raise ValueError("GitHub returned an invalid PR file.")
-        name = entry["filename"]
-        if not name or name in seen:
-            raise ValueError("GitHub returned an empty or duplicate PR filename.")
-        seen.add(name)
-        paths = [name]
+    for entry in changed_files(report, pages, expected_head):
+        paths = [entry["filename"]]
         if entry.get("status") == "renamed":
             previous = entry.get("previous_filename")
             if not isinstance(previous, str) or not previous:

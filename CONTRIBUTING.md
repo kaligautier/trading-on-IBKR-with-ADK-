@@ -65,8 +65,10 @@ repository.
   or be changed independently. They do not increase the component count.
   Split coordinated changes into dependent PRs. This check does not replace
   code review or the existing PR size limit.
-- Keep each PR at or below 1,000 changed lines (additions + deletions), including
-  generated files and lockfiles. The `PR size` CI check fails above this limit;
+- Keep each PR at or below 1,000 changed lines (additions + deletions).
+  Generated `package-lock.json` and `uv.lock` files are excluded from this count
+  but must remain versioned and subject to dependency/security checks. All other
+  files count. The `PR size` CI check fails above this limit;
   split larger changes into smaller PRs. The count applies to the whole PR,
   not to each commit. Binary files contribute GitHub's reported line count.
 - Explain what changed and why; link a related issue when available.
