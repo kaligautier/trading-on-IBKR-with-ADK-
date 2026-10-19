@@ -42,3 +42,9 @@ run "reject_mutable_secrets" {
   }
   expect_failures = [var.database_secret_version, var.ca_secret_version]
 }
+
+run "reject_project_number" {
+  command = plan
+  variables { project_id = "123456789012" }
+  expect_failures = [var.project_id]
+}

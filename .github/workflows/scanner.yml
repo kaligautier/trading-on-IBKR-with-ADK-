@@ -55,14 +55,19 @@ jobs:
         with:
           terraform_version: '1.14.4'
           terraform_wrapper: false
-      - name: Check runtime Terraform formatting
-        run: terraform -chdir=infra fmt -check
+      - name: Check Terraform formatting
+        run: terraform -chdir=infra fmt -check -recursive
       - name: Initialize providers without cloud backend
         run: terraform -chdir=infra init -backend=false -input=false -lockfile=readonly
       - name: Validate runtime infrastructure
         run: terraform -chdir=infra validate
       - name: Test runtime infrastructure with mocked providers
         run: terraform -chdir=infra test
+      - name: Validate and test bootstrap infrastructure
+        run: |
+          terraform -chdir=infra/bootstrap init -backend=false -input=false -lockfile=readonly
+          terraform -chdir=infra/bootstrap validate
+          terraform -chdir=infra/bootstrap test
 
   dependencies:
     runs-on: ubuntu-24.04

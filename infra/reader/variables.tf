@@ -1,6 +1,10 @@
 variable "project_id" {
   type        = string
   description = "Existing GCP project with Cloud Run, Secret Manager and registry enabled."
+  validation {
+    condition     = can(regex("^[a-z][a-z0-9-]{4,28}[a-z0-9]$", var.project_id))
+    error_message = "Use a GCP project ID, not its display name or number."
+  }
 }
 variable "region" {
   type    = string
