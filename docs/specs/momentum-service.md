@@ -1,6 +1,6 @@
 # Spec: dedicated Momentum analysis service
 
-Status: draft for human review. Specification only; implementation has not begun.
+Status: scope validated by the user on 2026-10-19; implementation plan pending review.
 Reviewed source: DeepCopy commit `38d0736a4bf778ebcb81dbf4acef52fd2dd34e77`.
 Target baseline: `origin/main` at `9bbf5709b2895e2d0bdbd1d1667b860ddcfe43a8`.
 
@@ -14,17 +14,18 @@ and independently verifies the persisted result. The existing Scanner keeps work
 The first release covers analysis execution and persistence. A consultation API and
 public MCP are separate later releases. Do not expose either through this service.
 
-## Assumptions requiring validation
+## Validated scope and implementation decisions
 
-1. “Momentum API” means the `momentum-adk` analysis capability plus a minimal private
-   HTTP dispatcher. It does not mean porting all of DeepCopy's `momentum-api`.
-   If the complete administration API is intended, revise this spec before planning:
-   it is a second application component and requires separate PRs.
-2. Use the existing private LiteLLM gateway with a dedicated Momentum virtual key;
-   adapt the native Gemini transport rather than retaining direct Gemini API keys.
-3. Start with empty, isolated Momentum result and ADK session stores on an existing
-   PostgreSQL server. Existing DeepCopy records and live resources stay in place.
-   Database placement and permissions must be validated before migrations are planned.
+1. Extract `momentum-adk`, running one analysis per Cloud Run Job, with dedicated
+   Terraform. Do not port the full administration API. Keep the private dispatcher
+   minimal and in the same application component.
+2. Route every model call exclusively through the existing LiteLLM gateway with a
+   dedicated Momentum virtual key. No direct Gemini/Vertex path or fallback.
+3. Reuse the new PostgreSQL database already used by this repository. Add the
+   isolated `momentum` schema for results and ADK session tables, with a dedicated
+   `momentum_writer` login. Do not provision another database/server or migrate
+   historical DeepCopy data. Credentials and physical database identifiers remain
+   outside published documents.
 4. Delivery includes reproducible code, image, Terraform and CI. A live rollout is
    a separately reported checkpoint after the exact image and plan are reviewable.
 
@@ -36,7 +37,7 @@ Paths below are relative to the DeepCopy source repository unless marked target.
 | --- | --- |
 | `apps/backend/momentum-adk/DESIGN_SPEC.md`, `app/application.py`, `app/job_runner.py` | Preserve direct ADK execution, transactional result persistence and nonzero failure exits; no SQL polling queue. |
 | `app/domain/contracts.py` | Reuse `AnalysisRequest`, `WorkflowExecution`, `WorkflowResult` and analyst validation. |
-| `app/services/runtime.py` | Preserve persistent ADK sessions and explicit resume invocation IDs. |
+| `app/services/runtime.py` | Preserve persistent ADK sessions and explicit resume invocation IDs in the same PostgreSQL database and isolated Momentum schema. |
 | `app/config/settings.py`, `app/components/agents/momentum/catalog.py` | Source uses native Google models. LiteLLM routing is an explicit adaptation. |
 | `app/infrastructure/models.py`, `app/infrastructure/result_writer.py` | Preserve the structured financial result contract and its relational mapping. |
 | `apps/backend/momentum-api/alembic/versions/` | Historical migrations also manage unrelated domains. Extract only reviewed Momentum dependencies. |
@@ -47,8 +48,8 @@ Paths below are relative to the DeepCopy source repository unless marked target.
 | Target `apps/backend/market-scanner-adk/src/app/config/llm.py` | Existing native Gemini gateway transport is a reference; do not import the sibling application at runtime. |
 
 The source contains approximately 5,944 application and 976 test Python lines.
-These counts exclude packaging, non-Python resources and infrastructure. A complete extraction
-cannot fit one PR under the target repository's policy.
+These counts exclude packaging, non-Python resources and infrastructure. A complete
+extraction cannot fit one PR under the target repository's policy.
 
 ## Runtime and API contract
 
@@ -70,7 +71,7 @@ Proposed private endpoints, to be finalized in the API contract before coding:
 
 Reuse the domain request fields: normalized ticker, analysis date, selected analyst
 roles, requester label, session UUID, optional resume invocation ID, output language
-and bounded debate counts. The public HTTP input excludes internal `past_context`
+and bounded debate counts. The HTTP input excludes internal `past_context`
 and `pending_outcomes`; the application derives those. Generate a session UUID
 when absent. A requester label is audit context, never authorization.
 
@@ -103,7 +104,8 @@ publish a Postman workspace merely for this extraction.
   where used; FastAPI/Uvicorn for the proposed private dispatcher.
 - Existing Gemini-compatible LiteLLM transport with a Momentum-specific credential
   and explicit quick/deep model configuration. No direct-provider fallback.
-- PostgreSQL business results and a separately configured ADK session store.
+- Existing PostgreSQL database, with business results and ADK session tables in
+  the isolated `momentum` schema and bounded connections using `momentum_writer`.
 - Terraform 1.14.4 in CI, compatible with the repository's supported 1.x range;
   Google provider constraints aligned with existing roots and a committed lockfile.
 - Linux amd64 production image with digest-pinned bases and a non-root runtime user.
@@ -126,9 +128,9 @@ database/changelog/momentum/   Reviewed result schema and role grants
 docs/specs/momentum-service.md This specification
 ```
 
-Keep existing `tasks/plan.md` and `tasks/todo.md` untouched in the specification
-phase. After this spec is approved, create a Momentum worktree and prepare those
-two files for review, preserving the old frontend planning context.
+Archive the old frontend plan before replacing `tasks/plan.md` in the dedicated
+Momentum worktree. Preserve the existing frontend checklist until the task phase;
+archive it before preparing the Momentum `tasks/todo.md` after plan approval.
 
 ## Commands
 
@@ -195,10 +197,29 @@ operations, and incidental refactoring. Retain relevant license/provenance notic
 - Limit secret access to the worker's database/session/gateway requirements; the
   dispatcher needs no database or model secret. Reuse the gateway network through
   explicit inputs. Provision a separate Momentum key, never the gateway master key.
-- Use dedicated migration, result-writer and session roles. Preserve the relational
-  result contract in an isolated Momentum namespace; use Liquibase for business
-  tables. Define and test ADK session initialization in its isolated store without
-  granting server-wide database administration to the worker.
+- Liquibase's existing migration role owns the `momentum` schema and its tables.
+  `momentum_writer` is a non-owner login without superuser, database creation,
+  role creation, bypass-RLS or migration-role membership. Its rights are restricted
+  to explicitly enumerated Momentum tables: result INSERT and necessary RETURNING
+  reads; session SELECT/INSERT/UPDATE/DELETE required by ADK. No table ownership,
+  schema/database CREATE, TRUNCATE, grant option or access to other domain tables.
+- Use `search_path = momentum, pg_catalog`, with an explicit schema on business
+  ORM metadata. Search path is routing, not authorization: prove isolation through
+  grants and negative permission tests, including fully qualified table names.
+- Prepare the pinned ADK session tables, indexes and version metadata through
+  Liquibase. The Job receives only runtime credentials and checks migration
+  readiness before work; it must not create tables/indexes or migrate on startup.
+  Preserve the same database name in result and session connection settings;
+  remove the source's automatic `momentum_adk_sessions` database derivation.
+- Audit effective PUBLIC and inherited privileges, not only direct grants. Deny
+  writes outside Momentum, including temporary/public objects. If an existing
+  database-wide PUBLIC grant permits those writes, assess the impact and review
+  its correction before rollout rather than claiming a role-level REVOKE fixes it.
+- Bound each SQLAlchemy pool to one connection with no overflow, close engines on
+  exit, set query/idle deadlines and a conservative role connection limit. Verify
+  TLS/CA settings and secret redaction on both result and session connections.
+- Persist session and invocation correlation with the financial result in the
+  same transaction; the source result rows currently omit that correlation.
 - Do not replay the whole DeepCopy Alembic history or migrate historical data.
   Verify TLS/CA handling for both connections and bounded database pools.
 - Local memory files/cache remain ephemeral on Cloud Run. PostgreSQL results and
@@ -246,7 +267,10 @@ not apply Terraform. Record the source SHA and immutable image reference.
   that run actual HTTP integrations, use local HTTP mocks and record the guarantees;
   distinguish those checks from unit-level stubs and live inference.
 - Disposable PostgreSQL verifies migration compatibility, complete result reads,
-  transaction rollback, resume/session storage and actual role permissions.
+  transaction rollback, resume/session storage and actual role permissions. Prove
+  the writer cannot read/write Scanner or Liquibase tables, cannot write public
+  objects, create/alter/drop tables, or obtain migration rights. Verify result
+  writes and ADK session CRUD still work without runtime DDL privileges.
 - Image checks prove package resources/imports, dispatcher readiness and worker
   failure on a missing/invalid command without cloud or model access.
 - Terraform tests reject anonymous access, mutable images/secrets, broad IAM and
@@ -288,15 +312,17 @@ not apply Terraform. Record the source SHA and immutable image reference.
 8. Report implementation readiness, CI, publication, apply and live pilot as
    separate outcomes. If rollout prerequisites are unavailable, explicitly leave
    the corresponding live criteria pending.
+9. Results and sessions use the existing PostgreSQL database's `momentum` schema.
+   Effective privileges restrict `momentum_writer` writes to that schema; runtime
+   DDL and access to other application schemas are denied and tested.
+10. Every quick, deep and reflection model uses LiteLLM. A missing gateway or
+    gateway failure never causes a direct Gemini/Vertex request.
 
-## Open decisions for human review
+## Review gates
 
-- Confirm the first-release scope: engine plus minimal private dispatcher, or
-  complete administration API plus its worker in separate component PRs.
-- Confirm LiteLLM routing versus preserving direct Gemini access for extraction.
-- Confirm fresh isolated stores on the existing PostgreSQL server versus adopting
-  existing Momentum data. Specify deployment project/database only when needed;
-  no credential values belong in this document.
+- Scope, exclusive LiteLLM and reuse of the existing PostgreSQL database with
+  schema/user isolation: validated by the user's answers on 2026-10-19.
+- Plan in `tasks/plan.md`: awaiting human review.
+- Momentum task checklist: prepare only after plan approval, then obtain its review.
 
-After approval, prepare `tasks/plan.md` for review, then `tasks/todo.md` for review.
 Do not advance to implementation before those gates have been validated.
