@@ -193,6 +193,22 @@ flowchart TB
 - **Deepcopy agentic workflow** connects an agentic trading workflow to IBKR and uses the investor's risk profile to guide buy and sell decisions.
 
 
+### Market Scanner implementation diagrams
+
+The views below describe the Market Scanner code and Terraform definitions in this repository. The platform vision above remains the broader project direction. These diagrams document the implementation; they do not verify a live deployment.
+
+#### Applications and data flows
+
+The public Next.js server reads reports through the consultation API using a Cloud Run identity token. The ADK service and daily job run the scanner workflow and persist reports in PostgreSQL. Model requests pass through the private Nginx gateway and its LiteLLM sidecar.
+
+![Market Scanner applications and data flows](assets/architecture/containers.svg)
+
+#### Scanner workflow
+
+The workflow collects data and computes trends, then runs the researcher, critic and synthesizer before enriching, assembling and saving the report. The same workflow is used by the ADK service and the daily job.
+
+![Market Scanner workflow components](assets/architecture/scan-workflow.svg)
+
 ## MCP reference
 
 The public MCP server is stateless and uses protocol revision [`2026-07-28`](https://modelcontextprotocol.io/specification/2026-07-28/changelog). Each request includes the protocol version and client capabilities in `params._meta`, as shown in the quick start.
