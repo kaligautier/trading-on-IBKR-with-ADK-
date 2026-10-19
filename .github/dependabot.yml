@@ -1,0 +1,112 @@
+version: 2
+
+# Keep application directories separate: PR policy allows one component per PR.
+# No auto-merge: dependency updates must pass CI and be reviewed.
+updates:
+  - package-ecosystem: uv
+    directory: /apps/backend/market-scanner-adk
+    schedule:
+      interval: weekly
+      day: monday
+      time: "08:00"
+      timezone: Europe/Paris
+    open-pull-requests-limit: 3
+    allow:
+      - dependency-type: all
+
+  - package-ecosystem: uv
+    directory: /apps/backend/market-scanner-api
+    schedule:
+      interval: weekly
+      day: monday
+      time: "08:00"
+      timezone: Europe/Paris
+    open-pull-requests-limit: 3
+    allow:
+      - dependency-type: all
+
+  - package-ecosystem: npm
+    directory: /apps/frontend
+    schedule:
+      interval: weekly
+      day: monday
+      time: "08:00"
+      timezone: Europe/Paris
+    open-pull-requests-limit: 3
+    groups:
+      nextjs:
+        patterns: [next, eslint-config-next]
+      react:
+        patterns: [react, react-dom, "@types/react", "@types/react-dom"]
+
+  - package-ecosystem: docker
+    directory: /apps/backend/market-scanner-adk
+    schedule:
+      interval: weekly
+      day: monday
+      time: "08:00"
+      timezone: Europe/Paris
+    open-pull-requests-limit: 3
+
+  - package-ecosystem: docker
+    directory: /apps/backend/market-scanner-api
+    schedule:
+      interval: weekly
+      day: monday
+      time: "08:00"
+      timezone: Europe/Paris
+    open-pull-requests-limit: 3
+
+  - package-ecosystem: docker
+    directory: /database
+    schedule:
+      interval: weekly
+      day: monday
+      time: "08:00"
+      timezone: Europe/Paris
+    open-pull-requests-limit: 3
+
+  - package-ecosystem: terraform
+    directory: /infra
+    schedule:
+      interval: weekly
+      day: monday
+      time: "08:00"
+      timezone: Europe/Paris
+    open-pull-requests-limit: 3
+
+  - package-ecosystem: terraform
+    directory: /infra/bootstrap
+    schedule:
+      interval: weekly
+      day: monday
+      time: "08:00"
+      timezone: Europe/Paris
+    open-pull-requests-limit: 3
+
+  - package-ecosystem: terraform
+    directory: /infra/litellm
+    schedule:
+      interval: weekly
+      day: monday
+      time: "08:00"
+      timezone: Europe/Paris
+    open-pull-requests-limit: 3
+
+  - package-ecosystem: terraform
+    directory: /infra/reader
+    schedule:
+      interval: weekly
+      day: monday
+      time: "08:00"
+      timezone: Europe/Paris
+    open-pull-requests-limit: 3
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "08:00"
+      timezone: Europe/Paris
+    open-pull-requests-limit: 3
