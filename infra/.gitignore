@@ -7,3 +7,14 @@ crash*.log
 *.local.hcl
 backend.remote.tf
 secret-*.txt
+
+# Plans, local variable files and Terraform diagnostics may contain credentials.
+*.plan
+*.local.tfvars.json
+*.auto.tfvars
+*.auto.tfvars.json
+.terraform.tfstate.lock.info
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
