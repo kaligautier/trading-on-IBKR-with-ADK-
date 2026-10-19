@@ -433,6 +433,42 @@ run "redis_is_optional" {
   }
 }
 
+run "reject_project_number" {
+  command = plan
+  variables { project_id = "123456789012" }
+  expect_failures = [var.project_id]
+}
+
+run "redis_permissions_are_disabled_without_connection" {
+  command = plan
+  assert {
+    condition     = length(google_secret_manager_secret_iam_member.redis) == 0
+    error_message = "Disabled Redis must not grant the runtime access to Redis credentials."
+  }
+}
+
+run "redis_system_trust_does_not_grant_ca_access" {
+  command = plan
+  variables {
+    redis_connection = { host = "valkey.example.com", port = 12345, password_version = "2" }
+  }
+  assert {
+    condition     = toset(keys(google_secret_manager_secret_iam_member.redis)) == toset(["password"])
+    error_message = "System-trusted Redis needs password access only."
+  }
+}
+
+run "redis_custom_ca_grants_only_required_secrets" {
+  command = plan
+  variables {
+    redis_connection = { host = "valkey.example.com", port = 12345, password_version = "2", ca_version = "3" }
+  }
+  assert {
+    condition     = toset(keys(google_secret_manager_secret_iam_member.redis)) == toset(["password", "ca"])
+    error_message = "Custom-CA Redis needs both password and CA access."
+  }
+}
+
 run "vpc_jobs_separate_admin_provisioning_from_agent_inference" {
   command = apply
   variables {

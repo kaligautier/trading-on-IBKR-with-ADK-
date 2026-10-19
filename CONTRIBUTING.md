@@ -39,13 +39,15 @@ to run them without skips. Migration files live in `database/changelog`.
 For Terraform changes, run these checks from the repository root:
 
 ```sh
+(
+set -e
 terraform fmt -check -recursive infra
-terraform -chdir=infra/bootstrap init -backend=false
-terraform -chdir=infra/bootstrap validate
-terraform -chdir=infra/bootstrap test
-terraform -chdir=infra init -backend=false
-terraform -chdir=infra validate
-terraform -chdir=infra test
+for root in infra/bootstrap infra infra/litellm infra/reader infra/frontend/build infra/frontend; do
+  terraform -chdir="$root" init -backend=false -input=false -lockfile=readonly
+  terraform -chdir="$root" validate
+  terraform -chdir="$root" test
+done
+)
 ```
 
 Terraform tests use mocked providers and do not verify a live deployment.
