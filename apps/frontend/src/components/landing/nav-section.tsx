@@ -9,6 +9,8 @@ const NAV_ITEMS = [
   { href: "#momentum-mcp", label: "Momentum" },
   { href: "#deep-copy", label: "Experimental trading" },
   { href: "#engineering", label: "Engineering" },
+  { href: "#partners", label: "Ecosystem" },
+  { href: "#tech", label: "Technology" },
 ]
 
 const RESOURCE_ITEMS = [

@@ -21,6 +21,8 @@ export function FooterSection() {
             <a href="#momentum-mcp" className={FOOTER_LINK_CLASS}>Momentum</a>
             <a href="#deep-copy" className={FOOTER_LINK_CLASS}>Experimental trading</a>
             <a href="#engineering" className={FOOTER_LINK_CLASS}>Engineering</a>
+            <a href="#partners" className={FOOTER_LINK_CLASS}>Ecosystem</a>
+            <a href="#tech" className={FOOTER_LINK_CLASS}>Technology</a>
             <Link href="/docs" className={FOOTER_LINK_CLASS}>Documentation</Link>
             <Link href="https://deepcopy.fr/legal/privacy" className={FOOTER_LINK_CLASS}>
               Privacy

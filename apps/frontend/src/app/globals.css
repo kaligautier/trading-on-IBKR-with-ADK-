@@ -806,3 +806,33 @@ html {
     animation: none;
   }
 }
+
+/* Keep every technology visible when continuous movement is inappropriate. */
+@media (max-width: 639px), (prefers-reduced-motion: reduce) {
+  .ecosystem-rail {
+    overflow: visible;
+  }
+
+  .ecosystem-track {
+    width: 100%;
+    animation: none !important;
+    transform: none !important;
+  }
+
+  .ecosystem-group {
+    display: grid;
+    width: 100%;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1.75rem 1rem;
+    padding-right: 0;
+  }
+
+  .ecosystem-group li {
+    width: auto;
+    min-width: 0;
+  }
+
+  .ecosystem-copy {
+    display: none;
+  }
+}
