@@ -15,9 +15,12 @@ checks; original Scanner rows and migration history were preserved.
 This library has no worker, HTTP entrypoint, image or application deployment yet.
 T09 provides the 12 completed-result ORM models with execution correlation;
 business migrations and transactional persistence are still pending.
+The revised target uses `momentum_sessions` and `momentum_results` on the existing
+PostgreSQL service, each with a dedicated runtime login. Local tests now verify
+the separate session database and cross-database login denial; live cutover is pending.
 Financial result storage, the gateway and existing ADK workflow will be ported
 in dependency order. The final worker will use the dedicated Cloud Run
-Job, the isolated PostgreSQL `momentum` schema and exclusively LiteLLM inference.
+Job, isolated PostgreSQL storage and exclusively LiteLLM inference.
 
 ## Local checks
 

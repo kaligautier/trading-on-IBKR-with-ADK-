@@ -104,7 +104,7 @@ application is exposed. Measure complete PR diffs before publication.
   - Acceptance: preserve financial columns/relationships; explicit schema; session/invocation correlation without ticker/date uniqueness.
   - Verify: `u test_result_models.py`; compare source result-column inventory.
 
-- [ ] **T09a — Dedicated session/result databases** (user amendment, depends: T09).
+- [x] **T09a — Dedicated session/result databases** (user amendment, depends: T09).
   - Implement in slices of at most five files: explicit Liquibase roots, restricted
     database bootstrap, separate local fixture, and cross-database denial tests.
   - Acceptance: `momentum_sessions` and `momentum_results` share the server, each
@@ -112,7 +112,7 @@ application is exposed. Measure complete PR diffs before publication.
   - Live cutover, credential distribution and legacy cleanup are separate evidence.
 
 - [ ] **T10 · PR05 — Business result migrations** (depends: T08, T09).
-  - Files: `D/changelog/momentum-results/001-initial.sql`, `D/changelog/db.changelog-master.yaml`, `P/tests/integration/test_result_migrations.py`.
+  - Files: `D/changelog/momentum-results/001-initial.sql`, `D/changelog/momentum-results.yaml`, `P/tests/integration/test_result_migrations.py`, `P/tests/integration/conftest.py`, `tasks/todo.md`.
   - Acceptance: schema matches ORM; migrations repeat safely; rollback leaves Scanner objects/data/checksums intact.
   - Verify: `i test_result_migrations.py`; rerun affected Scanner shared-database integration checks.
 
@@ -345,3 +345,8 @@ MCP remain later work; they cannot substitute for the complete analysis worker.
 - User amendment (2026-10-20): separate Momentum sessions and results into two
   logical databases on the existing service. Scanner remains unchanged. T06–T08
   evidence describes the earlier shared deployment, not the new target topology.
+
+- T09a: separate local databases and restricted logins; dedicated session migration
+  root, actual ADK persistence after reconnect, cross-database login denial,
+  Scanner read denial, bootstrap target guard and isolated rollback verified.
+  Live dedicated-database provisioning/cutover remains pending.

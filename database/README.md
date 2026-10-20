@@ -52,7 +52,42 @@ The test host must be localhost, and the shared-database tests require a fresh
 server without pre-existing scanner roles. Stop it with
 `docker stop scanner-test-db` when finished; its data is disposable.
 
-## Momentum isolation
+## Dedicated Momentum databases
+
+The current target uses two logical databases on the existing PostgreSQL service:
+
+| Database | Runtime login | Data |
+| --- | --- | --- |
+| `momentum_sessions` | `momentum_sessions_writer` | ADK sessions, state and events |
+| `momentum_results` | `momentum_results_writer` | Completed financial analyses |
+
+Provision these NEW databases and login passwords through the administrator
+procedure. Run `momentum-databases-bootstrap.sql` once in each database as the
+administrator. It refuses other database names, removes PUBLIC CONNECT/TEMP,
+grants only the matching runtime CONNECT, and creates the migrator-owned
+Liquibase schema. Runtime roles have no memberships, DDL or TEMP privileges and
+are limited to two connections each. They cannot connect to each other's database.
+The shared service connection limit still applies across all databases/instances.
+
+Run migrations using `database_migrator` and the explicit dedicated JDBC URL:
+
+```sh
+# Session database only; never point this command at defaultdb.
+liquibase --changelog-file=momentum-sessions.yaml update
+# The separate result changelog is delivered with T10.
+```
+
+Each root has its own Liquibase history and excludes Scanner. Configure session
+and result URLs explicitly with their own runtime credentials; do not derive URLs
+or fall back to the legacy database. Keep credentials in ignored local files or
+Secret Manager. Live creation, copying the retained verification session, switching
+credentials and legacy cleanup are separate from local migration tests.
+
+## Legacy shared Momentum foundation
+
+The following describes the previously applied foundation; it is preserved for
+history and compatibility, not the target for new worker deployments.
+
 
 Momentum uses the same application database, in its own `momentum` schema.
 The separate `litellm` database is not a migration target. Liquibase owns all
