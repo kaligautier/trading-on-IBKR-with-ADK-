@@ -48,6 +48,12 @@ jobs:
         run: terraform -chdir=infra/litellm validate
       - name: Test infrastructure with mocked providers
         run: terraform -chdir=infra/litellm test
+      - name: Validate Terraform governance and test per-agent policies
+        run: |
+          terraform -chdir=infra/litellm/governance init -backend=false -input=false -lockfile=readonly
+          terraform -chdir=infra/litellm/governance validate
+          terraform -chdir=infra/litellm/governance/policy init -backend=false -input=false -lockfile=readonly
+          terraform -chdir=infra/litellm/governance/policy test
       - name: Lint bootstrap and verification scripts
         run: uv run --project apps/backend/market-scanner-adk --no-sync ruff check infra/litellm/scripts infra/litellm/tests
       - name: Test bootstrap regressions
@@ -57,6 +63,10 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3
+        with:
+          terraform_version: '1.14.4'
+          terraform_wrapper: false
       - name: Verify images, migrations, auth and shared quotas
         run: python3 infra/litellm/tests/smoke.py
       - name: Verify gateway route isolation and streaming

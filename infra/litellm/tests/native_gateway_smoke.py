@@ -15,6 +15,7 @@ import tempfile
 import time
 
 from smoke import ROOT, docker, image
+from terraform_policy_smoke import TerraformPolicy
 
 
 MODEL = "native-smoke"
@@ -183,8 +184,9 @@ def main():
             "DATABASE_URL=" + env["DATABASE_URL"] + "\n"
         )
         (path / "migration.env").chmod(0o600)
-        # No container can reach Google, metadata credentials or other internet endpoints.
-        docker("network", "create", "--internal", prefix)
+        # No cloud credentials: model calls target only the local provider stub.
+        # A loopback-only published port lets the host Terraform provider connect.
+        docker("network", "create", prefix)
         try:
             docker(
                 "run",
@@ -242,6 +244,8 @@ def main():
                     "create",
                     "--name",
                     proxy,
+                    "-p",
+                    "127.0.0.1::4000",
                     "--network",
                     prefix,
                     "--env-file",
@@ -282,69 +286,69 @@ def main():
                 ready(proxy, base)
                 bases.append(base)
             print(
-                "PASS: pinned LiteLLM behind real deployed NGINX; internal offline network",
+                "PASS: pinned LiteLLM behind real deployed NGINX; local provider stub",
                 flush=True,
             )
 
-            def reconcile(client_key=None):
-                driver = """
-import json, os, httpx, sys
-source, key, team, policy = json.load(sys.stdin)
-namespace = {"__name__": "bootstrap"}
-exec(source, namespace)
-with httpx.Client(base_url="http://127.0.0.1:4000",
-    headers={"Authorization": "Bearer " + os.environ["LITELLM_MASTER_KEY"]}, timeout=30) as client:
-    namespace["reconcile_team"](client, team)
-    if key: namespace["reconcile_key"](client, key, policy)
-"""
-                result = subprocess.run(
-                    ["docker", "exec", "-i", proxies[0], "python", "-c", driver],
-                    input=json.dumps(
-                        [
-                            (ROOT / "scripts/bootstrap_scanner_key.py").read_text(),
-                            client_key,
-                            {
-                                "team_id": "agents",
-                                "team_alias": "agents",
-                                "models": [MODEL],
-                                "max_budget": None,
-                                "budget_duration": None,
-                            },
-                            {
-                                "team_id": "agents",
-                                "models": [MODEL],
-                                "max_budget": 3,
-                                "budget_duration": "1d",
-                                "allowed_routes": ["/v1beta/models/*"],
-                                "rpm_limit": 20,
-                                "tpm_limit": 100000,
-                                "max_parallel_requests": 2,
-                            },
-                        ]
-                    ),
-                    capture_output=True,
-                    text=True,
-                )
-                assert result.returncode == 0, (
-                    "Actual bootstrap reconciliation failed: " + result.stderr[-1200:]
-                )
-
-            reconcile()
-
-            def key(rpm):
+            def key(rpm, team=True):
                 body = {
                     "models": [MODEL],
                     "rpm_limit": rpm,
-                    # Same native route scope as bootstrap_scanner_key.py.
+                    # Same native route scope as the Terraform policy.
                     "allowed_routes": ["/v1beta/models/*"],
                     "duration": "1h",
-                    "team_id": "agents",
+                    **({"key_alias": "legacy-scanner"} if not team else {}),
+                    "team_id": "agents" if team else None,
                     "max_budget": 3,
                     "budget_duration": "1d",
                 }
                 with request(bases[0], "/key/generate", body, master) as result:
                     assert result.status == 200, "Cannot provision native virtual key"
                     return json.load(result)["key"]
+
+            port = json.loads(docker("inspect", proxies[0]))[0]["NetworkSettings"][
+                "Ports"
+            ]["4000/tcp"][0]["HostPort"]
+            policy = TerraformPolicy(path, "http://127.0.0.1:" + port, master, [MODEL])
+            legacy_key = key(20, team=False)
+            legacy_token = hashlib.sha256(legacy_key.encode()).hexdigest()
+            sql(
+                f"""UPDATE "LiteLLM_VerificationToken" SET spend = 2.5, budget_duration = '30d', max_budget = 10 WHERE token = '{legacy_token}';"""
+            )
+            expiry = sql(
+                f"""SELECT expires FROM "LiteLLM_VerificationToken" WHERE token = '{legacy_token}';"""
+            )
+            weekly_key = "sk-" + secrets.token_hex(32)
+            terraform_agents = {
+                "scanner": {"existing_token_id": legacy_token},
+                "weekly": {"max_budget": 4, "budget_duration": "7d"},
+            }
+            terraform_keys = {"scanner": legacy_key, "weekly": weekly_key}
+            policy.apply(terraform_agents, terraform_keys)
+            assert (
+                float(
+                    sql(
+                        f"""SELECT spend FROM "LiteLLM_VerificationToken" WHERE token = '{legacy_token}';"""
+                    )
+                )
+                == 2.5
+            )
+            assert (
+                sql(
+                    f"""SELECT expires FROM "LiteLLM_VerificationToken" WHERE token = '{legacy_token}';"""
+                )
+                == expiry
+            )
+            assert (
+                sql(
+                    f"""SELECT key_alias FROM "LiteLLM_VerificationToken" WHERE token = '{legacy_token}';"""
+                )
+                == "legacy-scanner"
+            )
+            print(
+                "PASS: real Terraform import/migration, weekly key creation, preserved spend/expiry, no-op and secret-free state",
+                flush=True,
+            )
 
             native_key = key(20)
             for credential in [None, "sk-invalid-offline-key"]:
@@ -365,6 +369,7 @@ with httpx.Client(base_url="http://127.0.0.1:4000",
                 ("/key/update", {}),
                 ("/team/new", {}),
                 ("/team/update", {}),
+                ("/team/delete", {}),
             ]:
                 with request(bases[0], route, body, native_key) as result:
                     assert result.status in (401, 403), (
@@ -475,8 +480,7 @@ with httpx.Client(base_url="http://127.0.0.1:4000",
                 "PASS: native requests increment persisted global budget spend",
                 flush=True,
             )
-            budget_key, other_agent = key(20), key(20)
-            reconcile(budget_key)
+            budget_key, other_agent = legacy_key, weekly_key
             token = hashlib.sha256(budget_key.encode()).hexdigest()
             assert "UPDATE 1" in sql(
                 'UPDATE "LiteLLM_VerificationToken" SET spend = 3.01 '
@@ -496,7 +500,11 @@ with httpx.Client(base_url="http://127.0.0.1:4000",
                     assert result.status == 200, (
                         "One agent exhausted another agent's budget"
                     )
-            reconcile(budget_key)
+            current_port = json.loads(docker("inspect", proxies[0]))[0][
+                "NetworkSettings"
+            ]["Ports"]["4000/tcp"][0]["HostPort"]
+            policy.env["TF_VAR_base_url"] = "http://127.0.0.1:" + current_port
+            policy.apply(terraform_agents, terraform_keys)
             assert (
                 float(
                     sql(

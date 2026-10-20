@@ -117,6 +117,7 @@ def main():
             "/key/update",
             "/team/new",
             "/team/update",
+            "/team/delete",
             "/v1beta/models/model:generateContent",
             "/v1beta/models/model:countTokens",
         ]:

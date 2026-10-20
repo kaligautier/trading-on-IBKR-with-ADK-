@@ -26,3 +26,13 @@ output "network" {
     subnetwork = google_compute_subnetwork.run.name
   }
 }
+
+output "agent_governance" {
+  description = "Non-secret inputs for the separate governance root; run it from the private VPC."
+  value = {
+    gateway_url     = local.runtime_enabled ? local.gateway_url : null
+    models          = [for model in yamldecode(local.proxy_config).model_list : model.model_name]
+    service_account = try(google_service_account.key_bootstrap[0].email, null)
+    agents          = keys(var.client_service_accounts)
+  }
+}

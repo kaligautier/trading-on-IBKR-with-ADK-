@@ -182,82 +182,32 @@ The Scanner application uses this gateway; see
 [ADK configuration](../../docs/adk-litellm.md). Its dedicated verification job
 exercises the gateway with the same service account.
 
-### Key provisioning and verification jobs
+### Agent policy managed by Terraform
 
-Set `client_tools_image` to a digest-pinned Python image containing `httpx`,
-`google-auth`, `google-genai` and `pydantic`. The existing Scanner image has these
-dependencies. The optional jobs use Direct VPC egress; no IAP authentication is
-implemented in their scripts.
+The [governance root](governance/README.md) uses the official `BerriAI/litellm`
+provider to manage the `agents` team and one key per application. Each key defaults
+to **3 USD per day**, with configurable budgets/windows and rate limits. For
+example, an agent can have `max_budget = 4` and `budget_duration = "7d"`.
+The team has no shared budget; the optional global proxy budget still applies.
 
-After applying the service stage, run `litellm-key-CLIENT_NAME`. Its dedicated
-bootstrap identity can read the master secret, list its client-key versions and
-add a version; it cannot read the client key back or destroy versions. It creates
-an inference-only virtual key inside the VPC and uploads it directly to Secret
-Manager. Credential payloads never appear in Terraform arguments or logs.
+Deploy this infrastructure root first. It creates the private endpoint, client
+secret containers, per-agent secret access and a separate Terraform governance
+identity. Run the governance root from a VPC-connected Terraform runner; it needs
+admin API access and Secret Manager access. There is no Python provisioning job
+and no `litellm-key-CLIENT_NAME` execution. A governance `terraform apply` creates
+or imports the team/keys and applies their policies directly.
 
-```sh
-gcloud run jobs execute litellm-key-CLIENT_NAME --wait --project=YOUR_PROJECT --region=europe-west1
-```
+Existing keys are adopted by SHA-256 token ID and a pinned Secret Manager version,
+preserving their credential, alias, spend and expiry. New credentials are generated
+ephemerally, written directly to Secret Manager, then registered with LiteLLM.
+Raw credentials stay out of Terraform state and plan files. New keys expire after
+30 days; ordinary policy updates do not renew their expiry.
 
-Pin the returned numeric version in the ignored configuration:
-
-```hcl
-client_key_versions = { CLIENT_NAME = "1" }
-```
-
-Reapply and run `litellm-verify-CLIENT_NAME`. The verification identity is the
-agent SA, with only its own key mounted, and the job calls the internal endpoint
-with no IAP or Google identity token.
-
-Terraform defines the `agents` team and its model catalog in `clients.tf`, with
-one key per entry in `client_service_accounts`. Each key has its own **3 USD per
-day** budget (`max_budget = 3`, `budget_duration = "1d"`), 10 requests/minute,
-100,000 tokens/minute and two concurrent requests. Keys permit only
-`/v1beta/models/*`. The team groups agents without sharing their individual
-budgets. The optional global proxy budget still applies to every agent.
-
-Apply Terraform, then execute `litellm-key-CLIENT_NAME` for **each** configured
-agent, including existing ones. Terraform deploys the desired policy and script
-in the private provisioning jobs; it does not execute them or refresh LiteLLM
-objects during `plan`. This uses the existing job mechanism rather than a
-LiteLLM Terraform provider, keeping raw keys out of Terraform state and avoiding
-admin access from the Terraform host. Re-run the jobs after policy changes or
-to reconcile drift in LiteLLM.
-
-The job creates or updates the stable `agents` team, then updates an existing
-key in place or generates and stores a new one in Secret Manager. It verifies
-the stored key policy, preserves accumulated spend, and omits an unchanged
-budget duration so reruns do not move the next reset. Changing a previous `30d`
-budget to `1d` preserves spend and lets LiteLLM establish the new daily window.
-On the pinned proxy, `1d` schedules the next reset at **midnight UTC** with the
-default runtime settings; the proxy scheduler performs renewal after that
-boundary. The first window can therefore be shorter than 24 hours.
-
-Bootstrap can read managed client secrets in addition to creating versions.
-Each agent retains read access only to its own secret. Multiple distinct enabled
-secret values stop reconciliation: complete key rotation first to avoid multiple
-independent budgets for the same agent. New keys retain the existing 30-day
-expiry; reruns do not renew an expired key or rotate it. Rotate explicitly and
-verify the replacement before revoking the old key. Removing an agent from the
-map does not revoke its existing LiteLLM key; explicitly revoke it as part of
-offboarding.
-
-Verification: `terraform test` covers policy delivery and secret IAM; the Python
-suite covers provisioning and migration regressions. `native_gateway_smoke.py`
-uses the pinned LiteLLM, NGINX, PostgreSQL and Redis images to verify team/key
-reconciliation, per-agent denial on both proxies, an unaffected second agent and
-renewal of an expired budget window (with an accelerated test scheduler).
-
-The optional local Postman simulation exercises the bootstrap HTTP client and
-safe upstream failures without credentials. Its mock is derived from the
-[LiteLLM v1.103.4 management source](https://github.com/BerriAI/litellm/tree/v1.103.4/litellm/proxy/management_endpoints);
-the owner-workspace lookup was unavailable without Postman login. From the repo:
-
-```bash
-postman simulation run infra/litellm/tests/postman/simulations/agent-policy.sim.yaml --port 4967 --no-history
-# In another terminal, using the project's installed Python dependencies:
-uv run --project apps/backend/market-scanner-adk --no-sync python infra/litellm/tests/policy_simulation.py --base-url http://127.0.0.1:4967/management/
-```
+For inference verification, set `client_tools_image` to a digest-pinned Python
+image with `httpx`, `google-auth`, `google-genai` and `pydantic`; copy the governance
+`client_key_versions` output into this root's ignored variables, apply, then run
+`litellm-verify-CLIENT_NAME`. This job uses the agent identity and only its own key.
+See the governance README for initial adoption, rotation and provider limitations.
 
 Both services share the image, config, database and runtime identity. Each uses
 a two-connection pool; size PostgreSQL for revision overlap and migrations.

@@ -293,35 +293,6 @@ run "application_clients_are_scoped" {
   }
 }
 
-run "agent_policies_reach_each_private_bootstrap_job" {
-  command = plan
-  variables {
-    stage              = "service"
-    iap_members        = ["user:owner@example.com"]
-    client_tools_image = "europe-west1-docker.pkg.dev/example-project/tools/client@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-    secret_versions    = { database-url = "1", master-key = "1", salt-key = "1", ui-password = "1" }
-    client_service_accounts = {
-      scanner  = "scanner@example-project.iam.gserviceaccount.com"
-      momentum = "momentum@example-project.iam.gserviceaccount.com"
-    }
-  }
-  assert {
-    condition = alltrue([for job in google_cloud_run_v2_job.key_bootstrap :
-      alltrue([for env in job.template[0].template[0].containers[0].env :
-        env.name == "LITELLM_KEY_POLICY" ? jsondecode(env.value).max_budget == 3 && jsondecode(env.value).budget_duration == "1d" :
-        env.name == "LITELLM_TEAM_CONFIG" ? jsondecode(env.value).team_id == "agents" && jsondecode(env.value).team_alias == "agents" : true
-      ]) &&
-      contains([for env in job.template[0].template[0].containers[0].env : env.name], "LITELLM_KEY_POLICY") &&
-      contains([for env in job.template[0].template[0].containers[0].env : env.name], "LITELLM_TEAM_CONFIG")
-    ]) && length(google_cloud_run_v2_job.key_bootstrap) == 2
-    error_message = "Each agent job must receive the shared agents team and an individual $3/1d key policy."
-  }
-  assert {
-    condition     = length(google_secret_manager_secret_iam_member.bootstrap_read) == 2 && length(google_secret_manager_secret_iam_member.client_key) == 2
-    error_message = "Bootstrap may read managed keys; each agent retains access only to its own secret."
-  }
-}
-
 run "reject_foreign_client_identity" {
   command = plan
   variables {
@@ -498,7 +469,7 @@ run "redis_custom_ca_grants_only_required_secrets" {
   }
 }
 
-run "vpc_jobs_separate_admin_provisioning_from_agent_inference" {
+run "terraform_governance_is_separate_from_agent_verification" {
   command = apply
   variables {
     stage              = "service"
@@ -522,6 +493,26 @@ run "vpc_jobs_separate_admin_provisioning_from_agent_inference" {
       google_secret_manager_secret_iam_member.bootstrap_master[0].member != "serviceAccount:agent-one@example-project.iam.gserviceaccount.com" &&
       google_secret_manager_secret_iam_member.bootstrap_write["agent-one"].role == "roles/secretmanager.secretVersionAdder"
     )
-    error_message = "Only the provisioning job can read the master; agents get their own key and private VPC routing."
+    error_message = "Only the Terraform identity can read the master; agents get their own key and private VPC routing."
+  }
+}
+
+run "governance_identity_does_not_require_a_python_image" {
+  command = plan
+  variables {
+    client_service_accounts = {
+      agent-one = "agent-one@example-project.iam.gserviceaccount.com"
+      weekly    = "weekly@example-project.iam.gserviceaccount.com"
+    }
+  }
+  assert {
+    condition = (
+      length(google_service_account.key_bootstrap) == 1 &&
+      length(google_secret_manager_secret_iam_member.bootstrap_read) == 2 &&
+      length(google_secret_manager_secret_iam_member.bootstrap_write) == 2 &&
+      length(google_secret_manager_secret_iam_member.client_key) == 2 &&
+      length(google_cloud_run_v2_job.client_verify) == 0
+    )
+    error_message = "Pure Terraform governance needs a dedicated admin identity independently of the optional Python verification image."
   }
 }

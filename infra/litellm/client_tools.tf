@@ -1,5 +1,5 @@
 variable "client_tools_image" {
-  description = "Optional digest-pinned Python image with httpx, google-auth and google-genai for VPC bootstrap/verification jobs."
+  description = "Optional digest-pinned Python image with httpx, google-auth and google-genai for VPC inference verification jobs."
   type        = string
   default     = ""
   validation {
@@ -9,7 +9,7 @@ variable "client_tools_image" {
 }
 
 variable "client_key_versions" {
-  description = "Client virtual-key numeric versions, populated after the bootstrap job succeeds."
+  description = "Client virtual-key numeric versions, returned by the governance Terraform root."
   type        = map(string)
   default     = {}
   validation {
@@ -25,14 +25,14 @@ locals {
 }
 
 resource "google_service_account" "key_bootstrap" {
-  count        = var.client_tools_image != "" ? 1 : 0
+  count        = length(var.client_service_accounts) > 0 ? 1 : 0
   project      = var.project_id
   account_id   = "litellm-key-bootstrap"
-  display_name = "LiteLLM private key provisioning (never an agent identity)"
+  display_name = "LiteLLM Terraform governance (never an agent identity)"
 }
 
 resource "google_secret_manager_secret_iam_member" "bootstrap_master" {
-  count     = var.client_tools_image != "" ? 1 : 0
+  count     = length(var.client_service_accounts) > 0 ? 1 : 0
   project   = var.project_id
   secret_id = google_secret_manager_secret.credentials["master-key"].secret_id
   role      = "roles/secretmanager.secretAccessor"
@@ -40,7 +40,7 @@ resource "google_secret_manager_secret_iam_member" "bootstrap_master" {
 }
 
 resource "google_secret_manager_secret_iam_member" "bootstrap_versions" {
-  for_each  = var.client_tools_image != "" ? var.client_service_accounts : {}
+  for_each  = var.client_service_accounts
   project   = var.project_id
   secret_id = google_secret_manager_secret.client_key[each.key].secret_id
   role      = "roles/secretmanager.viewer"
@@ -48,81 +48,20 @@ resource "google_secret_manager_secret_iam_member" "bootstrap_versions" {
 }
 
 resource "google_secret_manager_secret_iam_member" "bootstrap_write" {
-  for_each  = var.client_tools_image != "" ? var.client_service_accounts : {}
+  for_each  = var.client_service_accounts
   project   = var.project_id
   secret_id = google_secret_manager_secret.client_key[each.key].secret_id
   role      = "roles/secretmanager.secretVersionAdder"
   member    = "serviceAccount:${google_service_account.key_bootstrap[0].email}"
 }
 
-# Existing keys are reconciled in place; their values never enter Terraform.
+# Existing keys are read ephemerally; their values never enter Terraform state.
 resource "google_secret_manager_secret_iam_member" "bootstrap_read" {
-  for_each  = var.client_tools_image != "" ? var.client_service_accounts : {}
+  for_each  = var.client_service_accounts
   project   = var.project_id
   secret_id = google_secret_manager_secret.client_key[each.key].secret_id
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${google_service_account.key_bootstrap[0].email}"
-}
-
-resource "google_cloud_run_v2_job" "key_bootstrap" {
-  for_each            = local.tool_clients
-  project             = var.project_id
-  location            = var.region
-  name                = "litellm-key-${each.key}"
-  deletion_protection = false
-
-  template {
-    template {
-      service_account = google_service_account.key_bootstrap[0].email
-      timeout         = "600s"
-      max_retries     = 0
-      vpc_access {
-        egress = "PRIVATE_RANGES_ONLY"
-        network_interfaces {
-          network    = google_compute_network.private.name
-          subnetwork = google_compute_subnetwork.run.name
-        }
-      }
-      containers {
-        image   = var.client_tools_image
-        command = ["python"]
-        args    = ["-c", file("${path.module}/scripts/bootstrap_scanner_key.py")]
-        resources {
-          limits = { cpu = "1", memory = "512Mi" }
-        }
-        dynamic "env" {
-          for_each = {
-            GOOGLE_CLOUD_PROJECT  = var.project_id
-            LITELLM_BASE_URL      = local.gateway_url
-            LITELLM_CLIENT_SECRET = google_secret_manager_secret.client_key[each.key].secret_id
-            LITELLM_MODELS        = join(",", [for model in yamldecode(local.proxy_config).model_list : model.model_name])
-            LITELLM_TEAM_CONFIG   = jsonencode(local.agent_team)
-            LITELLM_KEY_POLICY    = jsonencode(local.agent_key_policy)
-          }
-          content {
-            name  = env.key
-            value = env.value
-          }
-        }
-        env {
-          name = "LITELLM_MASTER_KEY"
-          value_source {
-            secret_key_ref {
-              secret  = google_secret_manager_secret.credentials["master-key"].secret_id
-              version = var.secret_versions["master-key"]
-            }
-          }
-        }
-      }
-    }
-  }
-  depends_on = [
-    google_cloud_run_v2_service.gateway,
-    google_secret_manager_secret_iam_member.bootstrap_master,
-    google_secret_manager_secret_iam_member.bootstrap_versions,
-    google_secret_manager_secret_iam_member.bootstrap_write,
-    google_secret_manager_secret_iam_member.bootstrap_read,
-  ]
 }
 
 resource "google_cloud_run_v2_job" "client_verify" {
