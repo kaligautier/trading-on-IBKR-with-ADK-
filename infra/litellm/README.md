@@ -185,7 +185,7 @@ exercises the gateway with the same service account.
 ### Agent policy managed by Terraform
 
 The [governance root](governance/README.md) uses the official `BerriAI/litellm`
-provider to manage the `agents` team and one key per application. Each key defaults
+provider to manage the `Agents` team and one key per application. Each key defaults
 to **3 USD per day**, with configurable budgets/windows and rate limits. For
 example, an agent can have `max_budget = 4` and `budget_duration = "7d"`.
 The team has no shared budget; the optional global proxy budget still applies.

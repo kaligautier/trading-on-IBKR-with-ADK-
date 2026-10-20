@@ -50,7 +50,7 @@ variable "client_keys" {
 
 resource "litellm_team" "agents" {
   team_id    = var.team_id
-  team_alias = "agents"
+  team_alias = "Agents"
   models     = var.models
   lifecycle {
     prevent_destroy = true
