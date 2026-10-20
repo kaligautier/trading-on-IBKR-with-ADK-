@@ -22,11 +22,12 @@ public MCP are separate later releases. Do not expose either through this servic
    minimal and in the same application component.
 2. Route every model call exclusively through the existing LiteLLM gateway with a
    dedicated Momentum virtual key. No direct Gemini/Vertex path or fallback.
-3. Reuse the new PostgreSQL database already used by this repository. Add the
-   isolated `momentum` schema for results and ADK session tables, with a dedicated
-   `momentum_writer` login. Do not provision another database/server or migrate
-   historical DeepCopy data. Credentials and physical database identifiers remain
-   outside published documents.
+3. Reuse the existing PostgreSQL service with two dedicated logical databases,
+   as requested by the user on 2026-10-20: `momentum_sessions` for ADK sessions and
+   `momentum_results` for financial results. Each uses a `momentum` schema and its
+   own non-owner runtime login. Keep Scanner in its existing database and LiteLLM
+   unchanged. No historical DeepCopy import or additional server is required.
+   Credentials and physical service identifiers remain outside published documents.
 4. Delivery includes reproducible code, image, Terraform and CI. A live rollout is
    a separately reported checkpoint after the exact image and plan are reviewable.
 
@@ -38,7 +39,7 @@ Paths below are relative to the DeepCopy source repository unless marked target.
 | --- | --- |
 | `apps/backend/momentum-adk/DESIGN_SPEC.md`, `app/application.py`, `app/job_runner.py` | Preserve direct ADK execution, transactional result persistence and nonzero failure exits; no SQL polling queue. |
 | `app/domain/contracts.py` | Reuse `AnalysisRequest`, `WorkflowExecution`, `WorkflowResult` and analyst validation. |
-| `app/services/runtime.py` | Preserve persistent ADK sessions and explicit resume invocation IDs in the same PostgreSQL database and isolated Momentum schema. |
+| `app/services/runtime.py` | Preserve persistent ADK sessions and explicit resume invocation IDs in a dedicated sessions database and isolated Momentum schema. |
 | `app/config/settings.py`, `app/components/agents/momentum/catalog.py` | Source uses native Google models. LiteLLM routing is an explicit adaptation. |
 | `app/infrastructure/models.py`, `app/infrastructure/result_writer.py` | Preserve the structured financial result contract and its relational mapping. |
 | `apps/backend/momentum-api/alembic/versions/` | Historical migrations also manage unrelated domains. Extract only reviewed Momentum dependencies. |
@@ -105,8 +106,8 @@ publish a Postman workspace merely for this extraction.
   where used; FastAPI/Uvicorn for the proposed private dispatcher.
 - Existing Gemini-compatible LiteLLM transport with a Momentum-specific credential
   and explicit quick/deep model configuration. No direct-provider fallback.
-- Existing PostgreSQL database, with business results and ADK session tables in
-  the isolated `momentum` schema and bounded connections using `momentum_writer`.
+- Existing PostgreSQL service, with separate `momentum_results` and
+  `momentum_sessions` databases and bounded, independently credentialed pools.
 - Terraform 1.14.4 in CI, compatible with the repository's supported 1.x range;
   Google provider constraints aligned with existing roots and a committed lockfile.
 - Linux amd64 production image with digest-pinned bases and a non-root runtime user.
@@ -199,10 +200,13 @@ operations, and incidental refactoring. Retain relevant license/provenance notic
   dispatcher needs no database or model secret. Reuse the gateway network through
   explicit inputs. Provision a separate Momentum key, never the gateway master key.
 - Liquibase's existing migration role owns the `momentum` schema and its tables.
-  `momentum_writer` is a non-owner login without superuser, database creation,
+  `momentum_results_writer` and `momentum_sessions_writer` are non-owner logins
+  without superuser, database creation,
   role creation, bypass-RLS or migration-role membership. Its rights are restricted
-  to explicitly enumerated Momentum tables: result INSERT and necessary RETURNING
-  reads; session SELECT/INSERT/UPDATE/DELETE required by ADK. No table ownership,
+  to explicitly enumerated tables in their own database: result INSERT and
+  necessary RETURNING reads; session SELECT/INSERT/UPDATE/DELETE required by ADK.
+  Revoke PUBLIC CONNECT/TEMP on the two new databases; deny cross-database login.
+  No table ownership,
   schema/database CREATE, TRUNCATE, grant option or access to other domain tables.
 - Use `search_path = momentum, pg_catalog`, with an explicit schema on business
   ORM metadata. Search path is routing, not authorization: prove isolation through
@@ -210,8 +214,8 @@ operations, and incidental refactoring. Retain relevant license/provenance notic
 - Prepare the pinned ADK session tables, indexes and version metadata through
   Liquibase. The Job receives only runtime credentials and checks migration
   readiness before work; it must not create tables/indexes or migrate on startup.
-  Preserve the same database name in result and session connection settings;
-  remove the source's automatic `momentum_adk_sessions` database derivation.
+  Configure both database URLs explicitly; never derive a second URL by changing
+  a database name or silently fall back to the legacy application database.
 - Audit effective PUBLIC and inherited privileges, not only direct grants. Deny
   writes outside Momentum, including temporary/public objects. If an existing
   database-wide PUBLIC grant permits those writes, assess the impact and review
@@ -313,9 +317,9 @@ not apply Terraform. Record the source SHA and immutable image reference.
 8. Report implementation readiness, CI, publication, apply and live pilot as
    separate outcomes. If rollout prerequisites are unavailable, explicitly leave
    the corresponding live criteria pending.
-9. Results and sessions use the existing PostgreSQL database's `momentum` schema.
-   Effective privileges restrict `momentum_writer` writes to that schema; runtime
-   DDL and access to other application schemas are denied and tested.
+9. Results and sessions use separate databases on the existing PostgreSQL service.
+   Their dedicated runtime roles cannot connect to each other's database or write
+   outside their own enumerated tables; runtime DDL is denied and tested.
 10. Every quick, deep and reflection model uses LiteLLM. A missing gateway or
     gateway failure never causes a direct Gemini/Vertex request.
 

@@ -104,8 +104,15 @@ application is exposed. Measure complete PR diffs before publication.
   - Acceptance: preserve financial columns/relationships; explicit schema; session/invocation correlation without ticker/date uniqueness.
   - Verify: `u test_result_models.py`; compare source result-column inventory.
 
+- [ ] **T09a — Dedicated session/result databases** (user amendment, depends: T09).
+  - Implement in slices of at most five files: explicit Liquibase roots, restricted
+    database bootstrap, separate local fixture, and cross-database denial tests.
+  - Acceptance: `momentum_sessions` and `momentum_results` share the server, each
+    with its own runtime role; defaultdb/Scanner and applied checksums are unchanged.
+  - Live cutover, credential distribution and legacy cleanup are separate evidence.
+
 - [ ] **T10 · PR05 — Business result migrations** (depends: T08, T09).
-  - Files: `D/changelog/momentum/003-results.sql`, `D/changelog/db.changelog-master.yaml`, `P/tests/integration/test_result_migrations.py`.
+  - Files: `D/changelog/momentum-results/001-initial.sql`, `D/changelog/db.changelog-master.yaml`, `P/tests/integration/test_result_migrations.py`.
   - Acceptance: schema matches ORM; migrations repeat safely; rollback leaves Scanner objects/data/checksums intact.
   - Verify: `i test_result_migrations.py`; rerun affected Scanner shared-database integration checks.
 
@@ -206,7 +213,7 @@ replaced with a constant answer or silently removed.
 
 - [ ] **T27 · PR14 — Durable execution and resume** (depends: T08, T13, T26).
   - Files: `P/app/services/runtime.py`, `P/tests/unit/test_adk_runtime.py`, `P/tests/unit/test_adk_engine.py`, `P/tests/integration/test_workflow_sessions.py`.
-  - Acceptance: same PG database/schema/runtime role; valid terminal output; session events/resume without DDL.
+  - Acceptance: explicit separate PG URLs and runtime roles; valid terminal output; session events/resume without DDL.
   - Verify: `u test_adk_runtime.py`; `u test_adk_engine.py`; `i test_workflow_sessions.py`; split PR14 if required.
 
 - [ ] **T28 · PR15 — Bounded database connections** (depends: T11, T12, T27).
@@ -334,3 +341,7 @@ MCP remain later work; they cannot substitute for the complete analysis worker.
   and aware UTC defaults added; ticker administration tables remain out of scope.
   Validation: 80 unit cases, Ruff lint/format and wheel build passed.
   Business migrations and transactional writers remain pending (T10–T11).
+
+- User amendment (2026-10-20): separate Momentum sessions and results into two
+  logical databases on the existing service. Scanner remains unchanged. T06–T08
+  evidence describes the earlier shared deployment, not the new target topology.

@@ -14,7 +14,8 @@ The Momentum [execution checklist](todo.md) is approved for implementation; prog
 Extract the complete existing Momentum ADK financial analysis workflow into
 `apps/backend/momentum-adk`. Run one validated command per dedicated Cloud Run Job,
 using only the existing LiteLLM gateway. Reuse the repository's current PostgreSQL
-database, with an isolated `momentum` schema and dedicated `momentum_writer` login.
+service, with dedicated `momentum_sessions` and `momentum_results` databases.
+This replaces the shared-database choice following the user's 2026-10-20 instruction.
 Keep consultation, public MCP, broker operations and historical imports outside
 this release. Preserve the source's financial roles, tools and structured outputs.
 
@@ -31,8 +32,10 @@ flowchart TD
   Job --> ADK[Existing Momentum ADK workflow]
   ADK --> Gateway[Existing private LiteLLM gateway]
   ADK --> Data[Market data providers]
-  ADK --> PG[Existing PostgreSQL database: momentum schema]
-  Migrate[Liquibase with migration identity] --> PG
+  ADK --> Sessions[PostgreSQL: momentum_sessions]
+  ADK --> Results[PostgreSQL: momentum_results]
+  Migrate[Liquibase with migration identity] --> Sessions
+  Migrate --> Results
 ```
 
 The dispatcher and worker stay within the same application component and image,
@@ -55,15 +58,17 @@ their contracts must be settled before composition. No parallel agents are neede
 
 ## Database design and proof
 
-Use one logical database, not the source's automatically derived second database.
-Business models explicitly name `momentum`; session connections use the fixed
-`momentum, pg_catalog` search path. Both point to the existing database name with
-the dedicated login. Secrets remain in Secret Manager, including the verified CA.
+Use two explicitly configured logical databases on the existing PostgreSQL service.
+Business models name `momentum` in `momentum_results`; ADK uses the fixed
+`momentum, pg_catalog` search path in `momentum_sessions`. Each has a separate
+runtime login and Secret Manager credential, including the verified CA.
+The existing shared foundation remains historical until a verified live cutover.
 
 | Identity | Rights and ownership |
 | --- | --- |
 | Existing `database_migrator` | Owns schema/tables and applies reviewed Liquibase changes; never passed to a runtime. |
-| `momentum_writer` | Non-owner LOGIN; INSERT plus necessary RETURNING reads on enumerated result tables; SELECT/INSERT/UPDATE/DELETE only on enumerated ADK session tables. |
+| `momentum_results_writer` | Non-owner LOGIN to results only; INSERT plus necessary RETURNING reads on enumerated result tables. |
+| `momentum_sessions_writer` | Non-owner LOGIN to sessions only; SELECT/INSERT/UPDATE/DELETE on enumerated ADK session tables. |
 | Private dispatcher | No PostgreSQL credential. |
 | Independent verifier | Separate inspection credential for pilot reads; no wider runtime rights are added to support verification. |
 
@@ -77,8 +82,9 @@ REVOKE cannot negate a PUBLIC grant. Do not change shared grants blindly. See
 
 Liquibase owns business tables and the exact pinned ADK JSON session schema,
 including indexes and version metadata. Existing Scanner changesets/checksums stay
-unchanged. Add Momentum changesets to the shared root in dependency order.
-Bootstrap extends existing installations; do not rerun initial Scanner bootstrap.
+unchanged. Use independent `momentum-sessions.yaml` and `momentum-results.yaml`
+Liquibase roots, with no Scanner includes. Bootstrap only the two new databases;
+never rerun the initial Scanner bootstrap or rewrite applied changeset checksums.
 The user/admin creates the dedicated login and password through the existing
 credential procedure; SQL files contain grants and role settings, not passwords.
 
@@ -96,8 +102,8 @@ fields; the adapter/schema change must preserve all financial outputs and permit
 multiple results for the same ticker/date. Do not invent an idempotency guarantee.
 
 Two pools (result/session), each size 1, `max_overflow=0`, finite acquisition/query
-and idle deadlines, explicitly disposed on exit. Initial writer connection limit
-4 leaves a small margin; verify against the existing PG capacity before rollout.
+and idle deadlines, explicitly disposed on exit. Each new runtime role has a connection limit of
+2, keeping the combined limit at 4; verify against the existing PG capacity before rollout.
 The schema owner can initialize migrations; the runtime must fail when asked to
 CREATE/ALTER/DROP objects, including public or temporary objects.
 
@@ -161,7 +167,7 @@ exists; enable image publication only when the complete worker is verified.
 
 ### A. Before workflow assembly
 
-Disposable PG proves role isolation, same-database session storage, migration
+Disposable PG proves role isolation, separate session/result databases and cross-login denial, migration
 repeatability and no runtime DDL. Gateway tests prove exclusively routed native
 Gemini requests. A failure here blocks composition, not just release.
 
@@ -214,8 +220,8 @@ terraform -chdir=infra/momentum validate
 terraform -chdir=infra/momentum test
 ```
 
-Integration fixtures create an isolated database on the named disposable local
-server, install the real shared Liquibase changelog, and authenticate separately as
+Integration fixtures create isolated databases on the named disposable local
+server, install the real Liquibase roots, and authenticate separately as
 runtime/migrator/verifier. Reject non-local URLs and existing fixture roles; require
 the variables in the integration CI job instead of allowing skips. Start the server
 on port 55449 using the repository's digest-pinned PostgreSQL test image and build
