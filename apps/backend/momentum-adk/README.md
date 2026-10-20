@@ -1,0 +1,40 @@
+# Momentum ADK
+
+Independent Python 3.12 package for the private Momentum extraction described in
+the [specification](../../../docs/specs/momentum-service.md) and
+[execution checklist](../../../tasks/todo.md).
+
+## Current implementation
+
+T01–T03 provide the locked package, ticker/analyst validation and typed
+request/result/execution contracts. This library has no worker, HTTP entrypoint,
+image or deployment yet. Financial output schemas and the existing workflow will
+be ported in dependency order. The final worker will use the dedicated Cloud Run
+Job, the isolated PostgreSQL `momentum` schema and exclusively LiteLLM inference.
+
+## Local checks
+
+From this directory, with uv 0.9.17 and Python 3.12:
+
+```sh
+uv lock --check --python 3.12
+uv sync --frozen --python 3.12
+uv run --frozen ruff check app tests
+uv run --frozen ruff format --check app tests
+TZ=UTC uv run --frozen pytest -q tests/unit
+uv build --wheel
+```
+
+`just check` runs these checks together. Imports and unit tests need no credentials,
+network services or source repository. Each application has its own environment;
+do not add sibling applications to `PYTHONPATH`.
+
+## Source and adaptation
+
+Domain contracts/value objects and their original regression cases come from
+DeepCopy commit `38d0736a4bf778ebcb81dbf4acef52fd2dd34e77`, under Apache-2.0
+(see the repository [license](../../../LICENCE)). Original copyright notices are
+retained. Packaging and CI are independent. Invalid ticker/analyst input now raises
+validation errors instead of raw attribute/type errors. Successful requests,
+role order, defaults, result fields and resume correlation retain the source
+contract. A requester label is audit context, not authorization.

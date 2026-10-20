@@ -34,7 +34,8 @@ class TickerSymbol:
         normalized = self.value.strip().upper()
         if not self._PATTERN.fullmatch(normalized):
             raise ValueError(
-                "Ticker must contain 1 to 32 letters, digits, '.', '-', '_', '=', or '^'"
+                "Ticker must contain 1 to 32 letters, digits, "
+                "'.', '-', '_', '=', or '^'"
             )
         object.__setattr__(self, "value", normalized)
 
