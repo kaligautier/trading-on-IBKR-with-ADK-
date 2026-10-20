@@ -13,6 +13,8 @@ disposable PostgreSQL and applied to the existing service database on 2026-10-20
 The live runtime login passed session/event persistence and permission-denial
 checks; original Scanner rows and migration history were preserved.
 This library has no worker, HTTP entrypoint, image or application deployment yet.
+T09 provides the 12 completed-result ORM models with execution correlation;
+business migrations and transactional persistence are still pending.
 Financial result storage, the gateway and existing ADK workflow will be ported
 in dependency order. The final worker will use the dedicated Cloud Run
 Job, the isolated PostgreSQL `momentum` schema and exclusively LiteLLM inference.

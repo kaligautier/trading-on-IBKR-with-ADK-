@@ -1,7 +1,7 @@
 # Momentum execution checklist
 
 Status: implementation authorized by the user on 2026-10-20 ("mtn on implement").
-T01–T08 completed locally; PostgreSQL foundation verified; CI and later tasks are tracked separately.
+T01–T09 completed locally; PostgreSQL foundation verified; CI and later tasks are tracked separately.
 Scope validated 2026-10-19; [plan](plan.md) validated by the user on 2026-10-20.
 Specification: [Momentum service](../docs/specs/momentum-service.md).
 Previous checklist: [frontend archive](archive/public-frontend-todo.md).
@@ -99,7 +99,7 @@ application is exposed. Measure complete PR diffs before publication.
   - Acceptance: session tables/indexes/version metadata in `momentum`; enumerated session DML only; missing migrations fail safely.
   - Verify: `i test_adk_session_schema.py`; actual session lifecycle works with runtime credentials and no runtime DDL.
 
-- [ ] **T09 · PR04 — Result ORM in the isolated schema** (depends: T04, T07).
+- [x] **T09 · PR04 — Result ORM in the isolated schema** (depends: T04, T07).
   - Files: `P/app/infrastructure/__init__.py`, `P/app/infrastructure/models.py`, `P/tests/unit/test_result_models.py`.
   - Acceptance: preserve financial columns/relationships; explicit schema; session/invocation correlation without ticker/date uniqueness.
   - Verify: `u test_result_models.py`; compare source result-column inventory.
@@ -328,3 +328,9 @@ MCP remain later work; they cannot substitute for the complete analysis worker.
   Credentials and detailed evidence stay in the ignored local directory.
 - Checkpoint B remains open: financial result models/migrations/writers (T09–T11)
   are not implemented, and there is no completed live Momentum analysis.
+
+- T09: completed-result ORM port preserves all 229 source columns and relationships
+  across 12 tables. Explicit schema, required session/invocation/user correlation
+  and aware UTC defaults added; ticker administration tables remain out of scope.
+  Validation: 80 unit cases, Ruff lint/format and wheel build passed.
+  Business migrations and transactional writers remain pending (T10–T11).
