@@ -15,11 +15,13 @@ checks; original Scanner rows and migration history were preserved.
 This library has no worker, HTTP entrypoint, image or application deployment yet.
 T09 provides the 12 completed-result ORM models with execution correlation;
 T10 migrates those tables into the dedicated result database with INSERT/SELECT
-permissions only. Transactional persistence is still pending.
+permissions only. T11 writes all financial sections and execution correlation in
+one transaction; failures roll back the whole result. Both databases are covered
+by real PostgreSQL tests (43 cases), alongside 87 unit cases.
 The revised target uses `momentum_sessions` and `momentum_results` on the existing
 PostgreSQL service, each with a dedicated runtime login. Local tests now verify
 the separate session database and cross-database login denial; live cutover is pending.
-Financial result storage, the gateway and existing ADK workflow will be ported
+The gateway and existing ADK workflow will be ported
 in dependency order. The final worker will use the dedicated Cloud Run
 Job, isolated PostgreSQL storage and exclusively LiteLLM inference.
 
