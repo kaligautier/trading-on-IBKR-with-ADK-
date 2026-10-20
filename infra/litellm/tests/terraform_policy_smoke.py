@@ -52,6 +52,9 @@ import {
 }
 """
         )
+        moved = ROOT / "governance/moved.tf"
+        if moved.exists():
+            (self.path / "moved.tf").write_text(moved.read_text())
         self.env = {
             **os.environ,
             "TF_VAR_master": master,
@@ -127,6 +130,31 @@ def main():
                 ]
                 == "7d"
             )
+            policy.run(
+                "state",
+                "mv",
+                "module.policy.litellm_team.agents",
+                "litellm_team.agents",
+            )
+            policy.run(
+                "state",
+                "mv",
+                'module.policy.litellm_key.agent["scanner"]',
+                'litellm_key.agent["scanner"]',
+            )
+            policy.run(
+                "state",
+                "mv",
+                'module.policy.litellm_key.agent["weekly"]',
+                'litellm_key.agent["weekly"]',
+            )
+            policy.run("plan", "-input=false", "-out=moved.tfplan")
+            moved_plan = json.loads(policy.run("show", "-json", "moved.tfplan").stdout)
+            assert all(
+                r["change"]["actions"] == ["no-op"]
+                for r in moved_plan["resource_changes"]
+            )
+            policy.apply(agents, keys)
             rotated = "sk-offline-rotated"
             policy.env["TF_VAR_keys"] = json.dumps({**keys, "scanner": rotated})
             policy.env["TF_VAR_agents"] = json.dumps(

@@ -209,6 +209,24 @@ image with `httpx`, `google-auth`, `google-genai` and `pydantic`; copy the gover
 `litellm-verify-CLIENT_NAME`. This job uses the agent identity and only its own key.
 See the governance README for initial adoption, rotation and provider limitations.
 
+Set `agent_governance` to deploy the private `litellm-agent-governance` Cloud Run
+Job with an official, digest-pinned Terraform image. The job embeds this root's
+governance files, uses its dedicated service account and locks the separate GCS
+state. Existing flat team/key state addresses move into `module.policy` without
+recreating objects. The default execution only plans; execute with
+`--update-env-vars=GOVERNANCE_ACTION=apply` to apply the saved plan and require a
+second plan with no changes. The runner contains no Python and mounts no keys.
+
+The committed [preprod model catalog](config/preprod-models.tfvars) supplies
+`model` and `additional_vertex_models`. Pass it last with `-var-file` when planning
+this root. Terraform generates the proxy's `model_list` and both services use
+that configuration; the governance runner derives the team's and keys' allowed
+models from the same list. Add or remove models here, then apply infrastructure
+and execute the governance apply to synchronize endpoints and permissions.
+Additional providers use `provider_models` and Secret Manager environment
+references; API credentials do not belong in the catalog. Avoid manual model
+changes in the UI, which are outside this configuration's ownership.
+
 Both services share the image, config, database and runtime identity. Each uses
 a two-connection pool; size PostgreSQL for revision overlap and migrations.
 Without `redis_connection`, rate limits are process-local and counters may reset.

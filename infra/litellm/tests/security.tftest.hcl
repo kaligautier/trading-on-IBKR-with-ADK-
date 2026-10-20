@@ -516,3 +516,28 @@ run "governance_identity_does_not_require_a_python_image" {
     error_message = "Pure Terraform governance needs a dedicated admin identity independently of the optional Python verification image."
   }
 }
+
+run "private_governance_runner_executes_terraform_without_mounting_credentials" {
+  command = plan
+  variables {
+    stage                   = "service"
+    iap_members             = ["user:owner@example.com"]
+    secret_versions         = { database-url = "1", master-key = "1", salt-key = "1", ui-password = "1" }
+    client_service_accounts = { agent-one = "agent-one@example-project.iam.gserviceaccount.com" }
+    agent_governance = {
+      runner_image = "registry.example.com/terraform@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      agents       = { agent-one = {} }
+    }
+  }
+  assert {
+    condition = (
+      google_cloud_run_v2_job.agent_governance[0].template[0].template[0].containers[0].command == tolist(["sh"]) &&
+      strcontains(google_cloud_run_v2_job.agent_governance[0].template[0].template[0].containers[0].args[1], "terraform apply -input=false policy.tfplan") &&
+      !strcontains(google_cloud_run_v2_job.agent_governance[0].template[0].template[0].containers[0].args[1], "python") &&
+      google_cloud_run_v2_job.agent_governance[0].template[0].template[0].max_retries == 0 &&
+      google_cloud_run_v2_job.agent_governance[0].template[0].template[0].vpc_access[0].egress == "PRIVATE_RANGES_ONLY" &&
+      alltrue([for env in google_cloud_run_v2_job.agent_governance[0].template[0].template[0].containers[0].env : length(env.value_source) == 0])
+    )
+    error_message = "Governance must run Terraform in the VPC, default to plan, read secrets ephemerally and never retry an apply automatically."
+  }
+}
