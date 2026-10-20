@@ -22,6 +22,9 @@ def harness(project_root):
         "postgresql://postgres:local@127.0.0.1:5432/postgres",
         "postgresql://other:local@127.0.0.1:55449/postgres",
         "https://127.0.0.1:55449/postgres",
+        "postgresql://postgres:local@127.0.0.1:55449/postgres?host=remote.example",
+        "postgresql://postgres:local@127.0.0.1:55449/another_database",
+        "postgresql://postgres:local@127.0.0.1:55449/postgres#fragment",
         "",
     ],
 )

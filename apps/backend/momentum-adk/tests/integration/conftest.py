@@ -27,13 +27,16 @@ def local_target(url, container):
         or address.hostname != "127.0.0.1"
         or address.port != 55449
         or address.username != "postgres"
+        or address.path != "/postgres"
+        or address.query
+        or address.fragment
         or container != "momentum-test-db"
     ):
         raise ValueError("Use the labeled disposable localhost PostgreSQL fixture")
     return address
 
 
-def run_liquibase(url, *command):
+def run_liquibase(url, *command, context="momentum"):
     address = urlsplit(url)
     environment = {
         **os.environ,
@@ -43,6 +46,10 @@ def run_liquibase(url, *command):
         "LIQUIBASE_COMMAND_CHANGELOG_FILE": "db.changelog-master.yaml",
         "LIQUIBASE_LIQUIBASE_SCHEMA_NAME": "liquibase",
     }
+    if context is not None:
+        environment["LIQUIBASE_COMMAND_CONTEXT_FILTER"] = context
+    else:
+        environment.pop("LIQUIBASE_COMMAND_CONTEXT_FILTER", None)
     result = subprocess.run(
         [
             "docker",
@@ -89,6 +96,7 @@ def migrated_database():
     if ports != [{"HostIp": "127.0.0.1", "HostPort": "55449"}]:
         pytest.fail("Refusing an unexpected PostgreSQL port binding")
     name = "momentum_test_" + uuid4().hex
+    owned = {"database": False, "roles": []}
     target = urlunsplit(address._replace(path="/" + name))
     urls = {
         role: urlunsplit(
@@ -110,8 +118,10 @@ def migrated_database():
             if existing:
                 raise ValueError("Disposable PostgreSQL already contains test roles")
             await admin.execute(f'CREATE DATABASE "{name}"')
+            owned["database"] = True
             for role in ROLES:
                 await admin.execute(f"CREATE ROLE {role} LOGIN PASSWORD 'local-only'")
+                owned["roles"].append(role)
         finally:
             await admin.close()
         owner = await asyncpg.connect(target)
@@ -127,15 +137,34 @@ def migrated_database():
     async def cleanup():
         admin = await asyncpg.connect(url)
         try:
-            await admin.execute(f'DROP DATABASE "{name}" WITH (FORCE)')
-            for role in reversed(ROLES):
+            if owned["database"]:
+                await admin.execute(f'DROP DATABASE "{name}" WITH (FORCE)')
+            for role in reversed(owned["roles"]):
                 await admin.execute(f"DROP ROLE {role}")
         finally:
             await admin.close()
 
-    asyncio.run(setup())
+    async def verify_default_context():
+        owner = await asyncpg.connect(target)
+        try:
+            assert (
+                await owner.fetchval("SELECT count(*) FROM liquibase.databasechangelog")
+                == 1
+            )
+            assert (
+                await owner.fetchval(
+                    "SELECT count(*) FROM pg_namespace WHERE nspname='momentum'"
+                )
+                == 0
+            )
+        finally:
+            await owner.close()
+
     try:
+        asyncio.run(setup())
         run_liquibase(urls["database_migrator"], "validate")
+        run_liquibase(urls["database_migrator"], "update", context=None)
+        asyncio.run(verify_default_context())
         run_liquibase(urls["database_migrator"], "update")
         yield {"admin": target, **urls}
     finally:
