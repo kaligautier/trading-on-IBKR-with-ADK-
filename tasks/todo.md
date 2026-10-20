@@ -1,7 +1,7 @@
 # Momentum execution checklist
 
 Status: implementation authorized by the user on 2026-10-20 ("mtn on implement").
-T01–T03 completed locally; CI and later tasks are tracked separately.
+T01–T05 completed locally (Checkpoint A); CI and later tasks are tracked separately.
 Scope validated 2026-10-19; [plan](plan.md) validated by the user on 2026-10-20.
 Specification: [Momentum service](../docs/specs/momentum-service.md).
 Previous checklist: [frontend archive](archive/public-frontend-todo.md).
@@ -69,12 +69,12 @@ bash apps/backend/momentum-adk/scripts/test_database.sh stop
   - Acceptance: SHA-pinned actions; frozen install/lint/unit checks; no cloud credentials or premature image publication.
   - Verify: parse workflow YAML and run its application commands locally; run repository PR-policy tests.
 
-- [ ] **T04 · PR02 — Complete financial output schemas** (depends: T02).
+- [x] **T04 · PR02 — Complete financial output schemas** (depends: T02).
   - Files: `P/app/domain/analysis.py`, `P/tests/unit/test_analysis_schemas.py`.
   - Acceptance: preserve all source schemas/fields/renderers; typed sections validate; no financial-method change.
   - Verify: `u test_analysis_schemas.py`; compare source inventory and measure the approximately 859-line source port independently.
 
-- [ ] **T05 · PR02 — Workflow state and signal parsing** (depends: T04).
+- [x] **T05 · PR02 — Workflow state and signal parsing** (depends: T04).
   - Files: `P/app/domain/state.py`, `P/app/domain/rating.py`, `P/tests/unit/test_signal_processing.py`.
   - Acceptance: preserve role-state dependencies and rating normalization.
   - Verify: `u test_signal_processing.py`; use a successor PR if T04 plus T05 exceeds 1,000 lines.
@@ -302,3 +302,10 @@ MCP remain later work; they cannot substitute for the complete analysis worker.
 - T03: `090d3d7` — scoped CI, README and just recipes; Ruff lint/format, workflow
   YAML/SHA pins/shell syntax, local links and 20 repository PR-policy tests pass.
 - No worker, image, database migration or live analysis exists at this checkpoint.
+
+- T04: `3e0b1e9` / PR #57 — all 16 source financial JSON schemas and 12 renderer
+  ASTs compared: identical. Library suite: 49 passed; lint/format pass.
+- T05: `0547249` — workflow states/rating parser byte-identical to reviewed source; original
+  signal cases and typed end-to-end state serialization pass: 64 unit cases total.
+- PR #56 and #57: library, component scope, size and GitGuardian checks passed.
+  Checkpoint A is complete; T06 starts disposable PostgreSQL verification.

@@ -6,9 +6,9 @@ the [specification](../../../docs/specs/momentum-service.md) and
 
 ## Current implementation
 
-T01–T03 provide the locked package, ticker/analyst validation and typed
-request/result/execution contracts. This library has no worker, HTTP entrypoint,
-image or deployment yet. Financial output schemas and the existing workflow will
+T01–T05 provide the locked package, ticker/analyst validation, complete financial
+output schemas/renderers, typed workflow states and signal normalization. This library has no worker, HTTP entrypoint,
+image or deployment yet. The database, gateway and existing ADK workflow will
 be ported in dependency order. The final worker will use the dedicated Cloud Run
 Job, the isolated PostgreSQL `momentum` schema and exclusively LiteLLM inference.
 
@@ -37,4 +37,6 @@ DeepCopy commit `38d0736a4bf778ebcb81dbf4acef52fd2dd34e77`, under Apache-2.0
 retained. Packaging and CI are independent. Invalid ticker/analyst input now raises
 validation errors instead of raw attribute/type errors. Successful requests,
 role order, defaults, result fields and resume correlation retain the source
-contract. A requester label is audit context, not authorization.
+contract. All 16 financial JSON schemas and 12 renderer ASTs match the source;
+workflow state and rating parser are unchanged. A requester label is audit
+context, not authorization.
