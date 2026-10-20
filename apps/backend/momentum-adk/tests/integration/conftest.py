@@ -36,14 +36,16 @@ def local_target(url, container):
     return address
 
 
-def run_liquibase(url, *command, context="momentum"):
+def run_liquibase(
+    url, *command, context="momentum", changelog="db.changelog-master.yaml"
+):
     address = urlsplit(url)
     environment = {
         **os.environ,
         "LIQUIBASE_COMMAND_URL": f"jdbc:postgresql://127.0.0.1:5432{address.path}",
         "LIQUIBASE_COMMAND_USERNAME": address.username,
         "LIQUIBASE_COMMAND_PASSWORD": address.password,
-        "LIQUIBASE_COMMAND_CHANGELOG_FILE": "db.changelog-master.yaml",
+        "LIQUIBASE_COMMAND_CHANGELOG_FILE": changelog,
         "LIQUIBASE_LIQUIBASE_SCHEMA_NAME": "liquibase",
     }
     if context is not None:
@@ -167,5 +169,80 @@ def migrated_database():
         asyncio.run(verify_default_context())
         run_liquibase(urls["database_migrator"], "update")
         yield {"admin": target, **urls}
+    finally:
+        asyncio.run(cleanup())
+
+
+@pytest.fixture(scope="session")
+def dedicated_databases(migrated_database):
+    """Two fresh logical databases on the already validated local-only server."""
+    address = urlsplit(migrated_database["admin"])
+    names = ("momentum_sessions", "momentum_results")
+    owned_databases, owned_roles = [], []
+    urls = {}
+    for name in names:
+        role = name + "_writer"
+        urls[name] = {
+            "admin": urlunsplit(address._replace(path="/" + name)),
+            "runtime": urlunsplit(
+                address._replace(
+                    netloc=f"{role}:local-only@127.0.0.1:55449", path="/" + name
+                )
+            ),
+            "migrator": urlunsplit(
+                address._replace(
+                    netloc="database_migrator:local-only@127.0.0.1:55449",
+                    path="/" + name,
+                )
+            ),
+        }
+
+    async def setup():
+        admin = await asyncpg.connect(migrated_database["admin"])
+        try:
+            if await admin.fetchval(
+                "SELECT count(*) FROM pg_database WHERE datname=ANY($1)", list(names)
+            ):
+                raise ValueError("Dedicated test databases already exist")
+            if await admin.fetchval(
+                "SELECT count(*) FROM pg_roles WHERE rolname=ANY($1)",
+                [n + "_writer" for n in names],
+            ):
+                raise ValueError("Dedicated test roles already exist")
+            for name in names:
+                role = name + "_writer"
+                await admin.execute(f"CREATE ROLE {role} LOGIN PASSWORD 'local-only'")
+                owned_roles.append(role)
+                await admin.execute(f'CREATE DATABASE "{name}"')
+                owned_databases.append(name)
+                connection = await asyncpg.connect(urls[name]["admin"])
+                try:
+                    await connection.execute(
+                        (DATABASE / "momentum-databases-bootstrap.sql").read_text()
+                    )
+                finally:
+                    await connection.close()
+        finally:
+            await admin.close()
+
+    async def cleanup():
+        admin = await asyncpg.connect(migrated_database["admin"])
+        try:
+            for name in reversed(owned_databases):
+                await admin.execute(f'DROP DATABASE "{name}" WITH (FORCE)')
+            for role in reversed(owned_roles):
+                await admin.execute(f"DROP ROLE {role}")
+        finally:
+            await admin.close()
+
+    try:
+        asyncio.run(setup())
+        run_liquibase(
+            urls["momentum_sessions"]["migrator"],
+            "update",
+            context=None,
+            changelog="momentum-sessions.yaml",
+        )
+        yield urls
     finally:
         asyncio.run(cleanup())
