@@ -48,7 +48,17 @@ async def shared_database(monkeypatch):
     try:
         for role in ROLES:
             await admin.execute(f"CREATE ROLE \"{role}\" LOGIN PASSWORD 'local-only'")
-        await owner.execute((DATABASE_ROOT / "bootstrap.sql").read_text())
+        bootstrap = (DATABASE_ROOT / "domain-bootstrap.sql").read_text()
+        await owner.execute(
+            bootstrap.replace(':"domain"', f'"{name}"').replace(
+                ':"writer"', '"market_scanner_writer"'
+            )
+        )
+        await owner.execute(
+            f'GRANT CONNECT ON DATABASE "{name}" TO market_scanner_reader; '
+            f'ALTER ROLE market_scanner_reader IN DATABASE "{name}" '
+            "SET search_path = _analysis, pg_catalog"
+        )
         # A separate domain and public data must remain unaffected.
         await owner.execute("CREATE TABLE public.unrelated (value TEXT)")
         await owner.execute("INSERT INTO public.unrelated VALUES ('preserved')")
@@ -61,7 +71,7 @@ async def shared_database(monkeypatch):
         reader = await asyncpg.connect(urls[ROLES[1]])
         connections.append(reader)
         monkeypatch.setattr(settings, "DATABASE_URL", urls[ROLES[0]])
-        monkeypatch.setattr(settings, "DATABASE_SCHEMA", "market_scanner")
+        monkeypatch.setattr(settings, "DATABASE_SCHEMA", "_analysis")
         monkeypatch.setattr(settings, "DATABASE_POOL_SIZE", 1)
         monkeypatch.setattr(settings, "DATABASE_POOL_TIMEOUT", 0.1)
         await database.close_database()
@@ -82,7 +92,7 @@ async def should_migrate_once_and_enforce_writer_reader_permissions(shared_datab
     await run_liquibase(urls[ROLES[2]])
     await run_liquibase(urls[ROLES[2]])
     assert (
-        await migrator.fetchval("SELECT count(*) FROM liquibase.databasechangelog") == 1
+        await migrator.fetchval("SELECT count(*) FROM liquibase.databasechangelog") == 2
     )
     await MarketScanPersistence().save(_regime(), "shared-database")
     assert await reader.fetchval("SELECT count(*) FROM market_scans") == 1
@@ -92,7 +102,7 @@ async def should_migrate_once_and_enforce_writer_reader_permissions(shared_datab
     for query in (
         "DELETE FROM market_scans",
         "INSERT INTO market_scans SELECT * FROM market_scans",
-        "CREATE TABLE market_scanner.forbidden (id INT)",
+        "CREATE TABLE _analysis.forbidden (id INT)",
     ):
         with pytest.raises(asyncpg.InsufficientPrivilegeError):
             await reader.execute(query)
@@ -102,7 +112,7 @@ async def should_migrate_once_and_enforce_writer_reader_permissions(shared_datab
             "SELECT * FROM market_scans",
             "SELECT * FROM public.unrelated",
             "DELETE FROM market_scans",
-            "CREATE TABLE market_scanner.forbidden (id INT)",
+            "CREATE TABLE _analysis.forbidden (id INT)",
             "SELECT * FROM liquibase.databasechangelog",
         ):
             with pytest.raises(asyncpg.InsufficientPrivilegeError):
@@ -149,7 +159,7 @@ async def should_rollback_a_failed_migration_and_detect_changed_history(
     await run_liquibase(urls[ROLES[2]])
     changelog = mounted_tmp_path / "changelog"
     shutil.copytree(DATABASE_ROOT / "changelog", changelog)
-    master = changelog / "db.changelog-master.yaml"
+    master = changelog / "db.changelog-scanner.yaml"
     master.write_text(
         master.read_text()
         + "  - include:\n      file: broken.sql\n      relativeToChangelogFile: true\n"
@@ -157,13 +167,13 @@ async def should_rollback_a_failed_migration_and_detect_changed_history(
     broken = changelog / "broken.sql"
     broken.write_text(
         "--liquibase formatted sql\n--changeset test:broken\n"
-        "CREATE TABLE market_scanner.partial (id INT); SELECT 1/0;\n"
+        "CREATE TABLE _analysis.partial (id INT); SELECT 1/0;\n"
     )
     with pytest.raises(RuntimeError, match="division by zero"):
         await run_liquibase(urls[ROLES[2]], changelog=changelog)
-    assert await owner.fetchval("SELECT to_regclass('market_scanner.partial')") is None
+    assert await owner.fetchval("SELECT to_regclass('_analysis.partial')") is None
     assert (
-        await migrator.fetchval("SELECT count(*) FROM liquibase.databasechangelog") == 1
+        await migrator.fetchval("SELECT count(*) FROM liquibase.databasechangelog") == 2
     )
     initial = changelog / "market-scanner/001-initial.sql"
     initial.write_text(
@@ -179,7 +189,7 @@ async def should_add_and_rollback_another_domain_from_the_same_root(
     owner, _, reader, urls = shared_database
     changelog = mounted_tmp_path / "changelog"
     shutil.copytree(DATABASE_ROOT / "changelog", changelog)
-    master = changelog / "db.changelog-master.yaml"
+    master = changelog / "db.changelog-scanner.yaml"
     master.write_text(
         master.read_text() + "  - include:\n      file: other-domain.sql\n"
         "      relativeToChangelogFile: true\n"
@@ -192,7 +202,7 @@ async def should_add_and_rollback_another_domain_from_the_same_root(
         "--rollback DROP SCHEMA other_domain;\n"
     )
     await run_liquibase(urls[ROLES[2]], changelog=changelog)
-    assert await owner.fetchval("SELECT count(*) FROM liquibase.databasechangelog") == 2
+    assert await owner.fetchval("SELECT count(*) FROM liquibase.databasechangelog") == 3
     with pytest.raises(asyncpg.InsufficientPrivilegeError):
         await reader.execute("SELECT * FROM other_domain.example")
     await run_liquibase(
@@ -200,7 +210,7 @@ async def should_add_and_rollback_another_domain_from_the_same_root(
     )
     assert await owner.fetchval("SELECT to_regclass('other_domain.example')") is None
     assert await reader.fetchval("SELECT count(*) FROM market_scans") == 0
-    assert await owner.fetchval("SELECT count(*) FROM liquibase.databasechangelog") == 1
+    assert await owner.fetchval("SELECT count(*) FROM liquibase.databasechangelog") == 2
 
 
 async def run_liquibase(url, command="update", changelog=None):
@@ -216,7 +226,7 @@ async def run_liquibase(url, command="update", changelog=None):
         "LIQUIBASE_COMMAND_URL": f"jdbc:postgresql://127.0.0.1:5432/{address.database}",
         "LIQUIBASE_COMMAND_USERNAME": address.username,
         "LIQUIBASE_COMMAND_PASSWORD": address.password,
-        "LIQUIBASE_COMMAND_CHANGELOG_FILE": "db.changelog-master.yaml",
+        "LIQUIBASE_COMMAND_CHANGELOG_FILE": "db.changelog-scanner.yaml",
         "LIQUIBASE_LIQUIBASE_SCHEMA_NAME": "liquibase",
     }
     process = await asyncio.create_subprocess_exec(
