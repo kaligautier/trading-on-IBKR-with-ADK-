@@ -7,10 +7,15 @@ name = "momentum-adk"
 version = "0.1.0"
 description = "Independent Momentum ADK financial analysis engine"
 requires-python = ">=3.12,<3.13"
-dependencies = ["pydantic>=2.11.4,<3"]
+dependencies = [
+    "asyncpg>=0.30,<1",
+    "google-adk[db]==2.6.1",
+    "pydantic>=2.11.4,<3",
+    "sqlalchemy[asyncio]>=2.0,<3",
+]
 
 [dependency-groups]
-dev = ["pytest>=8.4.1,<9", "ruff==0.14.7"]
+dev = ["pytest>=8.4.1,<9", "pytest-asyncio>=1.0,<2", "ruff==0.14.7"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["app"]
@@ -29,3 +34,5 @@ known-first-party = ["app"]
 testpaths = ["tests/unit"]
 addopts = "-ra --strict-markers"
 markers = ["unit: isolated tests", "integration: disposable service tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
