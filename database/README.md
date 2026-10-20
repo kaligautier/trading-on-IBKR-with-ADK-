@@ -74,7 +74,8 @@ Run migrations using `database_migrator` and the explicit dedicated JDBC URL:
 ```sh
 # Session database only; never point this command at defaultdb.
 liquibase --changelog-file=momentum-sessions.yaml update
-# The separate result changelog is delivered with T10.
+# Result database only.
+liquibase --changelog-file=momentum-results.yaml update
 ```
 
 Each root has its own Liquibase history and excludes Scanner. Configure session

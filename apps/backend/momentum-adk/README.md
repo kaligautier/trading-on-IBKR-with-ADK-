@@ -14,7 +14,8 @@ The live runtime login passed session/event persistence and permission-denial
 checks; original Scanner rows and migration history were preserved.
 This library has no worker, HTTP entrypoint, image or application deployment yet.
 T09 provides the 12 completed-result ORM models with execution correlation;
-business migrations and transactional persistence are still pending.
+T10 migrates those tables into the dedicated result database with INSERT/SELECT
+permissions only. Transactional persistence is still pending.
 The revised target uses `momentum_sessions` and `momentum_results` on the existing
 PostgreSQL service, each with a dedicated runtime login. Local tests now verify
 the separate session database and cross-database login denial; live cutover is pending.
