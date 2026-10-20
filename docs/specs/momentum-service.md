@@ -1,6 +1,7 @@
 # Spec: dedicated Momentum analysis service
 
-Status: scope validated by the user on 2026-10-19; implementation plan pending review.
+Status: scope validated on 2026-10-19; plan validated by the user on 2026-10-20.
+The execution checklist is the remaining review gate before implementation.
 Reviewed source: DeepCopy commit `38d0736a4bf778ebcb81dbf4acef52fd2dd34e77`.
 Target baseline: `origin/main` at `9bbf5709b2895e2d0bdbd1d1667b860ddcfe43a8`.
 
@@ -322,7 +323,7 @@ not apply Terraform. Record the source SHA and immutable image reference.
 
 - Scope, exclusive LiteLLM and reuse of the existing PostgreSQL database with
   schema/user isolation: validated by the user's answers on 2026-10-19.
-- Plan in `tasks/plan.md`: awaiting human review.
-- Momentum task checklist: prepare only after plan approval, then obtain its review.
+- Plan in `tasks/plan.md`: validated by the user's “valid plan” on 2026-10-20.
+- Momentum task checklist: prepare and obtain its review before implementation.
 
 Do not advance to implementation before those gates have been validated.

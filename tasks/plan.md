@@ -1,12 +1,13 @@
 # Implementation plan: Momentum ADK on dedicated Cloud Run
 
-Status: proposed; awaiting human plan review. No implementation is authorized by
-this document alone. Specification scope was validated on 2026-10-19.
+Status: validated by the user's “valid plan” on 2026-10-20.
+Specification scope was validated on 2026-10-19. Prepare and review the execution
+checklist before implementation, per the invoked spec-driven workflow.
 
 Specification: [Momentum service](../docs/specs/momentum-service.md).
 Previous plan: [public frontend archive](archive/public-frontend-plan.md).
-`tasks/todo.md` still contains the preserved frontend checklist; prepare and review
-the Momentum checklist only after this plan is approved.
+Archive the preserved frontend `tasks/todo.md` before preparing the Momentum
+execution checklist for review.
 
 ## Outcome and fixed decisions
 
@@ -234,9 +235,9 @@ and exact server-start commands without touching the real database.
 | Multiple submissions overlap | No retry/exactly-once claim; one initial operator pilot, then explicit concurrency follow-up if needed. |
 | Local memory mistaken for durable learning | Preserve source behavior but label filesystem memory ephemeral; results/sessions remain in PostgreSQL. |
 
-## Pending human gate
+## Execution checklist gate
 
-Review this plan's single-schema database design, delivery sequence and verification
-checkpoints. After plan approval, prepare the Momentum `tasks/todo.md`, sized to
-roughly five files per task, with explicit acceptance and verification. Review that
-checklist before implementation, as required by the invoked spec-driven workflow.
+The single-schema database design, delivery sequence and verification checkpoints
+are validated. Prepare `tasks/todo.md`, sized to roughly five files per task, with
+explicit acceptance and verification. Review that checklist before implementation,
+as required by the invoked spec-driven workflow.
