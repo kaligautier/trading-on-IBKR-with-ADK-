@@ -9,20 +9,20 @@ from sqlalchemy.engine import make_url
 def _check_schema(connection):
     inspector = inspect(connection)
     for table in BaseV1.metadata.sorted_tables:
-        columns = inspector.get_columns(table.name, schema="momentum")
+        columns = inspector.get_columns(table.name, schema="_sessions")
         if {c["name"] for c in columns} != set(table.columns.keys()):
             raise ValueError("Session columns do not match the pinned SDK")
-        primary_key = inspector.get_pk_constraint(table.name, schema="momentum")
+        primary_key = inspector.get_pk_constraint(table.name, schema="_sessions")
         if primary_key["constrained_columns"] != list(table.primary_key.columns.keys()):
             raise ValueError("Session primary key does not match the pinned SDK")
         indexes = {
-            i["name"] for i in inspector.get_indexes(table.name, schema="momentum")
+            i["name"] for i in inspector.get_indexes(table.name, schema="_sessions")
         }
         if not {i.name for i in table.indexes}.issubset(indexes):
             raise ValueError("Session indexes do not match the pinned SDK")
     version = connection.execute(
         text(
-            "SELECT value FROM momentum.adk_internal_metadata "
+            "SELECT value FROM _sessions.adk_internal_metadata "
             "WHERE key='schema_version'"
         )
     ).scalar_one()
@@ -51,7 +51,7 @@ async def create_session_service(database_url: str) -> DatabaseSessionService:
             connect_args={
                 "timeout": 10,
                 "server_settings": {
-                    "search_path": "momentum, pg_catalog",
+                    "search_path": "_sessions, pg_catalog",
                     "statement_timeout": "30000",
                     "idle_in_transaction_session_timeout": "30000",
                 },

@@ -24,7 +24,7 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
 class Base(DeclarativeBase):
-    metadata = MetaData(schema="momentum")
+    metadata = MetaData(schema="_analysis")
 
 
 def utc_now() -> datetime:
@@ -114,7 +114,7 @@ class TechnicalIndicators(Base):
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
     result_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("momentum.analysis_results.id"), nullable=False
+        UUID(as_uuid=True), ForeignKey("_analysis.analysis_results.id"), nullable=False
     )
     ticker: Mapped[str] = mapped_column(String(32), nullable=False)
     analysis_date: Mapped[date] = mapped_column(Date, nullable=False)
@@ -203,7 +203,7 @@ class Fundamentals(Base):
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
     result_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("momentum.analysis_results.id"), nullable=False
+        UUID(as_uuid=True), ForeignKey("_analysis.analysis_results.id"), nullable=False
     )
     ticker: Mapped[str] = mapped_column(String(32), nullable=False)
     analysis_date: Mapped[date] = mapped_column(Date, nullable=False)
@@ -310,7 +310,7 @@ class SentimentResult(Base):
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
     result_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("momentum.analysis_results.id"), nullable=False
+        UUID(as_uuid=True), ForeignKey("_analysis.analysis_results.id"), nullable=False
     )
     ticker: Mapped[str] = mapped_column(String(32), nullable=False)
     analysis_date: Mapped[date] = mapped_column(Date, nullable=False)
@@ -341,7 +341,7 @@ class SentimentItemRow(Base):
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
     result_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("momentum.analysis_results.id"), nullable=False
+        UUID(as_uuid=True), ForeignKey("_analysis.analysis_results.id"), nullable=False
     )
     ticker: Mapped[str] = mapped_column(String(32), nullable=False)
     analysis_date: Mapped[date] = mapped_column(Date, nullable=False)
@@ -367,7 +367,7 @@ class NewsResult(Base):
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
     result_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("momentum.analysis_results.id"), nullable=False
+        UUID(as_uuid=True), ForeignKey("_analysis.analysis_results.id"), nullable=False
     )
     ticker: Mapped[str] = mapped_column(String(32), nullable=False)
     analysis_date: Mapped[date] = mapped_column(Date, nullable=False)
@@ -395,7 +395,7 @@ class NewsItemRow(Base):
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
     result_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("momentum.analysis_results.id"), nullable=False
+        UUID(as_uuid=True), ForeignKey("_analysis.analysis_results.id"), nullable=False
     )
     ticker: Mapped[str] = mapped_column(String(32), nullable=False)
     analysis_date: Mapped[date] = mapped_column(Date, nullable=False)
@@ -421,7 +421,7 @@ class ResearchPlanRow(Base):
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
     result_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("momentum.analysis_results.id"), nullable=False
+        UUID(as_uuid=True), ForeignKey("_analysis.analysis_results.id"), nullable=False
     )
     ticker: Mapped[str] = mapped_column(String(32), nullable=False)
     analysis_date: Mapped[date] = mapped_column(Date, nullable=False)
@@ -445,7 +445,7 @@ class TraderProposalRow(Base):
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
     result_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("momentum.analysis_results.id"), nullable=False
+        UUID(as_uuid=True), ForeignKey("_analysis.analysis_results.id"), nullable=False
     )
     ticker: Mapped[str] = mapped_column(String(32), nullable=False)
     analysis_date: Mapped[date] = mapped_column(Date, nullable=False)
@@ -473,7 +473,7 @@ class PortfolioDecisionRow(Base):
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
     result_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("momentum.analysis_results.id"), nullable=False
+        UUID(as_uuid=True), ForeignKey("_analysis.analysis_results.id"), nullable=False
     )
     ticker: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
     analysis_date: Mapped[date] = mapped_column(Date, nullable=False)
@@ -512,7 +512,7 @@ class DebateArgumentRow(Base):
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
     result_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("momentum.analysis_results.id"), nullable=False
+        UUID(as_uuid=True), ForeignKey("_analysis.analysis_results.id"), nullable=False
     )
     ticker: Mapped[str] = mapped_column(String(32), nullable=False)
     analysis_date: Mapped[date] = mapped_column(Date, nullable=False)
@@ -552,7 +552,7 @@ class RunStats(Base):
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
     result_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("momentum.analysis_results.id"), nullable=False
+        UUID(as_uuid=True), ForeignKey("_analysis.analysis_results.id"), nullable=False
     )
 
     agents_total: Mapped[int] = mapped_column(Integer, nullable=False)

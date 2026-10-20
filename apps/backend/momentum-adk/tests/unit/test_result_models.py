@@ -26,16 +26,18 @@ SECTIONS = {
 
 def test_only_completed_result_tables_are_mapped():
     expected = {"analysis_results", *(table for table, _ in SECTIONS.values())}
-    assert set(models.Base.metadata.tables) == {f"momentum.{name}" for name in expected}
+    assert set(models.Base.metadata.tables) == {
+        f"_analysis.{name}" for name in expected
+    }
 
 
 def test_all_tables_and_foreign_keys_explicitly_target_momentum():
     for table in models.Base.metadata.sorted_tables:
-        assert table.schema == "momentum"
+        assert table.schema == "_analysis"
         ddl = str(CreateTable(table).compile(dialect=postgresql.dialect()))
-        assert f"CREATE TABLE momentum.{table.name}" in ddl
+        assert f"CREATE TABLE _analysis.{table.name}" in ddl
         for foreign_key in table.foreign_keys:
-            assert foreign_key.target_fullname == "momentum.analysis_results.id"
+            assert foreign_key.target_fullname == "_analysis.analysis_results.id"
             assert foreign_key.column.table is models.AnalysisResult.__table__
 
 
