@@ -6,12 +6,14 @@ on:
       - 'apps/backend/momentum-adk/**'
       - '.github/workflows/momentum.yml'
       - 'database/**'
+      - 'infra/momentum/**'
   push:
     branches: [main]
     paths:
       - 'apps/backend/momentum-adk/**'
       - '.github/workflows/momentum.yml'
       - 'database/**'
+      - 'infra/momentum/**'
   workflow_dispatch:
 
 permissions:
@@ -77,3 +79,25 @@ jobs:
         run: TZ=UTC uv run --project apps/backend/momentum-adk --frozen pytest -c apps/backend/momentum-adk/pyproject.toml -q apps/backend/momentum-adk/tests/integration
       - if: always() && steps.postgres.outcome == 'success'
         run: bash apps/backend/momentum-adk/scripts/test_database.sh stop
+
+  infrastructure:
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: infra/momentum
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - run: terraform fmt -check -recursive
+      - run: terraform init -backend=false
+      - run: terraform validate
+      - run: terraform test
+
+  dependencies:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e
+        with:
+          version: '0.9.17'
+      - run: uv export --project apps/backend/momentum-adk --frozen --no-dev --no-emit-project --format requirements-txt --output-file=/tmp/momentum-requirements.txt
+      - run: uvx --from pip-audit==2.10.1 --python 3.12 pip-audit -r /tmp/momentum-requirements.txt --disable-pip --no-deps
