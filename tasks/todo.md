@@ -1,12 +1,11 @@
-# Public frontend checklist
+# Domain database migration — workflow status
 
-- [x] Locate active source landing/docs and inspect current reader contract.
-- [x] Isolate worktree and map applicable BEST_PRATICE.todo requirements.
-- [ ] Reproducible dependency bootstrap and runnable foundation.
-- [ ] Public landing and documentation with working navigation.
-- [ ] Report-v3 adapter, server-only IAM transport and meaningful tests.
-- [ ] Live scanner panel, empty/failure states and source provenance.
-- [ ] Docker, CI, Terraform and scoped reader invocation permission.
-- [ ] Browser checks at mobile/tablet/desktop, keyboard and reduced motion.
-- [ ] Review, PRs below 1,000 changed lines, CI results.
-- [ ] Deployment readiness, public frontend and private reader verified.
+The [specification](../docs/specs/database-per-application.md) is approved.
+The [technical plan](plan.md) is awaiting human review.
+
+The implementation checklist will be written after plan approval, following the
+spec-driven workflow. This file is not an approved implementation task list.
+No production database operation or application implementation has been performed.
+
+The previous frontend checklist is preserved in
+[the archive](archive/public-frontend-todo.md).

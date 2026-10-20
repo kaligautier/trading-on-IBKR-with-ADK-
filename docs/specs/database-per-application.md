@@ -1,6 +1,6 @@
 # Spec: One PostgreSQL database per domain, separate results and sessions
 
-Status: REVISED DRAFT — domain/results/sessions direction requested; full spec awaiting review.
+Status: APPROVED for technical planning — user answered "go" after reviewing the revised spec.
 Date: 2026-10-20.
 Base: `origin/main` at `9bbf570`; branch: `feat/database-per-app`.
 
@@ -42,6 +42,10 @@ Pricing and current capacity must be checked before provisioning; no cost change
 is asserted by this specification.
 
 ## Assumptions requiring review
+
+The design is approved. Exact maintenance timing, measured duration and recovery
+retention remain operational decisions to record before live execution; spec
+approval is not approval of an unreviewed production cutover.
 
 - A bounded maintenance window may pause all affected writers and migrations.
   This is proposed, not yet approved. Zero downtime would require a revised design.
@@ -341,8 +345,8 @@ redacted verification evidence, not raw dumps or application data, for review.
 3. Which deployed Momentum source and branch successor are authoritative? Inventory
    must establish this rather than inferring it from an unmerged worktree.
 
-Next gate: human approval of this specification. The implementation plan and task
-list have deliberately not been created or substituted for approval. The overall
+Next gate: human review of the [technical plan](../../tasks/plan.md). The task
+breakdown follows plan approval; implementation follows task approval. The overall
 migration remains incomplete until DB-01 through DB-12 have direct evidence.
 
 ## Primary references
