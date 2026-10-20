@@ -324,6 +324,6 @@ not apply Terraform. Record the source SHA and immutable image reference.
 - Scope, exclusive LiteLLM and reuse of the existing PostgreSQL database with
   schema/user isolation: validated by the user's answers on 2026-10-19.
 - Plan in `tasks/plan.md`: validated by the user's “valid plan” on 2026-10-20.
-- Momentum task checklist: prepare and obtain its review before implementation.
+- Momentum task checklist in `tasks/todo.md`: prepared; awaiting human review.
 
 Do not advance to implementation before those gates have been validated.

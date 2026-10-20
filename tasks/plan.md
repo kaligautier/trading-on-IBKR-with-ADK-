@@ -6,8 +6,8 @@ checklist before implementation, per the invoked spec-driven workflow.
 
 Specification: [Momentum service](../docs/specs/momentum-service.md).
 Previous plan: [public frontend archive](archive/public-frontend-plan.md).
-Archive the preserved frontend `tasks/todo.md` before preparing the Momentum
-execution checklist for review.
+The preserved frontend checklist is [archived](archive/public-frontend-todo.md).
+The Momentum [execution checklist](todo.md) is prepared and awaits task review.
 
 ## Outcome and fixed decisions
 
@@ -238,6 +238,6 @@ and exact server-start commands without touching the real database.
 ## Execution checklist gate
 
 The single-schema database design, delivery sequence and verification checkpoints
-are validated. Prepare `tasks/todo.md`, sized to roughly five files per task, with
-explicit acceptance and verification. Review that checklist before implementation,
-as required by the invoked spec-driven workflow.
+are validated. `tasks/todo.md` defines dependency-ordered tasks with at most five
+files, explicit acceptance and verification. It awaits human review before
+implementation, as required by the invoked spec-driven workflow.
