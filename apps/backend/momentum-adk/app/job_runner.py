@@ -9,6 +9,7 @@ from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from app.config.llm import create_model
+from app.config.rate_limit import ModelRequestGate
 from app.config.settings import Settings
 from app.config.storage import MomentumStorage
 from app.domain.contracts import AnalysisRequest
@@ -39,9 +40,10 @@ async def execute(request: AnalysisRequest):
     session_url = os.environ["MOMENTUM_SESSION_DATABASE_URL"]
     database_address(session_url)
     result_url = database_address(os.environ["MOMENTUM_RESULT_DATABASE_URL"])
+    gate = ModelRequestGate()
     models = [
-        create_model(config, config.MOMENTUM_QUICK_MODEL),
-        create_model(config, config.MOMENTUM_DEEP_MODEL),
+        create_model(config, config.MOMENTUM_QUICK_MODEL, gate),
+        create_model(config, config.MOMENTUM_DEEP_MODEL, gate),
     ]
     runtime = None
     database = create_async_engine(
