@@ -2,3 +2,6 @@ databaseChangeLog:
   - include:
       file: market-scanner/001-initial.sql
       relativeToChangelogFile: true
+  - include:
+      file: momentum/001-schema.sql
+      relativeToChangelogFile: true
