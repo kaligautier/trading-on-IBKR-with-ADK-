@@ -535,6 +535,7 @@ run "private_governance_runner_executes_terraform_without_mounting_credentials" 
       strcontains(google_cloud_run_v2_job.agent_governance[0].template[0].template[0].containers[0].args[1], "terraform apply -input=false policy.tfplan") &&
       !strcontains(google_cloud_run_v2_job.agent_governance[0].template[0].template[0].containers[0].args[1], "python") &&
       google_cloud_run_v2_job.agent_governance[0].template[0].template[0].max_retries == 0 &&
+      contains(keys(google_secret_manager_secret_iam_member.governance_versions), "litellm-master-key") &&
       google_cloud_run_v2_job.agent_governance[0].template[0].template[0].vpc_access[0].egress == "PRIVATE_RANGES_ONLY" &&
       alltrue([for env in google_cloud_run_v2_job.agent_governance[0].template[0].template[0].containers[0].env : length(env.value_source) == 0])
     )

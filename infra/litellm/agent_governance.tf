@@ -92,7 +92,7 @@ resource "google_secret_manager_secret_iam_member" "governance_read" {
   member    = "serviceAccount:${google_service_account.governance[0].email}"
 }
 resource "google_secret_manager_secret_iam_member" "governance_versions" {
-  for_each  = local.governance_secrets
+  for_each  = local.governance_enabled ? setunion(local.governance_secrets, toset(["litellm-master-key"])) : toset([])
   project   = var.project_id
   secret_id = each.value
   role      = "roles/secretmanager.viewer"
