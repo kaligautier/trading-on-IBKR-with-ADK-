@@ -33,7 +33,10 @@ resource "google_secret_manager_secret" "redis" {
 }
 
 resource "google_secret_manager_secret_iam_member" "redis" {
-  for_each  = google_secret_manager_secret.redis
+  for_each = local.redis_enabled ? {
+    for name, secret in google_secret_manager_secret.redis : name => secret
+    if name == "password" || local.redis_ca_enabled
+  } : {}
   project   = var.project_id
   secret_id = each.value.secret_id
   role      = "roles/secretmanager.secretAccessor"

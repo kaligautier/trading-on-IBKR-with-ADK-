@@ -1,5 +1,7 @@
 import { NavSection } from "@/components/landing/nav-section"
 import { HeroSection } from "@/components/landing/hero-section"
+import { LogosSection } from "@/components/landing/logos-section"
+import { TechSection } from "@/components/landing/tech-section"
 import { RulesSection } from "@/components/landing/rules-section"
 import { MarketScannerSection } from "@/components/landing/market-scanner-section"
 import { EngineeringSection } from "@/components/landing/engineering-section"
@@ -22,6 +24,8 @@ export default function LandingPage() {
           <MarketScannerSection />
           <McpSection />
         </div>
+        <LogosSection />
+        <TechSection />
         <RulesSection />
         <EngineeringSection />
         <DisclaimerSection />

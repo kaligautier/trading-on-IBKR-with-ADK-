@@ -40,3 +40,36 @@ jobs:
       - run: npm test
       - run: npm audit --omit=dev --audit-level=high
       - run: npm run build
+  infrastructure:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    strategy:
+      matrix:
+        root: [infra/frontend, infra/frontend/build]
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd
+        with:
+          terraform_version: '1.14.4'
+          terraform_wrapper: false
+      - run: terraform -chdir=${{ matrix.root }} fmt -check
+      - run: terraform -chdir=${{ matrix.root }} init -backend=false -input=false -lockfile=readonly
+      - run: terraform -chdir=${{ matrix.root }} validate
+      - run: terraform -chdir=${{ matrix.root }} test
+  container:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - name: Build production image
+        run: docker build -f infra/frontend/Dockerfile -t local/deepcopy-front:review .
+      - name: Verify public landing starts as a non-root user
+        run: |
+          set -euo pipefail
+          test "$(docker image inspect local/deepcopy-front:review --format '{{.Config.User}}')" = node
+          docker run --rm -d --name frontend-review -p 127.0.0.1:3000:3000 local/deepcopy-front:review
+          trap 'docker logs --tail 30 frontend-review; docker stop frontend-review' EXIT
+          curl --retry 20 --retry-all-errors --retry-delay 2 --retry-max-time 60 --max-time 10 --fail --silent --show-error --output /tmp/frontend-health.json http://127.0.0.1:3000/health
+          grep -q '"status":"ok"' /tmp/frontend-health.json
+          curl --max-time 30 --fail --silent http://127.0.0.1:3000/ > /tmp/frontend.html
+          grep -q 'Market Scanner' /tmp/frontend.html
