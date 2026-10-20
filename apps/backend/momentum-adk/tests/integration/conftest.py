@@ -277,3 +277,61 @@ def dedicated_databases(migrated_database):
         yield urls
     finally:
         asyncio.run(cleanup())
+
+
+@pytest.fixture(scope="session")
+def unified_database(dedicated_databases, migrated_database):
+    """New target topology; reuse isolated fixture roles during the transition."""
+    address = urlsplit(migrated_database["admin"])._replace(path="/momentum")
+    urls = {"admin": urlunsplit(address)}
+    for key, role in (
+        ("migrator", "database_migrator"),
+        ("operator", "momentum_bootstrap_operator"),
+        ("sessions_runtime", "momentum_sessions_writer"),
+        ("results_runtime", "momentum_results_writer"),
+    ):
+        urls[key] = urlunsplit(
+            address._replace(netloc=f"{role}:local-only@127.0.0.1:55449")
+        )
+    owned = False
+
+    async def setup():
+        nonlocal owned
+        operator = await asyncpg.connect(
+            urlunsplit(urlsplit(urls["operator"])._replace(path="/postgres"))
+        )
+        try:
+            if await operator.fetchval(
+                "SELECT EXISTS(SELECT FROM pg_database WHERE datname='momentum')"
+            ):
+                raise ValueError("Unified test database already exists")
+            await operator.execute("CREATE DATABASE momentum")
+            owned = True
+        finally:
+            await operator.close()
+        for key, script in (
+            ("operator", "momentum-unified-bootstrap.sql"),
+            ("migrator", "momentum-unified-migrator.sql"),
+        ):
+            connection = await asyncpg.connect(urls[key])
+            try:
+                await connection.execute((DATABASE / script).read_text())
+            finally:
+                await connection.close()
+
+    async def cleanup():
+        if owned:
+            admin = await asyncpg.connect(migrated_database["admin"])
+            try:
+                await admin.execute("DROP DATABASE momentum WITH (FORCE)")
+            finally:
+                await admin.close()
+
+    try:
+        asyncio.run(setup())
+        run_liquibase(
+            urls["migrator"], "update", context=None, changelog="momentum.yaml"
+        )
+        yield urls
+    finally:
+        asyncio.run(cleanup())
