@@ -1,6 +1,7 @@
 # Momentum execution checklist
 
-Status: proposed for human task review; implementation has not begun.
+Status: implementation authorized by the user on 2026-10-20 ("mtn on implement").
+T01–T03 completed locally; CI and later tasks are tracked separately.
 Scope validated 2026-10-19; [plan](plan.md) validated by the user on 2026-10-20.
 Specification: [Momentum service](../docs/specs/momentum-service.md).
 Previous checklist: [frontend archive](archive/public-frontend-todo.md).
@@ -53,17 +54,17 @@ bash apps/backend/momentum-adk/scripts/test_database.sh stop
 
 ## Package and stable contracts
 
-- [ ] **T01 · PR01 — Independent locked package** (depends: none).
+- [x] **T01 · PR01 — Independent locked package** (depends: none).
   - Files: `P/pyproject.toml`, `P/uv.lock`, `P/app/__init__.py`, `P/tests/conftest.py`, `P/tests/unit/test_packaging.py`.
   - Acceptance: Python 3.12 locked install; own package namespace; no eager cloud/runtime initialization.
   - Verify: `uv sync --project apps/backend/momentum-adk --frozen --python 3.12`; `u test_packaging.py`.
 
-- [ ] **T02 · PR01 — Request and ticker contracts** (depends: T01).
+- [x] **T02 · PR01 — Request and ticker contracts** (depends: T01).
   - Files: `P/app/domain/__init__.py`, `P/app/domain/ticker.py`, `P/app/domain/contracts.py`, `P/tests/unit/test_adk_contracts.py`, `P/tests/unit/test_ticker_symbol.py`.
   - Acceptance: preserve typed requests/results; normalize tickers; reject invalid/duplicate analyst selections.
   - Verify: `u test_adk_contracts.py`; `u test_ticker_symbol.py`.
 
-- [ ] **T03 · PR01 — Scoped library checks** (depends: T02).
+- [x] **T03 · PR01 — Scoped library checks** (depends: T02).
   - Files: `.github/workflows/momentum.yml`, `P/README.md`, `P/justfile`.
   - Acceptance: SHA-pinned actions; frozen install/lint/unit checks; no cloud credentials or premature image publication.
   - Verify: parse workflow YAML and run its application commands locally; run repository PR-policy tests.
@@ -291,3 +292,13 @@ Keep publication, apply, job completion, persisted result and model quality as
 separate claims. Missing live prerequisites stay pending. Complete the goal only
 when every spec criterion has current authoritative proof. Consultation and public
 MCP remain later work; they cannot substitute for the complete analysis worker.
+
+## Execution evidence
+
+- T01: `9ac49e0` — frozen Python 3.12 install, three packaging tests, wheel
+  build and independent installed-wheel import without runtime configuration.
+- T02: `5c2ce7f` — original request/ticker cases retained; invalid inputs and JSON
+  roundtrips covered. Full local library suite: 32 passed, no skips.
+- T03: `090d3d7` — scoped CI, README and just recipes; Ruff lint/format, workflow
+  YAML/SHA pins/shell syntax, local links and 20 repository PR-policy tests pass.
+- No worker, image, database migration or live analysis exists at this checkpoint.

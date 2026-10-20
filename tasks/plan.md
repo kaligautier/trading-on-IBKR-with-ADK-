@@ -1,13 +1,13 @@
 # Implementation plan: Momentum ADK on dedicated Cloud Run
 
 Status: validated by the user's “valid plan” on 2026-10-20.
-Specification scope was validated on 2026-10-19. Prepare and review the execution
-checklist before implementation, per the invoked spec-driven workflow.
+Specification scope was validated on 2026-10-19. The user authorized execution of the checklist on 2026-10-20
+("mtn on implement"). Implement in dependency order.
 
 Specification: [Momentum service](../docs/specs/momentum-service.md).
 Previous plan: [public frontend archive](archive/public-frontend-plan.md).
 The preserved frontend checklist is [archived](archive/public-frontend-todo.md).
-The Momentum [execution checklist](todo.md) is prepared and awaits task review.
+The Momentum [execution checklist](todo.md) is approved for implementation; progress is recorded there.
 
 ## Outcome and fixed decisions
 
@@ -239,5 +239,5 @@ and exact server-start commands without touching the real database.
 
 The single-schema database design, delivery sequence and verification checkpoints
 are validated. `tasks/todo.md` defines dependency-ordered tasks with at most five
-files, explicit acceptance and verification. It awaits human review before
-implementation, as required by the invoked spec-driven workflow.
+files, explicit acceptance and verification. The user authorized implementation on 2026-10-20 ("mtn on implement").
+Retain the separate review gates for merge and live rollout.
