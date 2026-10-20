@@ -197,6 +197,11 @@ admin API access and Secret Manager access. There is no Python provisioning job
 and no `litellm-key-CLIENT_NAME` execution. A governance `terraform apply` creates
 or imports the team/keys and applies their policies directly.
 
+Agents configured in `agent_governance.agents` receive a secret container even
+before their application identity exists. Adding `client_service_accounts` later
+grants access to that same secret. The legacy Momentum secret moves to
+`google_secret_manager_secret.client_key["momentum"]`, retaining its versions.
+
 Existing keys are adopted by SHA-256 token ID and a pinned Secret Manager version,
 preserving their credential, alias, spend and expiry. New credentials are generated
 ephemerally, written directly to Secret Manager, then registered with LiteLLM.

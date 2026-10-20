@@ -22,9 +22,14 @@ variable "agent_governance" {
   }
 }
 locals {
-  governance_enabled      = var.agent_governance != null
-  governance_secrets      = local.governance_enabled ? toset([for name in keys(var.agent_governance.agents) : "litellm-client-${name}"]) : toset([])
-  governance_read_secrets = local.governance_enabled ? setunion(local.governance_secrets, toset(["litellm-master-key"])) : toset([])
+  governance_enabled = var.agent_governance != null
+  governance_secrets = local.governance_enabled ? {
+    for name in keys(var.agent_governance.agents) :
+    "litellm-client-${name}" => google_secret_manager_secret.client_key[name].secret_id
+  } : {}
+  governance_read_secrets = local.governance_enabled ? merge(local.governance_secrets, {
+    "litellm-master-key" = google_secret_manager_secret.credentials["master-key"].secret_id
+  }) : {}
   governance_files = local.governance_enabled ? merge({
     for name in ["main.tf", "variables.tf", "moved.tf", ".terraform.lock.hcl", "policy/main.tf", "policy/.terraform.lock.hcl"] :
     name => file("${path.module}/governance/${name}")
@@ -67,15 +72,10 @@ resource "google_storage_bucket_iam_member" "governance_state" {
   role   = "roles/storage.objectAdmin"
   member = "serviceAccount:${google_service_account.governance[0].email}"
 }
-# Preserve the existing Momentum secret until an application SA is configured.
-resource "google_secret_manager_secret" "momentum_key" {
-  count     = contains(local.governance_secrets, "litellm-client-momentum") && !contains(keys(var.client_service_accounts), "momentum") ? 1 : 0
-  project   = var.project_id
-  secret_id = "litellm-client-momentum"
-  replication {
-    auto {}
-  }
-  lifecycle { prevent_destroy = true }
+# Keep the existing secret and versions when attaching an application identity.
+moved {
+  from = google_secret_manager_secret.momentum_key[0]
+  to   = google_secret_manager_secret.client_key["momentum"]
 }
 resource "google_secret_manager_secret_iam_member" "governance_read" {
   for_each  = local.governance_read_secrets
@@ -142,7 +142,6 @@ resource "google_cloud_run_v2_job" "agent_governance" {
     google_secret_manager_secret_iam_member.governance_versions,
     google_secret_manager_secret_iam_member.governance_write,
     google_secret_manager_secret.client_key,
-    google_secret_manager_secret.momentum_key,
   ]
 }
 output "governance_job" {
