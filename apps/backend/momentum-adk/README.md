@@ -7,10 +7,14 @@ the [specification](../../../docs/specs/momentum-service.md) and
 ## Current implementation
 
 T01–T05 provide the locked package, ticker/analyst validation, complete financial
-output schemas/renderers, typed workflow states and signal normalization. T06–T08 add the isolated schema and migrated ADK session storage, verified
-on disposable PostgreSQL. This library has no worker, HTTP entrypoint, image or
-deployment yet. Financial result storage, the gateway and existing ADK workflow will
-be ported in dependency order. The final worker will use the dedicated Cloud Run
+output schemas/renderers, typed workflow states and signal normalization.
+T06–T08 add the isolated schema and migrated ADK session storage, verified on
+disposable PostgreSQL and applied to the existing service database on 2026-10-20.
+The live runtime login passed session/event persistence and permission-denial
+checks; original Scanner rows and migration history were preserved.
+This library has no worker, HTTP entrypoint, image or application deployment yet.
+Financial result storage, the gateway and existing ADK workflow will be ported
+in dependency order. The final worker will use the dedicated Cloud Run
 Job, the isolated PostgreSQL `momentum` schema and exclusively LiteLLM inference.
 
 ## Local checks

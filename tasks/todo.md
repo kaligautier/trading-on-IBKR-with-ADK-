@@ -318,8 +318,13 @@ MCP remain later work; they cannot substitute for the complete analysis worker.
   missing version/index fails safely. Migration repeat/rollback preserves Scanner.
 - Validation: 73 unit cases, 20 real PostgreSQL cases and 4 existing Scanner
   shared-database cases passed without skips; Ruff and lock consistency passed.
-- Live migration identity: validation and SQL preview passed against its configured
-  existing database. No Momentum DDL applied: administrator/Aiven authentication
-  must be restored to provision the runtime login and correct PUBLIC privileges.
+- Live foundation applied on 2026-10-20 after explicit user authorization and
+  administrator access: runtime login, reviewed PUBLIC TEMP correction, schema
+  and five ADK session tables. Existing logins retained their effective TEMP rights.
+- Live runtime verification: TLS connection, eight expected permission denials,
+  ADK session/event persisted and independently reread through the migration role.
+  All Momentum objects are migration-owned; runtime has no administrative flags
+  or role membership. Original Scanner rows and migration checksum are unchanged.
+  Credentials and detailed evidence stay in the ignored local directory.
 - Checkpoint B remains open: financial result models/migrations/writers (T09–T11)
   are not implemented, and there is no completed live Momentum analysis.
