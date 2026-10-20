@@ -6,6 +6,7 @@ PostgreSQL usage and budgets use the actual deployed implementations.
 """
 
 import json
+import hashlib
 from pathlib import Path
 import re
 import secrets
@@ -149,6 +150,8 @@ def main():
                 "database_connection_pool_limit": 2,
                 "allow_requests_on_db_unavailable": False,
                 "proxy_batch_write_at": 1,
+                "proxy_budget_rescheduler_min_time": 1,
+                "proxy_budget_rescheduler_max_time": 2,
             },
             "litellm_settings": {
                 **settings["litellm_settings"],
@@ -283,6 +286,51 @@ def main():
                 flush=True,
             )
 
+            def reconcile(client_key=None):
+                driver = """
+import json, os, httpx, sys
+source, key, team, policy = json.load(sys.stdin)
+namespace = {"__name__": "bootstrap"}
+exec(source, namespace)
+with httpx.Client(base_url="http://127.0.0.1:4000",
+    headers={"Authorization": "Bearer " + os.environ["LITELLM_MASTER_KEY"]}, timeout=30) as client:
+    namespace["reconcile_team"](client, team)
+    if key: namespace["reconcile_key"](client, key, policy)
+"""
+                result = subprocess.run(
+                    ["docker", "exec", "-i", proxies[0], "python", "-c", driver],
+                    input=json.dumps(
+                        [
+                            (ROOT / "scripts/bootstrap_scanner_key.py").read_text(),
+                            client_key,
+                            {
+                                "team_id": "agents",
+                                "team_alias": "agents",
+                                "models": [MODEL],
+                                "max_budget": None,
+                                "budget_duration": None,
+                            },
+                            {
+                                "team_id": "agents",
+                                "models": [MODEL],
+                                "max_budget": 3,
+                                "budget_duration": "1d",
+                                "allowed_routes": ["/v1beta/models/*"],
+                                "rpm_limit": 20,
+                                "tpm_limit": 100000,
+                                "max_parallel_requests": 2,
+                            },
+                        ]
+                    ),
+                    capture_output=True,
+                    text=True,
+                )
+                assert result.returncode == 0, (
+                    "Actual bootstrap reconciliation failed: " + result.stderr[-1200:]
+                )
+
+            reconcile()
+
             def key(rpm):
                 body = {
                     "models": [MODEL],
@@ -290,7 +338,9 @@ def main():
                     # Same native route scope as bootstrap_scanner_key.py.
                     "allowed_routes": ["/v1beta/models/*"],
                     "duration": "1h",
-                    "max_budget": 1,
+                    "team_id": "agents",
+                    "max_budget": 3,
+                    "budget_duration": "1d",
                 }
                 with request(bases[0], "/key/generate", body, master) as result:
                     assert result.status == 200, "Cannot provision native virtual key"
@@ -302,13 +352,24 @@ def main():
                     assert result.status in (401, 403), (
                         "Native route accepted anonymous/invalid key"
                     )
-            for route in ["/ui", "/key/info", "/v1/chat/completions"]:
+            for route in ["/ui", "/v1/chat/completions"]:
                 with request(bases[0], route, PAYLOAD, master) as result:
                     assert result.status == 404, "NGINX allowlist bypassed"
             with request(bases[0], "/key/generate", {}, native_key) as result:
                 assert result.status in (401, 403), (
                     "Inference key can provision admin keys"
                 )
+            for route, body in [
+                ("/key/info", None),
+                ("/team/info", None),
+                ("/key/update", {}),
+                ("/team/new", {}),
+                ("/team/update", {}),
+            ]:
+                with request(bases[0], route, body, native_key) as result:
+                    assert result.status in (401, 403), (
+                        "Inference key reached administration"
+                    )
             with request(
                 bases[0],
                 "/v1beta/models/forbidden-model:generateContent",
@@ -412,6 +473,68 @@ def main():
             )
             print(
                 "PASS: native requests increment persisted global budget spend",
+                flush=True,
+            )
+            budget_key, other_agent = key(20), key(20)
+            reconcile(budget_key)
+            token = hashlib.sha256(budget_key.encode()).hexdigest()
+            assert "UPDATE 1" in sql(
+                'UPDATE "LiteLLM_VerificationToken" SET spend = 3.01 '
+                f"WHERE token = '{token}';"
+            )
+            for index, (proxy, gateway) in enumerate(zip(proxies, gateways)):
+                docker("stop", gateway)
+                docker("restart", proxy)
+                docker("start", gateway)
+                ready(proxy, proxy)
+                with request(proxy, GENERATE, PAYLOAD, budget_key) as result:
+                    assert (
+                        result.status in (400, 402, 403, 429)
+                        and b"budget" in result.read().lower()
+                    ), "Daily agent budget did not deny inference"
+                with request(proxy, GENERATE, PAYLOAD, other_agent) as result:
+                    assert result.status == 200, (
+                        "One agent exhausted another agent's budget"
+                    )
+            reconcile(budget_key)
+            assert (
+                float(
+                    sql(
+                        f"""SELECT spend FROM "LiteLLM_VerificationToken" WHERE token = '{token}';"""
+                    )
+                )
+                >= 3
+            ), "Reconciliation cleared spend"
+            assert "UPDATE 1" in sql(
+                "UPDATE \"LiteLLM_VerificationToken\" SET budget_reset_at = NOW() - INTERVAL '1 minute' "
+                f"WHERE token = '{token}';"
+            )
+            deadline = time.monotonic() + 45
+            while time.monotonic() < deadline:
+                if (
+                    float(
+                        sql(
+                            f"""SELECT spend FROM "LiteLLM_VerificationToken" WHERE token = '{token}';"""
+                        )
+                    )
+                    < 3
+                ):
+                    break
+                time.sleep(1)
+            else:
+                raise AssertionError(
+                    "Daily budget scheduler did not reset an elapsed window"
+                )
+            # Flush process-local auth caches, then verify the persisted renewal.
+            for proxy, gateway in zip(proxies, gateways):
+                docker("stop", gateway)
+                docker("restart", proxy)
+                docker("start", gateway)
+                ready(proxy, proxy)
+                with request(proxy, GENERATE, PAYLOAD, budget_key) as result:
+                    assert result.status == 200, "Agent budget did not renew"
+            print(
+                "PASS: agents team, independent $3 daily budgets, preserved spend and elapsed-window renewal",
                 flush=True,
             )
             assert "UPDATE 1" in sql(

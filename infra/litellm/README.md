@@ -209,11 +209,55 @@ Reapply and run `litellm-verify-CLIENT_NAME`. The verification identity is the
 agent SA, with only its own key mounted, and the job calls the internal endpoint
 with no IAP or Google identity token.
 
-Keys permit `/v1beta/models/*` and the configured model catalog. Limits are
-10 requests/minute, 100,000 tokens/minute, two concurrent requests, a $10 30-day
-accounting budget and 30-day expiry. Bootstrap reruns preserve existing enabled
-versions; they do not prove the key is unexpired or perform rotation. Rotate
-explicitly and verify the replacement before revoking the old key.
+Terraform defines the `agents` team and its model catalog in `clients.tf`, with
+one key per entry in `client_service_accounts`. Each key has its own **3 USD per
+day** budget (`max_budget = 3`, `budget_duration = "1d"`), 10 requests/minute,
+100,000 tokens/minute and two concurrent requests. Keys permit only
+`/v1beta/models/*`. The team groups agents without sharing their individual
+budgets. The optional global proxy budget still applies to every agent.
+
+Apply Terraform, then execute `litellm-key-CLIENT_NAME` for **each** configured
+agent, including existing ones. Terraform deploys the desired policy and script
+in the private provisioning jobs; it does not execute them or refresh LiteLLM
+objects during `plan`. This uses the existing job mechanism rather than a
+LiteLLM Terraform provider, keeping raw keys out of Terraform state and avoiding
+admin access from the Terraform host. Re-run the jobs after policy changes or
+to reconcile drift in LiteLLM.
+
+The job creates or updates the stable `agents` team, then updates an existing
+key in place or generates and stores a new one in Secret Manager. It verifies
+the stored key policy, preserves accumulated spend, and omits an unchanged
+budget duration so reruns do not move the next reset. Changing a previous `30d`
+budget to `1d` preserves spend and lets LiteLLM establish the new daily window.
+On the pinned proxy, `1d` schedules the next reset at **midnight UTC** with the
+default runtime settings; the proxy scheduler performs renewal after that
+boundary. The first window can therefore be shorter than 24 hours.
+
+Bootstrap can read managed client secrets in addition to creating versions.
+Each agent retains read access only to its own secret. Multiple distinct enabled
+secret values stop reconciliation: complete key rotation first to avoid multiple
+independent budgets for the same agent. New keys retain the existing 30-day
+expiry; reruns do not renew an expired key or rotate it. Rotate explicitly and
+verify the replacement before revoking the old key. Removing an agent from the
+map does not revoke its existing LiteLLM key; explicitly revoke it as part of
+offboarding.
+
+Verification: `terraform test` covers policy delivery and secret IAM; the Python
+suite covers provisioning and migration regressions. `native_gateway_smoke.py`
+uses the pinned LiteLLM, NGINX, PostgreSQL and Redis images to verify team/key
+reconciliation, per-agent denial on both proxies, an unaffected second agent and
+renewal of an expired budget window (with an accelerated test scheduler).
+
+The optional local Postman simulation exercises the bootstrap HTTP client and
+safe upstream failures without credentials. Its mock is derived from the
+[LiteLLM v1.103.4 management source](https://github.com/BerriAI/litellm/tree/v1.103.4/litellm/proxy/management_endpoints);
+the owner-workspace lookup was unavailable without Postman login. From the repo:
+
+```bash
+postman simulation run infra/litellm/tests/postman/simulations/agent-policy.sim.yaml --port 4967 --no-history
+# In another terminal, using the project's installed Python dependencies:
+uv run --project apps/backend/market-scanner-adk --no-sync python infra/litellm/tests/policy_simulation.py --base-url http://127.0.0.1:4967/management/
+```
 
 Both services share the image, config, database and runtime identity. Each uses
 a two-connection pool; size PostgreSQL for revision overlap and migrations.

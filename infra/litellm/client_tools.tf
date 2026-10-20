@@ -55,6 +55,15 @@ resource "google_secret_manager_secret_iam_member" "bootstrap_write" {
   member    = "serviceAccount:${google_service_account.key_bootstrap[0].email}"
 }
 
+# Existing keys are reconciled in place; their values never enter Terraform.
+resource "google_secret_manager_secret_iam_member" "bootstrap_read" {
+  for_each  = var.client_tools_image != "" ? var.client_service_accounts : {}
+  project   = var.project_id
+  secret_id = google_secret_manager_secret.client_key[each.key].secret_id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.key_bootstrap[0].email}"
+}
+
 resource "google_cloud_run_v2_job" "key_bootstrap" {
   for_each            = local.tool_clients
   project             = var.project_id
@@ -87,6 +96,8 @@ resource "google_cloud_run_v2_job" "key_bootstrap" {
             LITELLM_BASE_URL      = local.gateway_url
             LITELLM_CLIENT_SECRET = google_secret_manager_secret.client_key[each.key].secret_id
             LITELLM_MODELS        = join(",", [for model in yamldecode(local.proxy_config).model_list : model.model_name])
+            LITELLM_TEAM_CONFIG   = jsonencode(local.agent_team)
+            LITELLM_KEY_POLICY    = jsonencode(local.agent_key_policy)
           }
           content {
             name  = env.key
@@ -110,6 +121,7 @@ resource "google_cloud_run_v2_job" "key_bootstrap" {
     google_secret_manager_secret_iam_member.bootstrap_master,
     google_secret_manager_secret_iam_member.bootstrap_versions,
     google_secret_manager_secret_iam_member.bootstrap_write,
+    google_secret_manager_secret_iam_member.bootstrap_read,
   ]
 }
 

@@ -5,6 +5,8 @@ inference key and never authenticate through IAP. No credential is printed.
 """
 
 import base64
+import hashlib
+import json
 import os
 from uuid import uuid4
 
@@ -52,27 +54,112 @@ def secret_request(client, credentials, method, path, **kwargs):
     return response.json()
 
 
+def proxy_request(proxy, method, path, **kwargs):
+    response = proxy.request(method, path, **kwargs)
+    if response.status_code != 200:
+        raise BootstrapError(f"LiteLLM {path} failed (HTTP {response.status_code})")
+    return response.json()
+
+
+def reconcile_team(proxy, team):
+    response = proxy.get("/team/info", params={"team_id": team["team_id"]})
+    if response.status_code == 404:
+        created = proxy.post("/team/new", json=team)
+        # Separate agent jobs can race to create the same stable team ID.
+        if created.status_code in (400, 409):
+            proxy_request(
+                proxy, "GET", "/team/info", params={"team_id": team["team_id"]}
+            )
+        elif created.status_code != 200:
+            raise BootstrapError(
+                f"LiteLLM /team/new failed (HTTP {created.status_code})"
+            )
+    elif response.status_code != 200:
+        raise BootstrapError(f"LiteLLM /team/info failed (HTTP {response.status_code})")
+    proxy_request(proxy, "POST", "/team/update", json=team)
+
+
+def existing_key(cloud, credentials):
+    versions, page = [], {}
+    while True:
+        result = secret_request(
+            cloud,
+            credentials,
+            "GET",
+            "/versions",
+            params={"filter": "state:ENABLED", "pageSize": 100, **page},
+        )
+        versions.extend(result.get("versions", []))
+        if not result.get("nextPageToken"):
+            break
+        page = {"pageToken": result["nextPageToken"]}
+    keys = set()
+    for version in versions:
+        number = version["name"].split("/")[-1]
+        if not number.isdigit():
+            raise BootstrapError("Invalid client secret version")
+        result = secret_request(cloud, credentials, "GET", f"/versions/{number}:access")
+        keys.add(base64.b64decode(result["payload"]["data"], validate=True).decode())
+    if len(keys) > 1:
+        raise BootstrapError(
+            "Multiple client keys enabled; finish rotation before reconciliation"
+        )
+    return next(iter(keys), None)
+
+
+def reconcile_key(proxy, key, policy):
+    # Query using a hash so the credential cannot appear in a URL or access log.
+    token = hashlib.sha256(key.encode()).hexdigest()
+    stored = proxy_request(proxy, "GET", "/key/info", params={"key": token})["info"]
+    changes = {
+        name: value for name, value in policy.items() if stored.get(name) != value
+    }
+    if changes:
+        # Omit spend, expiry and an unchanged duration to preserve accounting and
+        # the next reset. Some proxy versions require these maps on every update.
+        proxy_request(
+            proxy,
+            "POST",
+            "/key/update",
+            json={
+                "key": token,
+                "permissions": stored.get("permissions") or {},
+                "model_max_budget": stored.get("model_max_budget") or {},
+                **changes,
+            },
+        )
+    verified = proxy_request(proxy, "GET", "/key/info", params={"key": token})["info"]
+    if any(verified.get(name) != value for name, value in policy.items()):
+        raise BootstrapError("Client key policy did not persist")
+
+
 def main():
     validate_configuration()
     master = os.environ.get("LITELLM_MASTER_KEY")
     if not master:
         raise ValueError("Mount LITELLM_MASTER_KEY from Secret Manager")
+    team = json.loads(os.environ["LITELLM_TEAM_CONFIG"])
+    policy = {
+        **json.loads(os.environ["LITELLM_KEY_POLICY"]),
+        "team_id": team["team_id"],
+        "models": MODELS,
+    }
     credentials, _ = google.auth.default(
         scopes=["https://www.googleapis.com/auth/cloud-platform"]
     )
     with httpx.Client(timeout=60, follow_redirects=False) as cloud:
-        existing = secret_request(
-            cloud, credentials, "GET", "/versions", params={"filter": "state:ENABLED"}
-        ).get("versions", [])
-        if existing:
-            print("Existing client secret version:", existing[0]["name"].split("/")[-1])
-            return
+        key = existing_key(cloud, credentials)
         with httpx.Client(
             base_url=BASE_URL,
             headers={"Authorization": "Bearer " + master},
             timeout=60,
             follow_redirects=False,
         ) as proxy:
+            reconcile_team(proxy, team)
+            if key:
+                reconcile_key(proxy, key, policy)
+                print("Existing client key reconciled; team:", team["team_id"])
+                return
             response = proxy.post(
                 "/key/generate",
                 json={
@@ -80,14 +167,8 @@ def main():
                     "key_alias": SECRET.removeprefix("litellm-client-")
                     + "-"
                     + uuid4().hex[:12],
-                    "models": MODELS,
-                    "allowed_routes": ["/v1beta/models/*"],
+                    **policy,
                     "duration": "30d",
-                    "max_budget": 10,
-                    "budget_duration": "30d",
-                    "rpm_limit": 10,
-                    "tpm_limit": 100000,
-                    "max_parallel_requests": 2,
                     "metadata": {"authentication": "private-network-virtual-key"},
                 },
             )
@@ -98,6 +179,7 @@ def main():
             result = response.json()
             key = result["key"]
             try:
+                reconcile_key(proxy, key, policy)
                 uploaded = secret_request(
                     cloud,
                     credentials,

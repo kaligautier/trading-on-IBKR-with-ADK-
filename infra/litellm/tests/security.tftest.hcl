@@ -293,6 +293,35 @@ run "application_clients_are_scoped" {
   }
 }
 
+run "agent_policies_reach_each_private_bootstrap_job" {
+  command = plan
+  variables {
+    stage              = "service"
+    iap_members        = ["user:owner@example.com"]
+    client_tools_image = "europe-west1-docker.pkg.dev/example-project/tools/client@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    secret_versions    = { database-url = "1", master-key = "1", salt-key = "1", ui-password = "1" }
+    client_service_accounts = {
+      scanner  = "scanner@example-project.iam.gserviceaccount.com"
+      momentum = "momentum@example-project.iam.gserviceaccount.com"
+    }
+  }
+  assert {
+    condition = alltrue([for job in google_cloud_run_v2_job.key_bootstrap :
+      alltrue([for env in job.template[0].template[0].containers[0].env :
+        env.name == "LITELLM_KEY_POLICY" ? jsondecode(env.value).max_budget == 3 && jsondecode(env.value).budget_duration == "1d" :
+        env.name == "LITELLM_TEAM_CONFIG" ? jsondecode(env.value).team_id == "agents" && jsondecode(env.value).team_alias == "agents" : true
+      ]) &&
+      contains([for env in job.template[0].template[0].containers[0].env : env.name], "LITELLM_KEY_POLICY") &&
+      contains([for env in job.template[0].template[0].containers[0].env : env.name], "LITELLM_TEAM_CONFIG")
+    ]) && length(google_cloud_run_v2_job.key_bootstrap) == 2
+    error_message = "Each agent job must receive the shared agents team and an individual $3/1d key policy."
+  }
+  assert {
+    condition     = length(google_secret_manager_secret_iam_member.bootstrap_read) == 2 && length(google_secret_manager_secret_iam_member.client_key) == 2
+    error_message = "Bootstrap may read managed keys; each agent retains access only to its own secret."
+  }
+}
+
 run "reject_foreign_client_identity" {
   command = plan
   variables {

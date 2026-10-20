@@ -1,3 +1,22 @@
+locals {
+  # One shared team; budgets belong to individual keys, not to the team.
+  agent_team = {
+    team_id         = "agents"
+    team_alias      = "agents"
+    models          = [for model in yamldecode(local.proxy_config).model_list : model.model_name]
+    max_budget      = null
+    budget_duration = null
+  }
+  agent_key_policy = {
+    max_budget            = 3
+    budget_duration       = "1d"
+    rpm_limit             = 10
+    tpm_limit             = 100000
+    max_parallel_requests = 2
+    allowed_routes        = ["/v1beta/models/*"]
+  }
+}
+
 variable "client_service_accounts" {
   description = "Existing application identities allowed to read their private-gateway virtual keys."
   type        = map(string)

@@ -1,7 +1,9 @@
 """Offline checks for deployment targeting and credential handling."""
 
 import importlib.util
+import base64
 import json
+import os
 from pathlib import Path
 import secrets
 import sys
@@ -58,6 +60,29 @@ def test_client_secret_upload_or_revocation(monkeypatch, capsys, upload_ok):
     master = secrets.token_hex(32)
     key = "sk-" + secrets.token_hex(32)
     monkeypatch.setenv("LITELLM_MASTER_KEY", master)
+    monkeypatch.setenv(
+        "LITELLM_TEAM_CONFIG",
+        json.dumps(
+            {
+                "team_id": "agents",
+                "team_alias": "agents",
+                "models": script.MODELS,
+            }
+        ),
+    )
+    monkeypatch.setenv(
+        "LITELLM_KEY_POLICY",
+        json.dumps(
+            {
+                "max_budget": 3,
+                "budget_duration": "1d",
+                "rpm_limit": 10,
+                "tpm_limit": 100000,
+                "max_parallel_requests": 2,
+                "allowed_routes": ["/v1beta/models/*"],
+            }
+        ),
+    )
     credentials = SimpleNamespace(refresh=lambda _: None, token="placeholder")
     monkeypatch.setattr(script.google.auth, "default", lambda **_: (credentials, None))
     requests = []
@@ -66,6 +91,21 @@ def test_client_secret_upload_or_revocation(monkeypatch, capsys, upload_ok):
         requests.append((request.url.path, json.loads(request.content or "{}")))
         if request.url.path.endswith("/versions"):
             return httpx.Response(200, json={"versions": []})
+        if request.url.path == "/team/info":
+            return httpx.Response(404, json={})
+        if request.url.path in ("/team/new", "/team/update"):
+            return httpx.Response(200, json={"team_id": "agents"})
+        if request.url.path == "/key/info":
+            return httpx.Response(
+                200,
+                json={
+                    "info": {
+                        "team_id": "agents",
+                        "models": script.MODELS,
+                        **json.loads(os.environ["LITELLM_KEY_POLICY"]),
+                    }
+                },
+            )
         if request.url.path == "/key/generate":
             return httpx.Response(200, json={"key": key})
         if request.url.path.endswith(":addVersion"):
@@ -95,6 +135,9 @@ def test_client_secret_upload_or_revocation(monkeypatch, capsys, upload_ok):
     generation = next(body for path, body in requests if path == "/key/generate")
     assert generation["key_alias"].startswith("agent-")
     assert generation["allowed_routes"] == ["/v1beta/models/*"]
+    assert generation["team_id"] == "agents"
+    assert generation["max_budget"] == 3
+    assert generation["budget_duration"] == "1d"
     revocations = [body for path, body in requests if path == "/key/delete"]
     assert revocations == ([] if upload_ok else [{"keys": [key]}])
     output = capsys.readouterr().out
@@ -123,6 +166,40 @@ def test_client_rejects_unsafe_origin(url):
         script.validate_configuration()
 
 
+@pytest.mark.parametrize("duration", ["30d", "1d"])
+def test_existing_key_reconciliation_preserves_accounting(duration):
+    script = load_script("bootstrap_scanner_key")
+    key = "sk-" + secrets.token_hex(32)
+    policy = {"team_id": "agents", "max_budget": 3, "budget_duration": "1d"}
+    stored = {
+        "team_id": None,
+        "max_budget": 10,
+        "budget_duration": duration,
+        "spend": 2.5,
+        "budget_reset_at": "2026-10-21T00:00:00Z",
+    }
+    updates = []
+
+    def handle(request):
+        assert key not in str(request.url)
+        if request.url.path == "/key/update":
+            body = json.loads(request.content)
+            updates.append(body)
+            stored.update(body)
+        return httpx.Response(200, json={"info": stored})
+
+    with httpx.Client(
+        base_url="https://example.com", transport=httpx.MockTransport(handle)
+    ) as proxy:
+        script.reconcile_key(proxy, key, policy)
+        script.reconcile_key(proxy, key, policy)
+    assert len(updates) == 1
+    assert ("budget_duration" in updates[0]) == (duration != "1d")
+    assert "spend" not in updates[0] and "duration" not in updates[0]
+    assert stored["spend"] == 2.5
+    assert stored["budget_reset_at"] == "2026-10-21T00:00:00Z"
+
+
 def test_client_requires_explicit_project():
     # Arrange
     script = load_script("bootstrap_scanner_key")
@@ -132,6 +209,47 @@ def test_client_requires_explicit_project():
     # Act / Assert
     with pytest.raises(ValueError, match="GOOGLE_CLOUD_PROJECT"):
         script.validate_configuration()
+
+
+@pytest.mark.parametrize("create_status", [409, 503])
+def test_team_creation_handles_races_but_rejects_server_failures(create_status):
+    script = load_script("bootstrap_scanner_key")
+    team = {"team_id": "agents", "team_alias": "agents", "models": ["model"]}
+    created, updates = False, []
+
+    def handle(request):
+        nonlocal created
+        if request.url.path == "/team/info":
+            return httpx.Response(200 if created else 404, json={"team_info": team})
+        if request.url.path == "/team/new":
+            created = True
+            return httpx.Response(create_status, json={})
+        updates.append(request.url.path)
+        return httpx.Response(200, json={})
+
+    with httpx.Client(
+        base_url="https://example.com", transport=httpx.MockTransport(handle)
+    ) as proxy:
+        if create_status == 503:
+            with pytest.raises(script.BootstrapError, match="HTTP 503"):
+                script.reconcile_team(proxy, team)
+            assert updates == []
+        else:
+            script.reconcile_team(proxy, team)
+            assert updates == ["/team/update"]
+
+
+def test_multiple_enabled_client_keys_stop_reconciliation(monkeypatch):
+    script = load_script("bootstrap_scanner_key")
+
+    def secret_request(*args, **kwargs):
+        if args[3] == "/versions":
+            return {"versions": [{"name": "versions/1"}, {"name": "versions/2"}]}
+        return {"payload": {"data": base64.b64encode(args[3].encode()).decode()}}
+
+    monkeypatch.setattr(script, "secret_request", secret_request)
+    with pytest.raises(script.BootstrapError, match="Multiple client keys"):
+        script.existing_key(None, None)
 
 
 def test_client_accepts_https_origin():
