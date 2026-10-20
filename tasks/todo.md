@@ -1,7 +1,7 @@
 # Momentum execution checklist
 
 Status: implementation authorized by the user on 2026-10-20 ("mtn on implement").
-T01–T10 completed locally; PostgreSQL foundation verified; CI and later tasks are tracked separately.
+T01–T11 and T09a completed locally; PostgreSQL foundation verified; CI and later tasks are tracked separately.
 Scope validated 2026-10-19; [plan](plan.md) validated by the user on 2026-10-20.
 Specification: [Momentum service](../docs/specs/momentum-service.md).
 Previous checklist: [frontend archive](archive/public-frontend-todo.md).
@@ -116,7 +116,7 @@ application is exposed. Measure complete PR diffs before publication.
   - Acceptance: schema matches ORM; migrations repeat safely; rollback leaves Scanner objects/data/checksums intact.
   - Verify: `i test_result_migrations.py`; rerun affected Scanner shared-database integration checks.
 
-- [ ] **T11 · PR06 — Transactional financial section writers** (depends: T09, T10).
+- [x] **T11 · PR06 — Transactional financial section writers** (depends: T09, T10).
   - Files: `P/app/infrastructure/result_writer.py`, `P/app/infrastructure/result_repository.py`, `P/tests/unit/test_result_repository.py`, `P/tests/integration/test_result_persistence.py`.
   - Acceptance: every financial section/correlation commits together; failed section rolls back; runtime grants suffice.
   - Verify: `u test_result_repository.py`; `i test_result_persistence.py`; independently reread populated sections.
@@ -333,14 +333,14 @@ MCP remain later work; they cannot substitute for the complete analysis worker.
   All Momentum objects are migration-owned; runtime has no administrative flags
   or role membership. Original Scanner rows and migration checksum are unchanged.
   Credentials and detailed evidence stay in the ignored local directory.
-- Checkpoint B remains open: financial result models/migrations/writers (T09–T11)
-  are not implemented, and there is no completed live Momentum analysis.
+- At the T08 checkpoint, result models/migrations/writers (T09–T11) were pending.
+  No completed live Momentum analysis was claimed.
 
 - T09: completed-result ORM port preserves all 229 source columns and relationships
   across 12 tables. Explicit schema, required session/invocation/user correlation
   and aware UTC defaults added; ticker administration tables remain out of scope.
   Validation: 80 unit cases, Ruff lint/format and wheel build passed.
-  Business migrations and transactional writers remain pending (T10–T11).
+  At T09, business migrations and transactional writers were pending (T10–T11).
 
 - User amendment (2026-10-20): separate Momentum sessions and results into two
   logical databases on the existing service. Scanner remains unchanged. T06–T08
@@ -355,3 +355,11 @@ MCP remain later work; they cannot substitute for the complete analysis worker.
   INSERT/SELECT-only runtime grants. All 39 PostgreSQL cases pass, including
   cross-database denial, target guards and rollback preserving Scanner/sessions.
   Original shared changesets and their checksums remain unchanged.
+
+- T11 / Checkpoint B: 87 unit and 43 PostgreSQL integration cases passed. All
+  financial sections and execution correlation commit together through the
+  dedicated result login; mapping, constraint and post-flush failures roll back
+  every table. Independent reads verify populated sections, repeated analyses
+  and result survival after ADK session deletion in the separate database.
+  Preserved source mappings, fixing lost market-cap units and zero-price targets.
+  Ruff and wheel build pass. Live dedicated-database cutover remains pending.
