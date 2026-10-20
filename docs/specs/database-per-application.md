@@ -20,8 +20,8 @@ Existing Aiven PostgreSQL service
 │   ├── sessions        (only if persistent Scanner sessions exist)
 │   └── liquibase       (Scanner migration history)
 ├── momentum
-│   ├── results         (existing business results, if any; future analyses)
-│   ├── sessions        (ADK sessions, events, states and SDK metadata)
+│   ├── _analysis       (existing business results, if any; future analyses)
+│   ├── _sessions       (ADK sessions, events, states and SDK metadata)
 │   └── liquibase       (Momentum migration history)
 ├── litellm             (existing LiteLLM-managed objects and history)
 └── defaultdb           (no application data after verified cleanup)
@@ -30,11 +30,14 @@ Existing Aiven PostgreSQL service
 This replaces both the shared-`defaultdb` design and the earlier proposal to keep
 domain-named schemas inside the new databases. A database is owned by a domain,
 not by a deployment: `market-scanner-adk` and `market-scanner-api` do not get
-separate databases. `results` is independent of ADK implementation details.
+separate databases. Business schemas are independent of ADK implementation details.
+The user explicitly selected `_analysis` and `_sessions` for Momentum; these are
+literal schema names, including their leading underscores. Scanner uses `results`
+and optional `sessions`.
 Scanner and Momentum each retain one `liquibase` schema tracking both results
 and session migrations. LiteLLM retains its native schema organization.
 No new Aiven service, plan upgrade, PostgreSQL upgrade, result-producing feature,
-or persistent-session feature is included. Create the Momentum `results`
+or persistent-session feature is included. Create the Momentum `_analysis`
 namespace even if no business result tables exist yet; do not invent those tables.
 Scanner `sessions` is required only when inventory establishes persistent storage.
 Capacity and connection budgets remain service-wide.
@@ -109,13 +112,14 @@ No remote database inventory or data migration has been performed for this spec.
 
 | Schema | Content | Intended runtime access |
 | --- | --- | --- |
-| `results` | Domain reports, analyses and their normalized business rows. No SDK state tables. | Domain worker writes with its existing business privileges; domain reader has SELECT only. |
-| `sessions` | ADK sessions, events, application/user state and SDK schema metadata. | Session-enabled worker has required session DML; SDK metadata stays read-only. Reader has no access. |
+| Scanner `results`; Momentum `_analysis` | Domain reports, analyses and their normalized business rows. No SDK state tables. | Domain worker writes with its existing business privileges; domain reader has SELECT only. |
+| Scanner `sessions`; Momentum `_sessions` | ADK sessions, events, application/user state and SDK schema metadata. | Session-enabled worker has required session DML; SDK metadata stays read-only. Reader has no access. |
 | `liquibase` | One domain-local changelog and lock table covering both schemas. | Migrator only; runtime roles cannot read or change migration metadata. |
 
 - The Scanner reader role must have neither `USAGE` on `sessions` nor rights on
   its tables. Check direct grants, PUBLIC and role inheritance. The same rule
-  applies to any existing Momentum reader; building a new Momentum API is out of scope.
+  applies to `_sessions` for any existing Momentum reader; building a new Momentum
+  API is out of scope.
 - Worker permissions remain workload-specific: a Scanner report writer does not
   gain session DML merely because the schema exists. A worker using both stores
   may access both, but neither runtime role gains ownership or DDL privileges.
@@ -125,7 +129,8 @@ No remote database inventory or data migration has been performed for this spec.
   This migration does not enable a new purge schedule or choose a retention policy.
 - Select the intended schema explicitly in business models/queries and SDK
   connections. Verify the actual ADK schema inspector and session adapter against
-  `sessions`; changing only the database URL or role search path is insufficient.
+  `_sessions` for Momentum (`sessions` for any persistent Scanner consumer);
+  changing only the database URL or role search path is insufficient.
 - Separate schemas do not imply extra connection pools. Preserve existing pool
   sizing and include any required distinct engine in the service-wide budget.
 
@@ -137,8 +142,8 @@ inventory. Preserve table names; only database/schema placement changes.
 | Source objects | Target | Required adaptation |
 | --- | --- | --- |
 | Scanner `market_scanner.market_scans`, `market_scan_assets`, `market_scan_horizons` | Database `market_scanner`, schema `results` | Writer mapping/search path and reader schema setting; preserve report-v3 contract. |
-| Momentum `momentum.adk_internal_metadata`, `app_states`, `user_states`, `sessions`, `events` | Database `momentum`, schema `sessions` | SDK schema inspection and connection settings, indexes, keys and privileges. |
-| Any inventoried Momentum business result tables | Database `momentum`, schema `results` | Explicit table/dependency allowlist; do not move them with SDK tables. |
+| Momentum `momentum.adk_internal_metadata`, `app_states`, `user_states`, `sessions`, `events` | Database `momentum`, schema `_sessions` | SDK schema inspection and connection settings, indexes, keys and privileges. |
+| Any inventoried Momentum business result tables | Database `momentum`, schema `_analysis` | Explicit table/dependency allowlist; do not move them with SDK tables. |
 | Any inventoried persistent Scanner session tables | Database `market_scanner`, schema `sessions` | Identify actual owner/consumer first; in-memory sessions require no copy. |
 | Shared Liquibase history | Each domain's `liquibase` schema | Preserve original domain subset, then append new schema-relocation changesets. |
 | Dedicated LiteLLM objects | Existing `litellm` database and native schemas | Verify existing placement; no normalization to results/sessions. |
@@ -166,8 +171,8 @@ target structure using this mapping rather than requiring identical schema names
 - Preserve changelog file paths and content, or explicitly retain their original
   logical identities. Each new entry point includes only its application's files.
   A fresh installation and an imported installation must both work.
-- Do not edit applied creation changesets to substitute `results` or `sessions`
-  for old schema names. Introduce new, reversible domain-local changesets for
+- Do not edit applied creation changesets to substitute target schema names
+  (`results`/`sessions` for Scanner, `_analysis`/`_sessions` for Momentum). Introduce new, reversible domain-local changesets for
   relocation and grants after the original history. Fresh installations run the
   original chain then these changesets; imported installations preserve the
   original subset and execute only the new changesets. Both reach the same layout.
@@ -200,7 +205,7 @@ target structure using this mapping rather than requiring identical schema names
 - Ship matching schema configuration/code with target secret references. Scanner
   reader defaults currently select `market_scanner`; Momentum's inspected adapter
   checks and selects `momentum`. Update those assumptions to `results` and
-  `sessions` respectively, including integration fixtures and schema assertions.
+  `_sessions` respectively, including integration fixtures and schema assertions.
   Staged releases must not send old-layout code to relocated target tables.
 - Verify target identity from the actual runtime connection, plus a durable write
   and read after process restart. HTTP health, green CI and a Terraform plan alone
@@ -310,13 +315,13 @@ database scenarios. No skipped required integration tests count as a pass.
 | DB-02 | One database per domain exists on the same service; effective privileges enforce cross-domain isolation and prevent readers accessing sessions, including inherited/PUBLIC rights. Workers and readers cannot perform DDL or access Liquibase metadata. |
 | DB-03 | For each copied table, equivalent structure under the approved schema mapping and identical row count plus deterministic full-content comparison at the fenced snapshot; counts alone are insufficient. Keys, constraints, indexes, sequence state and ACLs match the intended manifest. |
 | DB-04 | Each Liquibase history contains exactly its preserved original domain subset plus approved new relocation entries. Checksums/identities remain unchanged, lock state is valid, repeated update is a no-op, and fresh/imported installations plus independent forward/rollback tests reach the expected layouts. |
-| DB-05 | Scanner writes durably to `results`; after restart the reader fetches the unchanged report contract. Momentum session/event read-append-restart works in `sessions` with one pooled session connection; all SDK tables and metadata stay there. |
+| DB-05 | Scanner writes durably to `results`; after restart the reader fetches the unchanged report contract. Momentum session/event read-append-restart works in `_sessions` with one pooled session connection; all SDK tables and metadata stay there. |
 | DB-06 | Runtime identities and pinned secret references prove all consumers use their target; no application remains connected to source and no pool budget increase occurs. |
 | DB-07 | Rehearsals prove backup restoration and rollback before writes; a post-write rollback rehearsal proves no lost updates/deletes, or write resumption is blocked until recovery is defined and tested. |
 | DB-08 | Wrong host/database, occupied target, unknown history, checksum mismatch, interrupted restore, failed validation and active source writers each fail safely with redacted diagnostics. |
 | DB-09 | Observation window and scheduled/synthetic operations pass; cleanup removes only mapped application objects. Live inventory confirms `defaultdb` has no application data. |
 | DB-10 | Repository config/examples/runbook reflect domain databases, results/sessions separation, independent domain changelogs and exact recovery commands; evidence distinguishes local, CI and deployed results. |
-| DB-11 | Final target inventory has business tables only in `results`, SDK tables only in `sessions`, migration metadata only in `liquibase`; no legacy domain-schema application objects remain. LiteLLM retains its native layout. |
+| DB-11 | Final target inventory has Scanner business tables in `results` and optional SDK tables in `sessions`; Momentum analyses are in `_analysis` and all SDK tables in `_sessions`; migration metadata stays in each domain's `liquibase`; no legacy domain-schema application objects remain. LiteLLM retains its native layout. |
 | DB-12 | A synthetic session can be expired/deleted without deleting or making its associated business result unreadable. The result-only reader can fetch that result but cannot query any session/state/event table. |
 
 Local synthetic tests must also prove that retrying provisioning is safe and that
@@ -345,8 +350,8 @@ redacted verification evidence, not raw dumps or application data, for review.
 3. Which deployed Momentum source and branch successor are authoritative? Inventory
    must establish this rather than inferring it from an unmerged worktree.
 
-Next gate: human review of the [technical plan](../../tasks/plan.md). The task
-breakdown follows plan approval; implementation follows task approval. The overall
+The [technical plan](../../tasks/plan.md) is approved. Next gate: human review of
+the [task checklist](../../tasks/todo.md); implementation follows task approval. The overall
 migration remains incomplete until DB-01 through DB-12 have direct evidence.
 
 ## Primary references

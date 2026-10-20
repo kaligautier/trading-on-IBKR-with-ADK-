@@ -1,6 +1,6 @@
 # Plan: Domain databases with results and ADK sessions
 
-Status: DRAFT — specification approved; technical plan awaiting human review.
+Status: APPROVED — user answered "go" after reviewing the technical plan.
 Specification: [database per domain](../docs/specs/database-per-application.md).
 Scope: implement and prove DB-01 through DB-12, including live cutover and cleanup.
 This document is a plan, not evidence that any migration has run.
@@ -8,7 +8,9 @@ This document is a plan, not evidence that any migration has run.
 ## Decisions and repository evidence
 
 - Keep the existing Aiven service. Create `market_scanner` and `momentum` databases
-  with `results`, optional/required `sessions` respectively, and `liquibase`.
+  with Scanner `results` and optional `sessions`, Momentum `_analysis` and
+  `_sessions`, and one `liquibase` schema in each database. Momentum schema names
+  include their leading underscores, as explicitly requested by the user.
   Verify existing `litellm` storage without restructuring it.
 - Both Scanner runtimes already accept `DATABASE_SCHEMA`; the writer qualifies
   insert targets, and the reader has its own schema setting. Reuse these settings.
@@ -19,7 +21,7 @@ This document is a plan, not evidence that any migration has run.
   Each includes its original domain changesets then new relocations. Explicitly
   pass the existing Momentum context when that domain is selected.
 - Move the three named Scanner tables into `results` and the enumerated Momentum
-  SDK tables into `sessions` with new transactional changesets. Do not rename the
+  SDK tables into `_sessions` with new transactional changesets. Do not rename the
   entire Momentum schema: it may contain business objects as well. Move other
   objects only when the inventory allowlist proves their ownership.
 - Runtime roles remain non-owner roles. Retain workload-specific DML privileges;
@@ -52,9 +54,9 @@ P5 + operational review → P6 live per-domain cutovers
 P6 + observation evidence → P7 source cleanup + final audit
 ```
 
-These are delivery slices, not the final task checklist. After plan approval,
-split each into tasks of roughly five files or fewer, with explicit commands,
-dependencies and acceptance checks in `tasks/todo.md`. Split P1 into inventory,
+These delivery slices are broken into tasks of roughly five files or fewer, with
+commands, dependencies and acceptance checks in [the checklist](todo.md).
+The checklist is awaiting its own review. Split P1 into inventory,
 provisioning, copying and verification PRs as needed. Scanner writer, reader and
 Momentum changes are separate PRs. Independent code slices may run concurrently
 after interfaces are fixed; shared changelog edits, migrations and cutovers are
@@ -152,9 +154,9 @@ role cannot access session/state/event tables or write results (DB-02/05/12).
 
 Base this slice on the verified foundation or its merged successor. Add a
 Momentum-only entry point with unchanged original changesets and explicit context,
-then new relocations. Create `results` even if empty; move SDK metadata, states,
-sessions and events to `sessions`. Existing business results need an exact
-separately reviewed mapping into `results`.
+then new relocations. Create `_analysis` even if empty; move SDK metadata, states,
+sessions and events to `_sessions`. Existing business results need an exact
+separately reviewed mapping into `_analysis`.
 
 Make one validated schema setting drive both adapter inspection and SDK search
 path. Preserve version checks, `pool_size=1`, `max_overflow=0`, runtime DDL denial
@@ -163,7 +165,7 @@ staged releases; never silently fall back after target validation fails.
 
 Test create/append/resume/restart/delete through the pinned ADK adapter. A synthetic
 correlated result must survive session deletion, including event cascades within
-`sessions`. Do not invent production result tables to exercise this test.
+`_sessions`. Do not invent production analysis tables to exercise this test.
 
 Checkpoint: old/new configurations, fresh/copied histories, second update no-op,
 reverse relocation and independent session expiry pass (DB-02/03/04/05/11/12).
@@ -291,7 +293,7 @@ authorize execution.
 | DB-09, DB-11 | P7 cleanup and final live inventories. |
 | DB-10 | P5 exact runbook/release artifacts, P7 consolidated evidence. |
 
-Next gate: human approval of this technical plan. Then prepare the bounded task
-checklist for review; no implementation has begun. Previous frontend artifacts
+Next gate: human approval of the [task checklist](todo.md); no implementation has
+begun. Previous frontend artifacts
 remain in the [archived plan](archive/public-frontend-plan.md) and
 [archived checklist](archive/public-frontend-todo.md).
