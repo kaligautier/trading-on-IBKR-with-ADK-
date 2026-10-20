@@ -1,7 +1,7 @@
 # Plan: Fresh domain database rebuild
 
-Status: local implementation approved and verified for Scanner/reader; current
-Momentum alignment is in progress. Remote rollout remains pending. See the
+Status: local implementation approved and verified for Scanner, reader and the
+current Momentum runtime. Remote rollout remains pending. See the
 [checklist](todo.md) and [evidence](../docs/migrations/domain-databases/local-evidence.md).
 Source of truth: [rebuild specification](../docs/specs/database-per-application.md).
 This replaces the previous copy/rollback/compatibility plan in full.

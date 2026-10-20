@@ -1,7 +1,7 @@
 # Tasks: Rebuild domain storage and persist Scanner sessions
 
 Status: implementation approved by the user's “applique et test en local”.
-The local foundation, Scanner and reader are implemented and verified; remote
+The local foundation, Scanner, reader and current Momentum are verified; remote
 inventory/reset/deployment remain pending. See
 [local evidence](../docs/migrations/domain-databases/local-evidence.md).
 [Specification](../docs/specs/database-per-application.md) · [Plan](plan.md).
@@ -60,7 +60,7 @@ are resolved in T01/T14/T16; placeholders never authorize guessed operations.
 - Files: `database/changelog/db.changelog-scanner.yaml`, `database/changelog/market-scanner/001-initial.sql`, `database/changelog/market-scanner/002-sessions.sql`, `database/tests/test_scanner_schema.py`.
 
 ### T04 — Fresh Momentum schema on authoritative foundation
-- [ ] Dependencies: T01, T02. Scope: shared database; DB-02, DB-06.
+- [x] Dependencies: T01, T02. Scope: shared database; DB-02, DB-06.
 - Acceptance: `_sessions` matches pinned SDK, `_analysis` contains implemented results only, empty namespace otherwise; independent chain, no Scanner changesets.
 - Verify: `dbtest test_momentum_schema.py` checks fresh/second update and both domain history isolation; use the foundation revision resolved in T01.
 - Files: `database/changelog/db.changelog-momentum.yaml`, `database/changelog/momentum/001-schema.sql`, `database/changelog/momentum/002-adk-sessions.sql`, `database/tests/test_momentum_schema.py`.

@@ -145,7 +145,8 @@ def reset():
         ("database_migrator", 2),
         ("market_scanner_writer", 4),
         ("market_scanner_reader", 4),
-        ("momentum_writer", 4),
+        ("momentum_sessions_writer", 4),
+        ("momentum_results_writer", 4),
     ):
         sql(
             "postgres",
@@ -168,7 +169,9 @@ ALTER ROLE {role} NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS
             "-v",
             f"domain={domain}",
             "-v",
-            f"writer={domain}_writer",
+            f"writer={domain}_writer"
+            if domain == "market_scanner"
+            else "writer=momentum_sessions_writer",
         )
         if domain == "market_scanner":
             sql(
@@ -177,6 +180,19 @@ ALTER ROLE {role} NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS
 GRANT CONNECT ON DATABASE market_scanner TO market_scanner_reader;
 ALTER ROLE market_scanner_reader IN DATABASE market_scanner
     SET search_path = _analysis, pg_catalog;
+""",
+            )
+        else:
+            sql(
+                domain,
+                """
+GRANT CONNECT ON DATABASE momentum TO momentum_results_writer;
+ALTER ROLE momentum_sessions_writer IN DATABASE momentum
+    SET search_path = _sessions, pg_catalog;
+ALTER ROLE momentum_results_writer IN DATABASE momentum
+    SET search_path = _analysis, pg_catalog;
+ALTER ROLE momentum_results_writer IN DATABASE momentum
+    SET statement_timeout = '30s';
 """,
             )
         migrate(domain, "validate")

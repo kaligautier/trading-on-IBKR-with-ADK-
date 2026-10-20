@@ -6,7 +6,7 @@ state/events, `_analysis` for business results, and `liquibase` for migration hi
 | Database | Runtime role | Analysis storage | Liquibase entry point |
 | --- | --- | --- | --- |
 | `market_scanner` | `market_scanner_writer` | Report v3, assets, horizons | `db.changelog-scanner.yaml` |
-| `momentum` | `momentum_writer` | Namespace reserved; implementation pending | `db.changelog-momentum.yaml` |
+| `momentum` | `momentum_sessions_writer`, `momentum_results_writer` | 12 financial result tables | `db.changelog-momentum.yaml` |
 
 The Scanner API and scheduled job both persist sessions. A scheduled execution ID
 can run once; an existing ID fails explicitly, including after a partial failure.
@@ -28,8 +28,8 @@ python3 database/scripts/rehearse_domains.py
 The rehearsal creates `deepcopy-domains-test` on `127.0.0.1:55461`, rebuilds only
 `market_scanner` and `momentum`, applies each Liquibase chain twice, then exercises
 the actual ADK, API, report storage and reader. Model/data providers are simulated;
-these tests do not generate real market research or call LiteLLM. Regression-test
-containers on ports 55462/55463 are removed afterward. The domain databases remain
+these tests do not generate real market research or call LiteLLM. The regression-test
+container on port 55462 is removed afterward. The domain databases remain
 available for inspection. Local credentials are disposable fixtures, never live secrets.
 
 If Momentum is in a separate worktree, install its locked Python 3.12 dependencies
@@ -58,7 +58,8 @@ DATABASE_SCHEMA=_analysis
 ```
 
 The reader uses the same database with `market_scanner_reader` and the disposable
-password `domain-test-only`. Momentum uses `momentum_writer` in database `momentum`.
+password `domain-test-only`. Momentum uses `momentum_sessions_writer` for `_sessions` and
+`momentum_results_writer` for `_analysis`, both in database `momentum`.
 Live provider credentials are needed only for a real market scan.
 
 Build and verify the Scanner image, including an actual process restart and a
@@ -85,6 +86,9 @@ docker compose --profile migration build
 docker compose --profile migration run --rm liquibase validate
 docker compose --profile migration run --rm liquibase update
 ```
+
+Momentum SQL is copied unchanged from the unified migrations in runtime revision
+`e0cbd36`; the earlier empty analysis namespace is superseded.
 
 Migration selection is explicit. Changing only the changelog without changing the
 connection URL does not select another database.

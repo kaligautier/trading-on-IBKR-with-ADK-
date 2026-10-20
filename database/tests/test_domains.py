@@ -26,7 +26,11 @@ def databases():
 
 @pytest.mark.parametrize("domain", ["market_scanner", "momentum"])
 async def test_sessions_survive_restart_and_domain_access_is_denied(domain):
-    role = f"{domain}_writer"
+    role = (
+        "market_scanner_writer"
+        if domain == "market_scanner"
+        else "momentum_sessions_writer"
+    )
     kwargs = {
         "pool_size": 1,
         "max_overflow": 0,

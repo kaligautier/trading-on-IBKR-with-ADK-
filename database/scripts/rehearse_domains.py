@@ -121,19 +121,26 @@ def main():
         domains.run("docker", "stop", name)
     momentum = (args.momentum_root or ROOT) / "apps/backend/momentum-adk"
     if momentum.exists():
-        name = "deepcopy-momentum-tests"
-        fixture(name, "55463", "org.deepcopy.momentum-test")
-        try:
-            test(
-                momentum,
-                {
-                    "MOMENTUM_TEST_ADMIN_URL": "postgresql://postgres:local-test-only@127.0.0.1:55463/postgres",
-                    "MOMENTUM_TEST_CONTAINER": name,
-                },
-                "tests",
-            )
-        finally:
-            domains.run("docker", "stop", name)
+        test(momentum, {}, "tests/unit")
+        execute(
+            [
+                "uv",
+                "run",
+                "--project",
+                str(momentum.resolve()),
+                "--frozen",
+                "python",
+                "-m",
+                "pytest",
+                "-q",
+                "--tb=short",
+                "-c",
+                "database/pytest.ini",
+                "--confcutdir=database/momentum_tests",
+                "database/momentum_tests",
+            ],
+            environment={"MOMENTUM_ROOT": str(momentum.resolve())},
+        )
     elif args.momentum_root:
         raise RuntimeError("The supplied Momentum worktree has no application package")
     else:
