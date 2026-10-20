@@ -100,7 +100,6 @@ def main():
             "/sso/login",
             "/sso/callback",
             "/user/new",
-            "/key/info",
             "/docs",
             "/openapi.json",
             "/%6cogin",
@@ -115,6 +114,10 @@ def main():
         for route in [
             "/key/generate",
             "/key/delete",
+            "/key/update",
+            "/team/new",
+            "/team/update",
+            "/team/delete",
             "/v1beta/models/model:generateContent",
             "/v1beta/models/model:countTokens",
         ]:
@@ -128,6 +131,12 @@ def main():
             assert response.readline() == b"data: FIRST\n"
             assert time.monotonic() - started < 0.4, "SSE was buffered"
             assert b"data: LAST" in response.read()
+        for route in ["/key/info", "/team/info"]:
+            with request(route, "GET", "synthetic-admin-key") as response:
+                assert response.status == 200
+                assert response.read() == b"Bearer synthetic-admin-key"
+            with request(route, "POST") as response:
+                assert response.status == 405
         print(
             "PASS: gateway denies login/UI/admin routes; allowed routes preserve auth and stream SSE",
             flush=True,
