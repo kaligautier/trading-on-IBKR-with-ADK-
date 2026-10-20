@@ -16,7 +16,7 @@ class Settings(BaseSettings):
 
     DATABASE_URL: SecretStr
     DATABASE_SCHEMA: str = Field(
-        default="market_scanner", pattern=r"^[a-z_][a-z0-9_]{0,62}$"
+        default="_analysis", pattern=r"^[a-z_][a-z0-9_]{0,62}$"
     )
     DATABASE_POOL_SIZE: int = Field(default=1, ge=1, le=2)
     DATABASE_POOL_TIMEOUT: float = Field(default=5, gt=0, le=30)
