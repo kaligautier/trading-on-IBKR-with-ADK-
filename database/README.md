@@ -69,6 +69,10 @@ It does not change another database or grant access to application tables.
 Run that reviewed correction as an administrator, then `momentum-bootstrap.sql`.
 Bootstrap rejects administrative/inherited privileges and effective CREATE/TEMP.
 Apply the shared Liquibase changelog as the migration identity afterwards.
+Momentum changesets require an explicit context, so existing Scanner migration
+commands keep their original behavior. Use `liquibase update --context-filter=momentum`
+(or `LIQUIBASE_COMMAND_CONTEXT_FILTER=momentum` with Compose). The initial Scanner
+changeset stays unchanged; existing checksums are preserved.
 
 Run the Momentum suite against its dedicated disposable server:
 

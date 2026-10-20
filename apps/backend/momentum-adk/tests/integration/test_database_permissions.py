@@ -17,6 +17,10 @@ import pytest
         "CREATE SCHEMA forbidden",
         "SET ROLE database_migrator",
         "CREATE ROLE forbidden",
+        "ALTER TABLE momentum.sessions ADD COLUMN forbidden INT",
+        "DROP TABLE momentum.events",
+        "TRUNCATE momentum.sessions",
+        "UPDATE momentum.adk_internal_metadata SET value='0'",
     ],
 )
 async def test_runtime_cannot_escape_its_schema(migrated_database, query):
