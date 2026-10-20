@@ -52,9 +52,36 @@ The test host must be localhost, and the shared-database tests require a fresh
 server without pre-existing scanner roles. Stop it with
 `docker stop scanner-test-db` when finished; its data is disposable.
 
-## Dedicated Momentum databases
+## Momentum database
 
-The current target uses two logical databases on the existing PostgreSQL service:
+The target is one `momentum` database on the existing PostgreSQL service:
+
+| Schema | Runtime login | Data |
+| --- | --- | --- |
+| `_sessions` | `momentum_sessions_writer` | Five ADK session/state/event tables |
+| `_analysis` | `momentum_results_writer` | Twelve completed-analysis tables |
+
+Create the database and non-administrative runtime logins through the administrator
+procedure. Run `momentum-unified-bootstrap.sql` as administrator in `momentum`,
+then `momentum-unified-migrator.sql` as `database_migrator`. Apply
+`liquibase --changelog-file=momentum.yaml update` with the explicit `momentum`
+JDBC URL. This root excludes Scanner and rejects other databases.
+
+Both runtime URLs target `/momentum`, with distinct credentials. Each login has
+access only to its own schema, no DDL/TEMP or role memberships, and a two-connection
+limit. The shared service connection limit still applies. Store credentials only
+in ignored local files or Secret Manager. Never fall back to `defaultdb`.
+
+The unified layout was applied on 2026-10-20. The two superseded databases and
+`defaultdb.momentum` were removed after checked private backups. Scanner data and
+remaining migration checksums were verified unchanged.
+
+The old two-database roots below remain immutable historical migrations. Local
+regression tests exercise those bootstraps as well as the current unified layout.
+
+## Superseded two-database layout
+
+The superseded layout used two logical databases on the existing PostgreSQL service:
 
 | Database | Runtime login | Data |
 | --- | --- | --- |

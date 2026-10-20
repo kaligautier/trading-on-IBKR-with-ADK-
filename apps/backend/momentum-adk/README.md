@@ -8,19 +8,16 @@ the [specification](../../../docs/specs/momentum-service.md) and
 
 T01–T05 provide the locked package, ticker/analyst validation, complete financial
 output schemas/renderers, typed workflow states and signal normalization.
-T06–T08 add the isolated schema and migrated ADK session storage, verified on
-disposable PostgreSQL and applied to the existing service database on 2026-10-20.
-The live runtime login passed session/event persistence and permission-denial
-checks; original Scanner rows and migration history were preserved.
+T06–T08 provide migrated ADK session storage. T09–T10 provide 12 completed-result
+models and their migrations. T11 writes all financial sections and execution
+correlation in one transaction; failures roll back the whole result.
+The target is one database, `momentum`, with `_sessions` (5 ADK tables) and
+`_analysis` (12 result tables). Separate runtime logins restrict each connection
+to its own schema; result access is INSERT/SELECT only. Both pools are bounded.
+The unified layout was applied and verified remotely on 2026-10-20; obsolete
+Momentum databases and the shared legacy schema were removed after private backups.
+Local validation passes 87 unit and 48 PostgreSQL integration cases.
 This library has no worker, HTTP entrypoint, image or application deployment yet.
-T09 provides the 12 completed-result ORM models with execution correlation;
-T10 migrates those tables into the dedicated result database with INSERT/SELECT
-permissions only. T11 writes all financial sections and execution correlation in
-one transaction; failures roll back the whole result. Both databases are covered
-by real PostgreSQL tests (43 cases), alongside 87 unit cases.
-The revised target uses `momentum_sessions` and `momentum_results` on the existing
-PostgreSQL service, each with a dedicated runtime login. Local tests now verify
-the separate session database and cross-database login denial; live cutover is pending.
 The gateway and existing ADK workflow will be ported
 in dependency order. The final worker will use the dedicated Cloud Run
 Job, isolated PostgreSQL storage and exclusively LiteLLM inference.

@@ -368,3 +368,15 @@ MCP remain later work; they cannot substitute for the complete analysis worker.
   `_analysis` schemas. Supersedes the two-database amendment above. Cleanup of both
   superseded databases and the legacy `defaultdb.momentum` schema is authorized
   after private backup and verification. Separate runtime roles remain required.
+
+- Unified layout verified live (2026-10-20): `momentum._sessions` has five ADK
+  tables and `momentum._analysis` has twelve result tables. A real ADK session/event
+  survives reconnect; a synthetic complete financial result committed and was
+  independently read across all twelve tables, then removed. Cross-schema reads,
+  DDL, TEMP and migration-role assumption are denied to runtime logins.
+  Three private PostgreSQL custom-format backups were checked before removing
+  `momentum_sessions`, `momentum_results` and the legacy `defaultdb.momentum`
+  schema through its Liquibase rollback. Scanner row fingerprints and remaining
+  migration checksums are unchanged. Runtime URLs now target `/momentum`.
+  Validation: 87 unit cases, 48 local PostgreSQL cases, Ruff and wheel build pass.
+  No Cloud Run worker deployment or real financial analysis has occurred.
