@@ -243,6 +243,12 @@ def dedicated_databases(migrated_database):
             context=None,
             changelog="momentum-sessions.yaml",
         )
+        run_liquibase(
+            urls["momentum_results"]["migrator"],
+            "update",
+            context=None,
+            changelog="momentum-results.yaml",
+        )
         yield urls
     finally:
         asyncio.run(cleanup())

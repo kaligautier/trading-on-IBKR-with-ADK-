@@ -1,0 +1,4 @@
+databaseChangeLog:
+  - include:
+      file: momentum-results/001-initial.sql
+      relativeToChangelogFile: true

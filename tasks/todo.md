@@ -1,7 +1,7 @@
 # Momentum execution checklist
 
 Status: implementation authorized by the user on 2026-10-20 ("mtn on implement").
-T01–T09 completed locally; PostgreSQL foundation verified; CI and later tasks are tracked separately.
+T01–T10 completed locally; PostgreSQL foundation verified; CI and later tasks are tracked separately.
 Scope validated 2026-10-19; [plan](plan.md) validated by the user on 2026-10-20.
 Specification: [Momentum service](../docs/specs/momentum-service.md).
 Previous checklist: [frontend archive](archive/public-frontend-todo.md).
@@ -111,7 +111,7 @@ application is exposed. Measure complete PR diffs before publication.
     with its own runtime role; defaultdb/Scanner and applied checksums are unchanged.
   - Live cutover, credential distribution and legacy cleanup are separate evidence.
 
-- [ ] **T10 · PR05 — Business result migrations** (depends: T08, T09).
+- [x] **T10 · PR05 — Business result migrations** (depends: T08, T09).
   - Files: `D/changelog/momentum-results/001-initial.sql`, `D/changelog/momentum-results.yaml`, `P/tests/integration/test_result_migrations.py`, `P/tests/integration/conftest.py`, `tasks/todo.md`.
   - Acceptance: schema matches ORM; migrations repeat safely; rollback leaves Scanner objects/data/checksums intact.
   - Verify: `i test_result_migrations.py`; rerun affected Scanner shared-database integration checks.
@@ -350,3 +350,8 @@ MCP remain later work; they cannot substitute for the complete analysis worker.
   root, actual ADK persistence after reconnect, cross-database login denial,
   Scanner read denial, bootstrap target guard and isolated rollback verified.
   Live dedicated-database provisioning/cutover remains pending.
+
+- T10: dedicated result root creates all 12 ORM-compatible tables, with
+  INSERT/SELECT-only runtime grants. All 39 PostgreSQL cases pass, including
+  cross-database denial, target guards and rollback preserving Scanner/sessions.
+  Original shared changesets and their checksums remain unchanged.
