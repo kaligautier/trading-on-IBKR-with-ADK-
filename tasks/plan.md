@@ -14,8 +14,8 @@ The Momentum [execution checklist](todo.md) is approved for implementation; prog
 Extract the complete existing Momentum ADK financial analysis workflow into
 `apps/backend/momentum-adk`. Run one validated command per dedicated Cloud Run Job,
 using only the existing LiteLLM gateway. Reuse the repository's current PostgreSQL
-service, with dedicated `momentum_sessions` and `momentum_results` databases.
-This replaces the shared-database choice following the user's 2026-10-20 instruction.
+service, with one dedicated `momentum` database and `_sessions` / `_analysis`
+schemas. This is the user's final 2026-10-20 clarification, superseding two databases.
 Keep consultation, public MCP, broker operations and historical imports outside
 this release. Preserve the source's financial roles, tools and structured outputs.
 
@@ -32,8 +32,8 @@ flowchart TD
   Job --> ADK[Existing Momentum ADK workflow]
   ADK --> Gateway[Existing private LiteLLM gateway]
   ADK --> Data[Market data providers]
-  ADK --> Sessions[PostgreSQL: momentum_sessions]
-  ADK --> Results[PostgreSQL: momentum_results]
+  ADK --> Sessions[momentum database: _sessions]
+  ADK --> Results[momentum database: _analysis]
   Migrate[Liquibase with migration identity] --> Sessions
   Migrate --> Results
 ```
@@ -58,17 +58,17 @@ their contracts must be settled before composition. No parallel agents are neede
 
 ## Database design and proof
 
-Use two explicitly configured logical databases on the existing PostgreSQL service.
-Business models name `momentum` in `momentum_results`; ADK uses the fixed
-`momentum, pg_catalog` search path in `momentum_sessions`. Each has a separate
-runtime login and Secret Manager credential, including the verified CA.
-The existing shared foundation remains historical until a verified live cutover.
+Use one `momentum` database. Business models explicitly name `_analysis`; ADK
+uses the `_sessions, pg_catalog` search path. Each schema has its own runtime login
+and Secret Manager credential, including the verified CA. Both URLs name `momentum`.
+The user authorized removing the superseded test-only databases and legacy schema
+once backed up and verified. Keep Scanner and LiteLLM unchanged.
 
 | Identity | Rights and ownership |
 | --- | --- |
 | Existing `database_migrator` | Owns schema/tables and applies reviewed Liquibase changes; never passed to a runtime. |
-| `momentum_results_writer` | Non-owner LOGIN to results only; INSERT plus necessary RETURNING reads on enumerated result tables. |
-| `momentum_sessions_writer` | Non-owner LOGIN to sessions only; SELECT/INSERT/UPDATE/DELETE on enumerated ADK session tables. |
+| `momentum_results_writer` | Non-owner LOGIN with access to `_analysis` only; INSERT plus necessary RETURNING reads on enumerated result tables. |
+| `momentum_sessions_writer` | Non-owner LOGIN with access to `_sessions` only; SELECT/INSERT/UPDATE/DELETE on enumerated ADK session tables. |
 | Private dispatcher | No PostgreSQL credential. |
 | Independent verifier | Separate inspection credential for pilot reads; no wider runtime rights are added to support verification. |
 
@@ -82,8 +82,8 @@ REVOKE cannot negate a PUBLIC grant. Do not change shared grants blindly. See
 
 Liquibase owns business tables and the exact pinned ADK JSON session schema,
 including indexes and version metadata. Existing Scanner changesets/checksums stay
-unchanged. Use independent `momentum-sessions.yaml` and `momentum-results.yaml`
-Liquibase roots, with no Scanner includes. Bootstrap only the two new databases;
+unchanged. Use the dedicated `momentum.yaml` Liquibase root, with no Scanner includes.
+Bootstrap only the new `momentum` database;
 never rerun the initial Scanner bootstrap or rewrite applied changeset checksums.
 The user/admin creates the dedicated login and password through the existing
 credential procedure; SQL files contain grants and role settings, not passwords.
@@ -167,7 +167,7 @@ exists; enable image publication only when the complete worker is verified.
 
 ### A. Before workflow assembly
 
-Disposable PG proves role isolation, separate session/result databases and cross-login denial, migration
+Disposable PG proves role isolation, isolated session/result schemas and cross-schema denial, migration
 repeatability and no runtime DDL. Gateway tests prove exclusively routed native
 Gemini requests. A failure here blocks composition, not just release.
 

@@ -363,3 +363,8 @@ MCP remain later work; they cannot substitute for the complete analysis worker.
   and result survival after ADK session deletion in the separate database.
   Preserved source mappings, fixing lost market-cap units and zero-price targets.
   Ruff and wheel build pass. Live dedicated-database cutover remains pending.
+
+- Final user clarification (2026-10-20): one `momentum` database, `_sessions` and
+  `_analysis` schemas. Supersedes the two-database amendment above. Cleanup of both
+  superseded databases and the legacy `defaultdb.momentum` schema is authorized
+  after private backup and verification. Separate runtime roles remain required.
