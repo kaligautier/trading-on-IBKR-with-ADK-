@@ -206,16 +206,29 @@ def dedicated_databases(migrated_database):
                 raise ValueError("Dedicated test databases already exist")
             if await admin.fetchval(
                 "SELECT count(*) FROM pg_roles WHERE rolname=ANY($1)",
-                [n + "_writer" for n in names],
+                [n + "_writer" for n in names] + ["momentum_bootstrap_operator"],
             ):
                 raise ValueError("Dedicated test roles already exist")
+            # Match Aiven: CREATEROLE/CREATEDB, but no superuser or migrator membership.
+            await admin.execute(
+                "CREATE ROLE momentum_bootstrap_operator LOGIN "
+                "CREATEDB CREATEROLE NOINHERIT PASSWORD 'local-only'"
+            )
+            owned_roles.append("momentum_bootstrap_operator")
+            await admin.close()
+            operator = address._replace(
+                netloc="momentum_bootstrap_operator:local-only@127.0.0.1:55449"
+            )
+            admin = await asyncpg.connect(urlunsplit(operator))
             for name in names:
                 role = name + "_writer"
                 await admin.execute(f"CREATE ROLE {role} LOGIN PASSWORD 'local-only'")
                 owned_roles.append(role)
                 await admin.execute(f'CREATE DATABASE "{name}"')
                 owned_databases.append(name)
-                connection = await asyncpg.connect(urls[name]["admin"])
+                connection = await asyncpg.connect(
+                    urlunsplit(operator._replace(path="/" + name))
+                )
                 try:
                     await connection.execute(
                         (DATABASE / "momentum-databases-bootstrap.sql").read_text()
@@ -237,6 +250,18 @@ def dedicated_databases(migrated_database):
 
     try:
         asyncio.run(setup())
+
+        async def prepare_migration_schemas():
+            for name in names:
+                connection = await asyncpg.connect(urls[name]["migrator"])
+                try:
+                    await connection.execute(
+                        (DATABASE / "momentum-migrator-bootstrap.sql").read_text()
+                    )
+                finally:
+                    await connection.close()
+
+        asyncio.run(prepare_migration_schemas())
         run_liquibase(
             urls["momentum_sessions"]["migrator"],
             "update",

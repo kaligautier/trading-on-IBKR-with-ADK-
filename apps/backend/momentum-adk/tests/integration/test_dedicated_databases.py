@@ -10,6 +10,33 @@ from google.adk.events import Event, EventActions
 from app.infrastructure.session_database import create_session_service
 
 
+async def test_bootstrap_operator_has_aiven_style_privileges(dedicated_databases):
+    address = urlsplit(dedicated_databases["momentum_sessions"]["admin"])
+    address = address._replace(
+        netloc="momentum_bootstrap_operator:local-only@127.0.0.1:55449"
+    )
+    connection = await asyncpg.connect(urlunsplit(address))
+    try:
+        flags = await connection.fetchrow(
+            "SELECT rolsuper, rolcreatedb, rolcreaterole FROM pg_roles "
+            "WHERE rolname=current_user"
+        )
+        assert list(flags.values()) == [False, True, True]
+        for sql in (
+            "SET ROLE database_migrator",
+            "CREATE SCHEMA forbidden AUTHORIZATION database_migrator",
+        ):
+            transaction = connection.transaction()
+            await transaction.start()
+            try:
+                with pytest.raises(asyncpg.InsufficientPrivilegeError):
+                    await connection.execute(sql)
+            finally:
+                await transaction.rollback()
+    finally:
+        await connection.close()
+
+
 @pytest.mark.parametrize(
     "source,target",
     [

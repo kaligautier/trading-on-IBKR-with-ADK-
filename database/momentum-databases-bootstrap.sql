@@ -38,6 +38,4 @@ BEGIN
         RAISE EXCEPTION 'Runtime must not own the database or have CREATE/TEMP';
     END IF;
 END $$;
-CREATE SCHEMA liquibase AUTHORIZATION database_migrator;
-REVOKE ALL ON SCHEMA liquibase FROM PUBLIC;
 COMMIT;

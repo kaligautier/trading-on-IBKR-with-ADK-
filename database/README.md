@@ -64,8 +64,10 @@ The current target uses two logical databases on the existing PostgreSQL service
 Provision these NEW databases and login passwords through the administrator
 procedure. Run `momentum-databases-bootstrap.sql` once in each database as the
 administrator. It refuses other database names, removes PUBLIC CONNECT/TEMP,
-grants only the matching runtime CONNECT, and creates the migrator-owned
-Liquibase schema. Runtime roles have no memberships, DDL or TEMP privileges and
+grants only the matching runtime CONNECT. Then run
+`momentum-migrator-bootstrap.sql` in each database as `database_migrator` to
+create its own Liquibase schema. Aiven administrators are not superusers and
+cannot assume an existing isolated migration role. Runtime roles have no memberships, DDL or TEMP privileges and
 are limited to two connections each. They cannot connect to each other's database.
 The shared service connection limit still applies across all databases/instances.
 
