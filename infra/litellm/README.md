@@ -182,38 +182,50 @@ The Scanner application uses this gateway; see
 [ADK configuration](../../docs/adk-litellm.md). Its dedicated verification job
 exercises the gateway with the same service account.
 
-### Key provisioning and verification jobs
+### Agent policy managed by Terraform
 
-Set `client_tools_image` to a digest-pinned Python image containing `httpx`,
-`google-auth`, `google-genai` and `pydantic`. The existing Scanner image has these
-dependencies. The optional jobs use Direct VPC egress; no IAP authentication is
-implemented in their scripts.
+The [governance root](governance/README.md) uses the official `BerriAI/litellm`
+provider to manage the `Agents` team and one key per application. Each key defaults
+to **3 USD per day**, with configurable budgets/windows and rate limits. For
+example, an agent can have `max_budget = 4` and `budget_duration = "7d"`.
+The team has no shared budget; the optional global proxy budget still applies.
 
-After applying the service stage, run `litellm-key-CLIENT_NAME`. Its dedicated
-bootstrap identity can read the master secret, list its client-key versions and
-add a version; it cannot read the client key back or destroy versions. It creates
-an inference-only virtual key inside the VPC and uploads it directly to Secret
-Manager. Credential payloads never appear in Terraform arguments or logs.
+Deploy this infrastructure root first. It creates the private endpoint, client
+secret containers, per-agent secret access and a separate Terraform governance
+identity. Run the governance root from a VPC-connected Terraform runner; it needs
+admin API access and Secret Manager access. There is no Python provisioning job
+and no `litellm-key-CLIENT_NAME` execution. A governance `terraform apply` creates
+or imports the team/keys and applies their policies directly.
 
-```sh
-gcloud run jobs execute litellm-key-CLIENT_NAME --wait --project=YOUR_PROJECT --region=europe-west1
-```
+Existing keys are adopted by SHA-256 token ID and a pinned Secret Manager version,
+preserving their credential, alias, spend and expiry. New credentials are generated
+ephemerally, written directly to Secret Manager, then registered with LiteLLM.
+Raw credentials stay out of Terraform state and plan files. New keys expire after
+30 days; ordinary policy updates do not renew their expiry.
 
-Pin the returned numeric version in the ignored configuration:
+For inference verification, set `client_tools_image` to a digest-pinned Python
+image with `httpx`, `google-auth`, `google-genai` and `pydantic`; copy the governance
+`client_key_versions` output into this root's ignored variables, apply, then run
+`litellm-verify-CLIENT_NAME`. This job uses the agent identity and only its own key.
+See the governance README for initial adoption, rotation and provider limitations.
 
-```hcl
-client_key_versions = { CLIENT_NAME = "1" }
-```
+Set `agent_governance` to deploy the private `litellm-agent-governance` Cloud Run
+Job with an official, digest-pinned Terraform image. The job embeds this root's
+governance files, uses its dedicated service account and locks the separate GCS
+state. Existing flat team/key state addresses move into `module.policy` without
+recreating objects. The default execution only plans; execute with
+`--update-env-vars=GOVERNANCE_ACTION=apply` to apply the saved plan and require a
+second plan with no changes. The runner contains no Python and mounts no keys.
 
-Reapply and run `litellm-verify-CLIENT_NAME`. The verification identity is the
-agent SA, with only its own key mounted, and the job calls the internal endpoint
-with no IAP or Google identity token.
-
-Keys permit `/v1beta/models/*` and the configured model catalog. Limits are
-10 requests/minute, 100,000 tokens/minute, two concurrent requests, a $10 30-day
-accounting budget and 30-day expiry. Bootstrap reruns preserve existing enabled
-versions; they do not prove the key is unexpired or perform rotation. Rotate
-explicitly and verify the replacement before revoking the old key.
+The committed [preprod model catalog](config/preprod-models.tfvars) supplies
+`model` and `additional_vertex_models`. Pass it last with `-var-file` when planning
+this root. Terraform generates the proxy's `model_list` and both services use
+that configuration; the governance runner derives the team's and keys' allowed
+models from the same list. Add or remove models here, then apply infrastructure
+and execute the governance apply to synchronize endpoints and permissions.
+Additional providers use `provider_models` and Secret Manager environment
+references; API credentials do not belong in the catalog. Avoid manual model
+changes in the UI, which are outside this configuration's ownership.
 
 Both services share the image, config, database and runtime identity. Each uses
 a two-connection pool; size PostgreSQL for revision overlap and migrations.

@@ -1,0 +1,16 @@
+set -eu
+umask 077
+mkdir -p /work/policy
+cd /work
+%{ for name, content in files ~}
+cat > '${name}' <<'LITELLM_TF_${replace(replace(name, "/", "_"), ".", "_")}'
+${content}
+LITELLM_TF_${replace(replace(name, "/", "_"), ".", "_")}
+%{ endfor ~}
+terraform init -input=false -lockfile=readonly -backend-config=backend.hcl
+terraform plan -input=false -out=policy.tfplan
+case "$${GOVERNANCE_ACTION:-plan}" in
+  plan) echo 'Terraform governance plan complete; no changes applied' ;;
+  apply) terraform apply -input=false policy.tfplan; terraform plan -input=false -detailed-exitcode ;;
+  *) echo 'Unsupported governance action'; exit 1 ;;
+esac
