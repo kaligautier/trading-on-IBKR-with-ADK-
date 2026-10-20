@@ -1,7 +1,7 @@
 # Momentum execution checklist
 
 Status: implementation authorized by the user on 2026-10-20 ("mtn on implement").
-T01–T05 completed locally (Checkpoint A); CI and later tasks are tracked separately.
+T01–T08 completed locally; PostgreSQL foundation verified; CI and later tasks are tracked separately.
 Scope validated 2026-10-19; [plan](plan.md) validated by the user on 2026-10-20.
 Specification: [Momentum service](../docs/specs/momentum-service.md).
 Previous checklist: [frontend archive](archive/public-frontend-todo.md).
@@ -84,17 +84,17 @@ application is exposed. Measure complete PR diffs before publication.
 
 ## Restricted PostgreSQL storage
 
-- [ ] **T06 · PR03 — Disposable migration harness** (depends: T01, T03).
+- [x] **T06 · PR03 — Disposable migration harness** (depends: T01, T03).
   - Files: `P/tests/integration/conftest.py`, `P/scripts/test_database.sh`, `.github/workflows/momentum.yml`, `D/README.md`, `P/tests/unit/test_database_harness.py`.
   - Acceptance: local-only isolated server/database; real shared Liquibase migrations; cleanup and required integration variables documented.
   - Verify: `u test_database_harness.py`; start/stop script works; fixture rejects remote URLs and existing test roles.
 
-- [ ] **T07 · PR03 — Schema and runtime login isolation** (depends: T06).
+- [x] **T07 · PR03 — Schema and runtime login isolation** (depends: T06).
   - Files: `D/momentum-bootstrap.sql`, `D/changelog/momentum/001-schema.sql`, `D/changelog/db.changelog-master.yaml`, `P/tests/integration/test_database_permissions.py`.
   - Acceptance: migrator owns schema; runtime has no ownership/admin/CREATE rights; audit effective PUBLIC/inherited privileges.
   - Verify: `i test_database_permissions.py`; deny cross-schema access, public/temporary writes and runtime DDL.
 
-- [ ] **T08 · PR03 — Pinned ADK session schema** (depends: T07).
+- [x] **T08 · PR03 — Pinned ADK session schema** (depends: T07).
   - Files: `D/changelog/momentum/002-adk-sessions.sql`, `D/changelog/db.changelog-master.yaml`, `P/tests/integration/test_adk_session_schema.py`, `P/app/infrastructure/session_database.py`.
   - Acceptance: session tables/indexes/version metadata in `momentum`; enumerated session DML only; missing migrations fail safely.
   - Verify: `i test_adk_session_schema.py`; actual session lifecycle works with runtime credentials and no runtime DDL.
@@ -309,3 +309,17 @@ MCP remain later work; they cannot substitute for the complete analysis worker.
   signal cases and typed end-to-end state serialization pass: 64 unit cases total.
 - PR #56 and #57: library, component scope, size and GitGuardian checks passed.
   Checkpoint A is complete; T06 starts disposable PostgreSQL verification.
+
+- T06: `9d37350`, `477864f` — labeled local-only PostgreSQL, real Liquibase,
+  failure cleanup and rejection of existing roles/DSN host overrides verified.
+- T07: `45432c1`, `e0c2764` — schema ownership and effective privileges verified;
+  PUBLIC TEMP correction preserves existing logins and denies the new worker.
+- T08: `4200479` — pinned ADK session/event lifecycle works without runtime DDL;
+  missing version/index fails safely. Migration repeat/rollback preserves Scanner.
+- Validation: 73 unit cases, 20 real PostgreSQL cases and 4 existing Scanner
+  shared-database cases passed without skips; Ruff and lock consistency passed.
+- Live migration identity: validation and SQL preview passed against its configured
+  existing database. No Momentum DDL applied: administrator/Aiven authentication
+  must be restored to provision the runtime login and correct PUBLIC privileges.
+- Checkpoint B remains open: financial result models/migrations/writers (T09–T11)
+  are not implemented, and there is no completed live Momentum analysis.
