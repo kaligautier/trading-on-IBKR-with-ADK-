@@ -1,0 +1,10 @@
+databaseChangeLog:
+  - property:
+      name: sessionRole
+      value: market_scanner_writer
+  - include:
+      file: market-scanner/001-initial.sql
+      relativeToChangelogFile: true
+  - include:
+      file: common/001-adk-sessions.sql
+      relativeToChangelogFile: true
