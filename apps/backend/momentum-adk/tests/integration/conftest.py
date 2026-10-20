@@ -244,6 +244,9 @@ def dedicated_databases(migrated_database):
             for name in reversed(owned_databases):
                 await admin.execute(f'DROP DATABASE "{name}" WITH (FORCE)')
             for role in reversed(owned_roles):
+                # Legacy PUBLIC-privilege tests explicitly preserve TEMP for logins.
+                database = address.path.lstrip("/")
+                await admin.execute(f'REVOKE ALL ON DATABASE "{database}" FROM {role}')
                 await admin.execute(f"DROP ROLE {role}")
         finally:
             await admin.close()

@@ -9,7 +9,7 @@ from sqlalchemy.engine import Engine
 from app.infrastructure.session_database import create_session_service
 
 
-async def test_real_adk_session_events_resume_and_delete(migrated_database):
+async def test_real_adk_session_events_resume_and_delete(unified_database):
     statements = []
 
     def record_statement(conn, cursor, statement, parameters, context, executemany):
@@ -18,7 +18,7 @@ async def test_real_adk_session_events_resume_and_delete(migrated_database):
     event.listen(Engine, "before_cursor_execute", record_statement)
     service = None
     try:
-        service = await create_session_service(migrated_database["momentum_writer"])
+        service = await create_session_service(unified_database["sessions_runtime"])
         session = await service.create_session(
             app_name="momentum",
             user_id="test-operator",
@@ -73,26 +73,26 @@ async def test_real_adk_session_events_resume_and_delete(migrated_database):
 
 
 @pytest.mark.parametrize("mutation", ["index", "version"])
-async def test_missing_migrations_fail_without_repair(migrated_database, mutation):
-    admin = await asyncpg.connect(migrated_database["admin"])
+async def test_missing_migrations_fail_without_repair(unified_database, mutation):
+    admin = await asyncpg.connect(unified_database["admin"])
     try:
         async with admin.transaction():
             if mutation == "index":
                 await admin.execute(
-                    "DROP INDEX momentum.idx_events_app_user_session_ts"
+                    "DROP INDEX _sessions.idx_events_app_user_session_ts"
                 )
             else:
                 await admin.execute(
-                    "UPDATE momentum.adk_internal_metadata SET value='0'"
+                    "UPDATE _sessions.adk_internal_metadata SET value='0'"
                 )
         with pytest.raises(RuntimeError, match="session migrations are required"):
-            await create_session_service(migrated_database["momentum_writer"])
+            await create_session_service(unified_database["sessions_runtime"])
     finally:
         if mutation == "index":
             await admin.execute(
-                "CREATE INDEX idx_events_app_user_session_ts ON momentum.events "
+                "CREATE INDEX idx_events_app_user_session_ts ON _sessions.events "
                 "(app_name, user_id, session_id, timestamp DESC)"
             )
         else:
-            await admin.execute("UPDATE momentum.adk_internal_metadata SET value='1'")
+            await admin.execute("UPDATE _sessions.adk_internal_metadata SET value='1'")
         await admin.close()

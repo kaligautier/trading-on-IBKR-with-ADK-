@@ -118,9 +118,9 @@ def complete_execution():
 
 
 @pytest.fixture
-async def persistence(dedicated_databases):
+async def persistence(unified_database):
     engine = create_async_engine(
-        dedicated_databases["momentum_results"]["runtime"].replace(
+        unified_database["results_runtime"].replace(
             "postgresql://", "postgresql+asyncpg://"
         ),
         pool_size=1,
@@ -136,14 +136,12 @@ async def persistence(dedicated_databases):
 
 
 async def test_all_sections_commit_with_real_adk_correlation(
-    persistence, dedicated_databases
+    persistence, unified_database
 ):
     factory, writer = persistence
     execution = complete_execution()
-    service = await create_session_service(
-        dedicated_databases["momentum_sessions"]["runtime"]
-    )
-    verifier = await asyncpg.connect(dedicated_databases["momentum_results"]["admin"])
+    service = await create_session_service(unified_database["sessions_runtime"])
+    verifier = await asyncpg.connect(unified_database["admin"])
     try:
         session = await service.create_session(
             app_name="momentum",
@@ -155,7 +153,7 @@ async def test_all_sections_commit_with_real_adk_correlation(
         )
         await PostgresResultRepository(factory, writer).save(execution)
         parent = await verifier.fetchrow(
-            "SELECT * FROM momentum.analysis_results WHERE invocation_id=$1",
+            "SELECT * FROM _analysis.analysis_results WHERE invocation_id=$1",
             execution.invocation_id,
         )
         assert (parent["session_id"], parent["user_id"]) == (
@@ -208,7 +206,8 @@ async def test_all_sections_commit_with_real_adk_correlation(
         )
         assert (
             await verifier.fetchval(
-                "SELECT count(*) FROM momentum.analysis_results WHERE invocation_id=$1",
+                "SELECT count(*) FROM _analysis.analysis_results "
+                "WHERE invocation_id=$1",
                 execution.invocation_id,
             )
             == 2
@@ -220,7 +219,7 @@ async def test_all_sections_commit_with_real_adk_correlation(
 
 @pytest.mark.parametrize("failure", ["mapping", "constraint", "after_flush"])
 async def test_failed_section_rolls_back_entire_analysis(
-    persistence, dedicated_databases, failure
+    persistence, unified_database, failure
 ):
     factory, writer = persistence
     execution = complete_execution()
@@ -235,7 +234,7 @@ async def test_failed_section_rolls_back_entire_analysis(
             await session.flush()
             raise RuntimeError("Injected section failure after database writes")
 
-    verifier = await asyncpg.connect(dedicated_databases["momentum_results"]["admin"])
+    verifier = await asyncpg.connect(unified_database["admin"])
     try:
         before = {
             t.name: await verifier.fetchval(f"SELECT count(*) FROM {t.fullname}")
@@ -256,7 +255,8 @@ async def test_failed_section_rolls_back_entire_analysis(
         assert after == before
         assert (
             await verifier.fetchval(
-                "SELECT count(*) FROM momentum.analysis_results WHERE invocation_id=$1",
+                "SELECT count(*) FROM _analysis.analysis_results "
+                "WHERE invocation_id=$1",
                 execution.invocation_id,
             )
             == 0

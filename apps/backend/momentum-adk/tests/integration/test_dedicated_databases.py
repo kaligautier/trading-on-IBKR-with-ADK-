@@ -93,14 +93,14 @@ async def test_dedicated_roles_are_bounded_and_cannot_create_objects(
         await connection.close()
 
 
-async def test_adk_persists_only_in_dedicated_sessions_database(
-    dedicated_databases, migrated_database
+async def test_adk_persists_only_in_unified_sessions_schema(
+    unified_database, migrated_database
 ):
-    url = dedicated_databases["momentum_sessions"]["runtime"]
+    url = unified_database["sessions_runtime"]
     service = await create_session_service(url)
     try:
         session = await service.create_session(
-            app_name="momentum",
+            app_name="unified-reconnect-test",
             user_id="split-db-test",
             session_id="separate-session",
             state={"ticker": "NVDA"},
@@ -118,7 +118,7 @@ async def test_adk_persists_only_in_dedicated_sessions_database(
     service = await create_session_service(url)
     try:
         restored = await service.get_session(
-            app_name="momentum",
+            app_name="unified-reconnect-test",
             user_id="split-db-test",
             session_id="separate-session",
         )
@@ -126,7 +126,7 @@ async def test_adk_persists_only_in_dedicated_sessions_database(
         assert restored.events[0].invocation_id == "separate-invocation"
         for target in (
             migrated_database["admin"],
-            dedicated_databases["momentum_results"]["admin"],
+            unified_database["admin"],
         ):
             connection = await asyncpg.connect(target)
             try:
@@ -141,14 +141,16 @@ async def test_adk_persists_only_in_dedicated_sessions_database(
                 else:
                     assert (
                         await connection.fetchval(
-                            "SELECT to_regclass('momentum.sessions')"
+                            "SELECT to_regclass('_analysis.sessions')"
                         )
                         is None
                     )
             finally:
                 await connection.close()
         await service.delete_session(
-            app_name="momentum", user_id="split-db-test", session_id="separate-session"
+            app_name="unified-reconnect-test",
+            user_id="split-db-test",
+            session_id="separate-session",
         )
     finally:
         await service.close()
