@@ -1,7 +1,7 @@
 # Spec: Rebuild domain databases with persisted sessions and analyses
 
-Status: revised to the user's explicit build-mode instructions; implementation
-checklist remains the next review gate. Replaces the previous data-preserving
+Status: implementation approved by the user for local application and tests.
+Remote execution is not part of this local validation. Replaces the previous data-preserving
 migration specification, its compatibility requirements and recovery procedure.
 
 ## Objective and authorized scope

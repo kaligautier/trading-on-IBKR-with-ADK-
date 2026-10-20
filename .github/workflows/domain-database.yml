@@ -1,0 +1,28 @@
+name: Domain database rehearsal
+on:
+  pull_request:
+    paths:
+      - 'database/**'
+      - 'apps/backend/market-scanner-adk/**'
+      - 'apps/backend/market-scanner-api/**'
+      - 'apps/backend/momentum-adk/**'
+      - '.github/workflows/domain-database.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  local-postgres:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e
+        with:
+          version: '0.12.2'
+      - run: |
+          uv sync --project apps/backend/market-scanner-adk --frozen --python 3.12
+          uv sync --project apps/backend/market-scanner-api --frozen --python 3.12
+          if [ -d apps/backend/momentum-adk ]; then
+            uv sync --project apps/backend/momentum-adk --frozen --python 3.12
+          fi
+      - run: python3 database/scripts/rehearse_domains.py

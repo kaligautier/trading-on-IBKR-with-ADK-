@@ -1,11 +1,10 @@
 # Tasks: Rebuild domain storage and persist Scanner sessions
 
-Status: REVISED DRAFT — awaiting checklist review. Supersedes the 35-task migration
-checklist. User authorized destructive application-data rebuild with no backward
-compatibility; a new Scanner run will populate the empty database.
+Status: implementation approved by the user's “applique et test en local”.
+The local foundation, Scanner and reader are implemented and verified; remote
+inventory/reset/deployment remain pending. See
+[local evidence](../docs/migrations/domain-databases/local-evidence.md).
 [Specification](../docs/specs/database-per-application.md) · [Plan](plan.md).
-Review branch `docs/domain-database-rebuild-tasks` against parent
-`docs/domain-database-rebuild-spec` at `eafb8ce`, not against main.
 
 ## Rules and command vocabulary
 
@@ -49,13 +48,13 @@ are resolved in T01/T14/T16; placeholders never authorize guessed operations.
 - Files: `docs/migrations/domain-databases/baseline.md`.
 
 ### T02 — Disposable fresh-database harness
-- [ ] Dependencies: T01. Scope: shared tests; DB-09.
+- [x] Dependencies: T01. Scope: shared tests; DB-09.
 - Acceptance: pinned PostgreSQL/Liquibase, owned labeled containers, loopback-only targets; refuse remote/foreign fixtures; teardown only its own resources.
 - Verify: `bash database/scripts/test_domains.sh start`; `dbtest test_harness.py`; `bash database/scripts/test_domains.sh stop`.
 - Files: `database/scripts/test_domains.sh`, `database/pytest.ini`, `database/tests/conftest.py`, `database/tests/test_harness.py`.
 
 ### T03 — Fresh Scanner analysis and session schema
-- [ ] Dependencies: T02. Scope: shared database; DB-02.
+- [x] Dependencies: T02. Scope: shared database; DB-02.
 - Acceptance: final `_analysis` report/asset/horizon model plus `_sessions` pinned-ADK tables, keys/indexes/metadata; independent fresh Liquibase history, no legacy chain or runtime DDL.
 - Verify: `dbtest test_scanner_schema.py` runs fresh validate/update/update-sql and a second no-op update, comparing session schema against pinned SDK definitions.
 - Files: `database/changelog/db.changelog-scanner.yaml`, `database/changelog/market-scanner/001-initial.sql`, `database/changelog/market-scanner/002-sessions.sql`, `database/tests/test_scanner_schema.py`.
@@ -81,7 +80,7 @@ Checkpoint C1: fresh schema contracts pass; no application data copied or retain
 - Files: `database/domain-bootstrap.sql`, `database/scripts/rebuild_domains.py`, `database/tests/test_permissions.py`.
 
 ### T07 — Scanner PostgreSQL session adapter
-- [ ] Dependencies: T03, T06. Scope: `market-scanner-adk`; DB-04, DB-08.
+- [x] Dependencies: T03, T06. Scope: `market-scanner-adk`; DB-04, DB-08.
 - Acceptance: one validated `_sessions` configuration and exact schema preflight before SDK preparation; pool=1/overflow=0, TLS preserved, no in-memory fallback, explicit close on errors.
 - Verify: `scanner_test src/test/unit/services/test_session_database.py src/test/integration/test_session_database.py` covers DDL denial, wrong schema, actual session restart and engine disposal.
 - Files: `apps/backend/market-scanner-adk/src/app/services/session_database.py`, `apps/backend/market-scanner-adk/src/app/config/settings.py`, `apps/backend/market-scanner-adk/src/test/unit/services/test_session_database.py`, `apps/backend/market-scanner-adk/src/test/integration/test_session_database.py`.
@@ -89,19 +88,19 @@ Checkpoint C1: fresh schema contracts pass; no application data copied or retain
 Checkpoint C2: scoped reset/permissions and persistent Scanner adapter work on disposable storage.
 
 ### T08 — Persist scheduled Scanner job sessions
-- [ ] Dependencies: T07. Scope: `market-scanner-adk`; DB-04, DB-07.
+- [x] Dependencies: T07. Scope: `market-scanner-adk`; DB-04, DB-07.
 - Acceptance: replace InMemorySessionService with shared adapter, retain session/report correlation and close both stores; explicit repeated-ID/completed-run behavior; storage failure prevents success without erasing partial evidence.
 - Verify: `scanner_test src/test/unit/test_daily_scan.py src/test/integration/test_daily_scan_sessions.py` covers restart, duplicate execution ID and session/report failures with mocked model/data providers.
 - Files: `apps/backend/market-scanner-adk/src/app/jobs/daily_scan.py`, `apps/backend/market-scanner-adk/src/test/unit/test_daily_scan.py`, `apps/backend/market-scanner-adk/src/test/integration/test_daily_scan_sessions.py`.
 
 ### T09 — Persist interactive ADK service sessions
-- [ ] Dependencies: T07. Scope: `market-scanner-adk`; DB-04, DB-08.
+- [x] Dependencies: T07. Scope: `market-scanner-adk`; DB-04, DB-08.
 - Acceptance: inspect installed get_fast_api_app integration point; wire same PostgreSQL store/schema and lifecycle; preserve authenticated routes and fail closed if storage/schema unavailable.
 - Verify: `scanner_test src/test/unit/test_application.py src/test/integration/test_application_sessions.py` creates session/appends event, restarts service and reads persisted state through real authenticated routes.
 - Files: `apps/backend/market-scanner-adk/src/app/application.py`, `apps/backend/market-scanner-adk/src/test/unit/test_application.py`, `apps/backend/market-scanner-adk/src/test/integration/test_application_sessions.py`.
 
 ### T10 — Scanner analysis persistence and correlation
-- [ ] Dependencies: T08, T09. Scope: `market-scanner-adk`; DB-05, DB-07.
+- [x] Dependencies: T08, T09. Scope: `market-scanner-adk`; DB-05, DB-07.
 - Acceptance: `_analysis` is the only production business schema; successful run leaves a report linked unambiguously to durable session, existing report-v3/atomic report writes retained; session deletion preserves analysis.
 - Verify: `scanner_test src/test/integration/test_domain_database.py src/test/unit/services/test_market_scan_persistence.py`; validate post-restart report plus session and partial-failure handling.
 - Files: `apps/backend/market-scanner-adk/src/app/services/market_scan_persistence.py`, `apps/backend/market-scanner-adk/src/app/config/settings.py`, `apps/backend/market-scanner-adk/src/test/integration/test_domain_database.py`, `apps/backend/market-scanner-adk/src/test/unit/services/test_market_scan_persistence.py`, `apps/backend/market-scanner-adk/.env.example`.
@@ -109,13 +108,13 @@ Checkpoint C2: scoped reset/permissions and persistent Scanner adapter work on d
 Checkpoint C3: both Scanner entry points persist sessions; new analyses survive restart and session deletion.
 
 ### T11 — Reader selects analyses only
-- [ ] Dependencies: T10. Scope: `market-scanner-api`; DB-03, DB-05.
+- [x] Dependencies: T10. Scope: `market-scanner-api`; DB-03, DB-05.
 - Acceptance: `_analysis` default/config, unchanged report-v3/auth/pagination; real reader cannot read sessions/events/state or write analyses; no legacy schema fallback.
 - Verify: `reader_test src/test/integration/test_domain_database.py src/test/unit/test_routes.py`; run reader Ruff/mypy and existing route regression suite.
 - Files: `apps/backend/market-scanner-api/src/app/config/settings.py`, `apps/backend/market-scanner-api/src/test/integration/test_domain_database.py`, `apps/backend/market-scanner-api/src/test/unit/test_routes.py`, `apps/backend/market-scanner-api/.env.example`.
 
 ### T12 — Momentum adapter selects final schemas
-- [ ] Dependencies: T04, T06. Scope: `momentum-adk`; DB-06, DB-08.
+- [x] Dependencies: T04, T06. Scope: `momentum-adk`; DB-06, DB-08.
 - Acceptance: actual adapter inspection/search path target `_sessions`, pool=1, runtime DDL denied; implemented analysis storage selects `_analysis`; no old-schema mode or new workflow feature.
 - Verify: `momentum_test tests/integration/test_adk_session_schema.py tests/integration/test_database_permissions.py`; create/append/restart/delete with actual SDK, no copied history.
 - Files: `apps/backend/momentum-adk/app/infrastructure/session_database.py`, `apps/backend/momentum-adk/tests/integration/conftest.py`, `apps/backend/momentum-adk/tests/integration/test_adk_session_schema.py`, `apps/backend/momentum-adk/tests/integration/test_database_permissions.py`; add existing analysis configuration as a fifth file only if T01 proves it exists, otherwise record namespace-only state.
@@ -166,9 +165,10 @@ Checkpoint C5: local/CI evidence and exact live commands exist; data loss is alr
 - Verify: run exact trigger/restart/read commands from T16 with real authenticated consumers; `rebuild verify --config /secure/domain-rebuild.json`; correlate session/report IDs and recorded execution status; HTTP health alone cannot pass.
 - Files: `docs/migrations/domain-databases/evidence.md`, `database/README.md`, `tasks/todo.md`, `tasks/plan.md`.
 
-## Final gate
+## Current gate
 
-Validate this revised checklist to start T01. The previous migration tasks are
-superseded, not completed. No application implementation, database reset or live
-Scanner run has occurred in this documentation change. DB-01 through DB-12 require
-current evidence at their full scope before declaring the goal complete.
+The local apply is approved and underway. Checked items have local evidence;
+unchecked combined/live tasks are not passed by local tests. Implemented harness
+paths are `database/scripts/local_domains.py` and `rehearse_domains.py`, replacing
+the proposed shell harnesses. The local script intentionally cannot reset remote
+storage. No data-copy or compatibility machinery has been introduced.

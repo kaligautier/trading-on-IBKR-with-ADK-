@@ -1,8 +1,9 @@
-"""Verify the release image offline; never load host credentials or env files."""
+"""Verify the release image with disposable PostgreSQL and no provider calls."""
 
 import subprocess
 import sys
 import time
+from pathlib import Path
 from uuid import uuid4
 
 
@@ -19,10 +20,18 @@ def require(result: subprocess.CompletedProcess[str]) -> str:
 
 
 def verify(image: str) -> None:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "database/scripts"))
+    import local_domains
+
+    if local_domains.inspect_container() is None:
+        local_domains.reset()
     name = f"scanner-smoke-{uuid4().hex}"
     environment = [
         "-e",
         "DOCKER_ENV=true",
+        "-e",
+        "MARKET_SCANNER_DATABASE_URL=postgresql://market_scanner_writer:"
+        "domain-test-only@127.0.0.1:5432/market_scanner",
         "-e",
         "GOOGLE_CLOUD_PROJECT=offline-test",
         "-e",
@@ -44,7 +53,7 @@ def verify(image: str) -> None:
                 "--name",
                 name,
                 "--network",
-                "none",
+                "container:deepcopy-domains-test",
                 *environment,
                 image,
             )
@@ -97,7 +106,53 @@ assert root_agent is not None
 """,
             )
         )
-        worker = docker("exec", name, "python", "-m", "app.jobs.daily_scan")
+        session_path = f"/apps/market_scanner/users/smoke/sessions/{name}"
+        require(
+            docker(
+                "exec",
+                name,
+                "curl",
+                "--fail",
+                "--silent",
+                "-X",
+                "POST",
+                "-H",
+                "Content-Type: application/json",
+                "-d",
+                '{"proof":42}',
+                "http://127.0.0.1:8000" + session_path,
+            )
+        )
+        require(docker("restart", name))
+        for _ in range(60):
+            response = docker(
+                "exec",
+                name,
+                "curl",
+                "--fail",
+                "--silent",
+                "--max-time",
+                "2",
+                "http://127.0.0.1:8000" + session_path,
+            )
+            if response.returncode == 0:
+                import json
+
+                assert json.loads(response.stdout)["state"]["proof"] == 42
+                break
+            time.sleep(1)
+        else:
+            raise RuntimeError("Session was not readable after process restart")
+        worker = docker(
+            "exec",
+            name,
+            "env",
+            "-u",
+            "MARKET_SCANNER_DATABASE_URL",
+            "python",
+            "-m",
+            "app.jobs.daily_scan",
+        )
         if (
             worker.returncode != 1
             or "scheduled_scan.failed" not in worker.stdout + worker.stderr
@@ -121,7 +176,7 @@ assert root_agent is not None
         ):
             raise RuntimeError("Missing gateway key must fail at startup")
         print(
-            "PASS: offline startup, non-root runtime, packaged graph, "
+            "PASS: PostgreSQL startup and restart, non-root runtime, packaged graph, "
             "worker failure and required key"
         )
     finally:
