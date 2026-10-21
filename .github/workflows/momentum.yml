@@ -59,3 +59,24 @@ jobs:
           uv run --python 3.12 --isolated --no-project --with "${wheels[0]}" \
             python -I -c 'import app; from app.domain.contracts import AnalysisRequest'
 
+  database:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      MOMENTUM_TEST_ADMIN_URL: postgresql://postgres:local-test-only@127.0.0.1:55449/postgres
+      MOMENTUM_TEST_CONTAINER: momentum-test-db
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
+        with:
+          version: '0.9.17'
+      - run: uv sync --project apps/backend/momentum-adk --frozen --python 3.12
+      - id: postgres
+        run: bash apps/backend/momentum-adk/scripts/test_database.sh start
+      - name: Test actual Liquibase migrations and restricted runtime credentials
+        run: TZ=UTC uv run --project apps/backend/momentum-adk --frozen pytest -c apps/backend/momentum-adk/pyproject.toml -q apps/backend/momentum-adk/tests/integration
+      - if: always() && steps.postgres.outcome == 'success'
+        run: bash apps/backend/momentum-adk/scripts/test_database.sh stop
+

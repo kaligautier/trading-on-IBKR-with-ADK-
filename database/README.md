@@ -1,4 +1,4 @@
-# Scanner database
+# Shared PostgreSQL migrations
 
 The scanner writes a version 3 JSON report and normalized asset/horizon rows in
 PostgreSQL. Each report is committed in one transaction. A failed asset write
@@ -51,3 +51,10 @@ another domain. Providers and Gemini are mocked in these integration tests.
 The test host must be localhost, and the shared-database tests require a fresh
 server without pre-existing scanner roles. Stop it with
 `docker stop scanner-test-db` when finished; its data is disposable.
+
+## Momentum database
+
+Use the [Momentum DBA/developer guide](MOMENTUM.md) for the supported single-database
+layout, role separation, the pinned Liquibase commands and verification steps.
+The dedicated `compose.momentum.yaml` override selects `momentum.yaml` explicitly.
+Old Momentum migration roots remain only for historical compatibility.
