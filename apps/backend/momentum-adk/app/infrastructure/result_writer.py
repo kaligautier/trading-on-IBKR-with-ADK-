@@ -282,7 +282,15 @@ class SentimentAndNewsSectionWriter:
             )
         )
         for item in sentiment.get("items", []):
-            self._session.add(SentimentItemRow(**common, **item))
+            fields = {
+                key: item.get(key) or ""
+                for key in ("topic", "impact", "source_type", "comment")
+            }
+            self._session.add(
+                SentimentItemRow(
+                    **common, **fields, sentiment_score=item.get("sentiment_score")
+                )
+            )
 
     def _write_news(self, parent: AnalysisResult, record: AnalysisRecord) -> None:
         news = record.result.structured.get("News Analyst")
@@ -302,7 +310,11 @@ class SentimentAndNewsSectionWriter:
             )
         )
         for item in news.get("items", []):
-            self._session.add(NewsItemRow(**common, **item))
+            fields = {
+                key: item.get(key) or ""
+                for key in ("category", "headline", "impact", "urgency", "comment")
+            }
+            self._session.add(NewsItemRow(**common, **fields))
 
     @staticmethod
     def _common(parent: AnalysisResult, record: AnalysisRecord) -> dict:
@@ -346,8 +358,8 @@ class DecisionSectionWriter:
             ResearchPlanRow(
                 **self._common(parent, record),
                 recommendation=self._enum_value(research.get("recommendation")),
-                rationale=research.get("rationale", ""),
-                strategic_actions=research.get("strategic_actions", ""),
+                rationale=research.get("rationale") or "",
+                strategic_actions=research.get("strategic_actions") or "",
             )
         )
 
@@ -373,6 +385,8 @@ class DecisionSectionWriter:
         if not portfolio:
             return
         fields = {key: portfolio.get(key) for key in self.PORTFOLIO_FIELDS}
+        for key in ("executive_summary", "investment_thesis"):
+            fields[key] = fields[key] or ""
         self._session.add(
             PortfolioDecisionRow(
                 **self._common(parent, record),

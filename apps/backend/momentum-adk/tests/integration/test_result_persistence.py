@@ -6,7 +6,8 @@ from uuid import uuid4
 import asyncpg
 import pytest
 from google.adk.events import Event
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy import text
+from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from app.domain.contracts import RunStatistics, WorkflowExecution, WorkflowResult
@@ -229,7 +230,7 @@ async def test_failed_section_rolls_back_entire_analysis(
     if failure == "mapping":
         execution.result.structured["Fundamentals Analyst"] = ["invalid"]
     elif failure == "constraint":
-        del execution.result.structured["News Analyst"]["items"][0]["comment"]
+        execution.result.structured["News Analyst"]["items"][0]["impact"] = "x" * 21
 
     class FailingAfterFlush:
         async def write(self, session, item):
@@ -246,7 +247,7 @@ async def test_failed_section_rolls_back_entire_analysis(
         selected = FailingAfterFlush() if failure == "after_flush" else writer
         expected = {
             "mapping": AttributeError,
-            "constraint": IntegrityError,
+            "constraint": DBAPIError,
             "after_flush": RuntimeError,
         }[failure]
         with pytest.raises(expected):
@@ -268,3 +269,42 @@ async def test_failed_section_rolls_back_entire_analysis(
         await PostgresResultRepository(factory, writer).save(complete_execution())
     finally:
         await verifier.close()
+
+
+async def test_optional_contract_fields_flush_without_fabricated_scores(persistence):
+    from app.domain.analysis import (
+        NewsItem,
+        PortfolioDecision,
+        ResearchPlan,
+        SentimentItem,
+    )
+
+    factory, writer = persistence
+    execution = complete_execution()
+    execution.result.structured.update(
+        {
+            "Sentiment Analyst": {"items": [SentimentItem().model_dump()]},
+            "News Analyst": {"items": [NewsItem().model_dump()]},
+            "Research Manager": ResearchPlan(recommendation="Hold").model_dump(
+                mode="json"
+            ),
+            "Portfolio Manager": PortfolioDecision(rating="Hold").model_dump(
+                mode="json"
+            ),
+        }
+    )
+    async with factory() as session:
+        try:
+            await writer.write(session, execution)
+            await session.flush()
+            score = await session.scalar(
+                text(
+                    "SELECT sentiment_score FROM _analysis.sentiment_items "
+                    "WHERE result_id=(SELECT id FROM _analysis.analysis_results "
+                    "WHERE invocation_id=:invocation)"
+                ),
+                {"invocation": execution.invocation_id},
+            )
+            assert score is None
+        finally:
+            await session.rollback()

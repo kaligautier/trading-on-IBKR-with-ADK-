@@ -137,14 +137,14 @@ async def test_result_rollback_preserves_other_databases(
         run_liquibase(migrator, "update", **options)
         assert (
             await admin.fetchval("SELECT count(*) FROM liquibase.databasechangelog")
-            == 2
+            == 3
         )
         assert await admin.fetchval("SELECT to_regclass('_analysis.sessions')") is None
         assert (
             await admin.fetchval("SELECT to_regclass('market_scanner.market_scans')")
             is None
         )
-        run_liquibase(migrator, "rollback-count", "--count=1", **options)
+        run_liquibase(migrator, "rollback-count", "--count=2", **options)
         assert await admin.fetchval("SELECT to_regnamespace('_analysis')") is None
         assert (
             await scanner.fetch(

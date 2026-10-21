@@ -347,7 +347,7 @@ class SentimentItemRow(Base):
     analysis_date: Mapped[date] = mapped_column(Date, nullable=False)
 
     topic: Mapped[str] = mapped_column(Text, nullable=False)
-    sentiment_score: Mapped[float] = mapped_column(Float, nullable=False)
+    sentiment_score: Mapped[float | None] = mapped_column(Float, nullable=True)
     impact: Mapped[str] = mapped_column(String(20), nullable=False)
     source_type: Mapped[str] = mapped_column(String(20), nullable=False)
     comment: Mapped[str] = mapped_column(Text, nullable=False)

@@ -64,9 +64,9 @@ async def test_unified_migrations_repeat_and_rollback_independently(
         run_liquibase(migrator, "update", **options)
         assert (
             await admin.fetchval("SELECT count(*) FROM liquibase.databasechangelog")
-            == 2
+            == 3
         )
-        run_liquibase(migrator, "rollback-count", "--count=1", **options)
+        run_liquibase(migrator, "rollback-count", "--count=2", **options)
         assert await admin.fetchval("SELECT to_regnamespace('_analysis')") is None
         assert (
             await admin.fetchval(
