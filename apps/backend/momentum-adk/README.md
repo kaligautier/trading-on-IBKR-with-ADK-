@@ -16,11 +16,25 @@ The target is one database, `momentum`, with `_sessions` (5 ADK tables) and
 to its own schema; result access is INSERT/SELECT only. Both pools are bounded.
 The unified layout was applied and verified remotely on 2026-10-20; obsolete
 Momentum databases and the shared legacy schema were removed after private backups.
-Local validation passes 87 unit and 48 PostgreSQL integration cases.
-This library has no worker, HTTP entrypoint, image or application deployment yet.
-The gateway and existing ADK workflow will be ported
-in dependency order. The final worker will use the dedicated Cloud Run
-Job, isolated PostgreSQL storage and exclusively LiteLLM inference.
+Local validation passes 136 unit and 49 PostgreSQL integration cases.
+The worker now includes the original market-data adapters, twelve agent roles,
+analyst/debate graph, execution memory and durable ADK runtime. All model roles use
+the native LiteLLM gateway exclusively. A shared gate permits two concurrent model
+calls and spaces request starts by 6.5 seconds to respect the virtual key policy.
+The bounded worker runs as `python -m app.job_runner`; its non-root image is deployed
+by the independent [Terraform root](../../../infra/momentum/README.md).
+The private HTTP dispatcher remains a separate, unimplemented component.
+
+Required runtime variables are `LITELLM_API_BASE`, `LITELLM_API_KEY`,
+`MOMENTUM_SESSION_DATABASE_URL`, `MOMENTUM_RESULT_DATABASE_URL` and
+`TA_ANALYSIS_REQUEST` (AnalysisRequest JSON). Both database URLs must explicitly
+name `momentum`. Model aliases are configurable through `MOMENTUM_QUICK_MODEL`
+and `MOMENTUM_DEEP_MODEL`. Credentials belong in Secret Manager or ignored local
+files, never in command examples or Terraform variable values.
+
+Use `scripts/verify_result.py SESSION_ID` with the result runtime credential to
+independently verify a committed analysis and its token/tool counters. The worker
+logs a completion event only after the result transaction commits.
 
 ## Local checks
 

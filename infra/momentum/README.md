@@ -16,7 +16,8 @@ file or stdin; never pass secret values to Terraform. Both URLs must target
 `momentum`, with separate `_sessions` and `_analysis` runtime logins.
 Build `apps/backend/momentum-adk/Dockerfile` for linux/amd64 and push to the
 `momentum/worker` Artifact Registry repository. Set `image` to its immutable
-sha256 digest in an ignored `config/release.local.tfvars`. Then plan/apply again
+sha256 digest in a release variable file. The verified preprod image is recorded
+in `config/preprod.release.tfvars`. Then plan/apply again
 with both variable files. This creates the job without executing a paid analysis.
 
 Execute one authorized request through `gcloud run jobs execute momentum-analysis`

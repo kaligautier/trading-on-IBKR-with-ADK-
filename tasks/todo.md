@@ -380,3 +380,24 @@ MCP remain later work; they cannot substitute for the complete analysis worker.
   migration checksums are unchanged. Runtime URLs now target `/momentum`.
   Validation: 87 unit cases, 48 local PostgreSQL cases, Ruff and wheel build pass.
   No Cloud Run worker deployment or real financial analysis has occurred.
+
+
+### Worker deployment follow-up (2026-10-21)
+
+The user authorized Terraform deployment and a real Cloud Run ticker test.
+PRs #69–#79 port the gateway, original vendors/tools/memory, agent catalog,
+workflow, worker and dedicated Terraform root in separate reviewable slices.
+PR #81 fixes the two failures exposed by live execution: shared model pacing
+for the existing virtual-key limits, and normalization of optional trader
+reasoning before writing the NOT NULL legacy result column.
+
+Current local verification: 136 unit tests and 49 disposable PostgreSQL
+integration tests pass; Ruff lint/format pass. The PostgreSQL regression includes
+an explicit null trader rationale and independently rereads every result section.
+The same writer also flushes the previous real AAPL output against remote
+PostgreSQL in a deliberately rolled-back diagnostic transaction.
+
+This is a worker deployment, not completion of every checklist item. The private
+HTTP dispatcher, its IAM/invocation checks, broader controlled provider cases and
+automated image publication remain outstanding. Existing unchecked items are
+not promoted to complete solely because a live worker succeeds.
