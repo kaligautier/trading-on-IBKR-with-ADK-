@@ -1,0 +1,84 @@
+"""Route ADK's native Gemini requests through the private LiteLLM gateway."""
+
+import asyncio
+import json
+
+import httpx
+from google.adk.models import Gemini
+from google.genai import errors, types
+from pydantic import PrivateAttr, ValidationError
+
+from app.config.rate_limit import ModelRequestGate
+from app.config.settings import Settings
+
+
+class LiteLLMError(RuntimeError):
+    """Sanitized gateway failure."""
+
+    def __init__(self, details):
+        super().__init__(f"LiteLLM gateway failed: {details}")
+
+
+class LiteLLMGatewayModel(Gemini):
+    """Translate provider failures into the application's typed error contract."""
+
+    _gate: ModelRequestGate = PrivateAttr(default_factory=ModelRequestGate)
+
+    async def generate_content_async(self, llm_request, stream=False):
+        async with self._gate.acquire():
+            async for response in self._generate(llm_request, stream):
+                yield response
+
+    async def _generate(self, llm_request, stream):
+        try:
+            async for response in super().generate_content_async(llm_request, stream):
+                yield response
+        except (
+            errors.APIError,
+            errors.UnknownApiResponseError,
+            json.JSONDecodeError,
+            httpx.TransportError,
+            asyncio.TimeoutError,
+            ValidationError,
+        ) as error:
+            details = {"error_type": type(error).__name__}
+            if isinstance(error, errors.APIError):
+                details["upstream_status"] = error.code
+            # ADK logs exceptions and returns str(error) over SSE. Vendor error
+            # bodies may include prompts or credentials; keep only safe context.
+            raise LiteLLMError(details=details) from None
+
+
+def create_model(
+    config: Settings, model: str, gate: ModelRequestGate | None = None
+) -> LiteLLMGatewayModel:
+    """Use native Gemini transport, with no direct-provider fallback."""
+    instance = LiteLLMGatewayModel(
+        model=model,
+        client_kwargs={
+            "enterprise": False,
+            "vertexai": False,
+            # SDK requires a key; only Authorization authenticates the gateway.
+            "api_key": "litellm-proxy",
+            "http_options": types.HttpOptions(
+                base_url=config.LITELLM_API_BASE.rstrip("/"),
+                api_version="v1beta",
+                headers={
+                    "Authorization": "Bearer "
+                    + config.LITELLM_API_KEY.get_secret_value(),
+                },
+                timeout=180_000,
+                retry_options=types.HttpRetryOptions(attempts=1),
+                client_args={"follow_redirects": False},
+                # GenAI otherwise chooses aiohttp and ignores follow_redirects.
+                async_client_args={
+                    "transport": httpx.AsyncHTTPTransport(),
+                    "follow_redirects": False,
+                },
+            ),
+        },
+    )
+
+    if gate is not None:
+        instance._gate = gate
+    return instance
