@@ -1,0 +1,48 @@
+[build-system]
+requires = ["hatchling>=1.27,<2"]
+build-backend = "hatchling.build"
+
+[project]
+name = "momentum-adk"
+version = "0.1.0"
+description = "Independent Momentum ADK financial analysis engine"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "asyncpg>=0.30,<1",
+    "google-adk[db]==2.6.1",
+    "pydantic-settings>=2,<3",
+    "httpx>=0.28,<1",
+    "pydantic>=2.11.4,<3",
+    "sqlalchemy[asyncio]>=2.0,<3",
+    "pandas>=2.3,<3",
+    "requests>=2.32.4,<3",
+    "stockstats>=0.6.5,<1",
+    "yfinance>=0.2.63,<1",
+]
+
+[dependency-groups]
+dev = ["pytest>=8.4.1,<9", "pytest-asyncio>=1.0,<2", "ruff==0.14.7"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["app"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 88
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "B", "C4", "N"]
+
+# Preserve vendor report templates from the source implementation.
+[tool.ruff.lint.per-file-ignores]
+"app/infrastructure/market_data/**/*.py" = ["E501"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["app"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests/unit"]
+addopts = "-ra --strict-markers"
+markers = ["unit: isolated tests", "integration: disposable service tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
