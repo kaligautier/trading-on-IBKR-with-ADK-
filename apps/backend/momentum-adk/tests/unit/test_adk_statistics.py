@@ -4,6 +4,7 @@ from google.genai import types
 from app.components.agents.momentum.catalog import MomentumAgentCatalog
 from app.components.callbacks.statistics import MomentumStatistics
 from app.config.llm import create_model
+from app.config.rate_limit import ModelRequestGate
 from app.config.settings import Settings
 
 
@@ -57,6 +58,7 @@ def test_statistics_reset_starts_a_fresh_execution():
 
 
 def test_catalog_attaches_statistics_to_all_model_agents():
+    gate = ModelRequestGate()
     statistics = MomentumStatistics()
     catalog = MomentumAgentCatalog(
         quick_model=create_model(
@@ -64,12 +66,14 @@ def test_catalog_attaches_statistics_to_all_model_agents():
                 LITELLM_API_BASE="https://gateway.example", LITELLM_API_KEY="test"
             ),
             "quick",
+            gate,
         ),
         deep_model=create_model(
             Settings(
                 LITELLM_API_BASE="https://gateway.example", LITELLM_API_KEY="test"
             ),
             "deep",
+            gate,
         ),
         statistics=statistics,
     )

@@ -7,6 +7,7 @@ from google.genai import types
 from pydantic import ValidationError
 
 from app.config.llm import LiteLLMError, create_model
+from app.config.rate_limit import ModelRequestGate
 from app.config.settings import Settings
 
 
@@ -24,7 +25,7 @@ async def test_native_gateway_transport(status):
     config = Settings(
         LITELLM_API_BASE="https://gateway.example", LITELLM_API_KEY="test-key"
     )
-    model = create_model(config, "gemini-3.8-flash")
+    model = create_model(config, "gemini-3.8-flash", ModelRequestGate())
     calls = []
 
     async def respond(request):

@@ -50,7 +50,7 @@ class LiteLLMGatewayModel(Gemini):
 
 
 def create_model(
-    config: Settings, model: str, gate: ModelRequestGate | None = None
+    config: Settings, model: str, gate: ModelRequestGate
 ) -> LiteLLMGatewayModel:
     """Use native Gemini transport, with no direct-provider fallback."""
     instance = LiteLLMGatewayModel(
@@ -79,6 +79,5 @@ def create_model(
         },
     )
 
-    if gate is not None:
-        instance._gate = gate
+    instance._gate = gate
     return instance

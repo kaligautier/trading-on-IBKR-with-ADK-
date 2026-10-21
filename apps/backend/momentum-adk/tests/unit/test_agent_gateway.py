@@ -2,6 +2,7 @@ import pytest
 
 from app.components.agents.momentum.catalog import MomentumAgentCatalog
 from app.config.llm import LiteLLMGatewayModel, create_model
+from app.config.rate_limit import ModelRequestGate
 from app.config.settings import Settings
 
 
@@ -9,7 +10,12 @@ def test_every_role_uses_injected_gateway():
     config = Settings(
         LITELLM_API_BASE="https://gateway.example", LITELLM_API_KEY="test"
     )
-    quick, deep = create_model(config, "quick"), create_model(config, "deep")
+    gate = ModelRequestGate()
+    quick, deep = (
+        create_model(config, "quick", gate),
+        create_model(config, "deep", gate),
+    )
+    assert quick._gate is deep._gate is gate
     catalog = MomentumAgentCatalog(quick, deep)
     assert len(catalog.role_names) == 12
     for role in catalog.role_names | {"reflection"}:
