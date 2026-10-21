@@ -4,18 +4,7 @@ from .common import _filter_csv_by_date_range, _make_api_request
 
 
 def get_stock(symbol: str, start_date: str, end_date: str) -> str:
-    """
-    Returns raw daily OHLCV values, adjusted close values, and historical split/dividend events
-    filtered to the specified date range.
-
-    Args:
-        symbol: The name of the equity. For example: symbol=IBM
-        start_date: Start date in yyyy-mm-dd format
-        end_date: End date in yyyy-mm-dd format
-
-    Returns:
-        CSV string containing the daily adjusted time series data filtered to the date range.
-    """
+    """Returns raw daily OHLCV values, adjusted close values, and historical split/dividend events"""
     # Parse dates to determine the range
     start_dt = datetime.strptime(start_date, "%Y-%m-%d")
     today = datetime.now()

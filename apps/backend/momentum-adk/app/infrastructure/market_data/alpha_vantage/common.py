@@ -99,17 +99,7 @@ def _make_api_request(function_name: str, params: dict) -> dict | str:
 
 
 def _filter_csv_by_date_range(csv_data: str, start_date: str, end_date: str) -> str:
-    """
-    Filter CSV data to include only rows within the specified date range.
-
-    Args:
-        csv_data: CSV string from Alpha Vantage API
-        start_date: Start date in yyyy-mm-dd format
-        end_date: End date in yyyy-mm-dd format
-
-    Returns:
-        Filtered CSV string
-    """
+    """Filter CSV data to include only rows within the specified date range."""
     if not csv_data or csv_data.strip() == "":
         return csv_data
 

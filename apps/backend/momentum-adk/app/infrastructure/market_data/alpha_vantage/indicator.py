@@ -10,21 +10,7 @@ def get_indicator(
     time_period: int = 14,
     series_type: str = "close",
 ) -> str:
-    """
-    Returns Alpha Vantage technical indicator values over a time window.
-
-    Args:
-        symbol: ticker symbol of the company
-        indicator: technical indicator to get the analysis and report of
-        curr_date: The current trading date you are trading on, YYYY-mm-dd
-        look_back_days: how many days to look back
-        interval: Time interval (daily, weekly, monthly)
-        time_period: Number of data points for calculation
-        series_type: The desired price type (close, open, high, low)
-
-    Returns:
-        String containing indicator values and description
-    """
+    """Returns Alpha Vantage technical indicator values over a time window."""
     from datetime import datetime
 
     from dateutil.relativedelta import relativedelta

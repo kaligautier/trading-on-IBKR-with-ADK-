@@ -1,24 +1,20 @@
 from .common import _make_api_request, format_datetime_for_api
 
 
+def _end_time(value):
+    # Preserve explicit timestamps; calendar dates include their final minute.
+    if isinstance(value, str) and len(value) == 10:
+        value += " 23:59"
+    return format_datetime_for_api(value)
+
+
 def get_news(ticker, start_date, end_date) -> dict[str, str] | str:
-    """Returns live and historical market news & sentiment data from premier news outlets worldwide.
-
-    Covers stocks, cryptocurrencies, forex, and topics like fiscal policy, mergers & acquisitions, IPOs.
-
-    Args:
-        ticker: Stock symbol for news articles.
-        start_date: Start date for news search.
-        end_date: End date for news search.
-
-    Returns:
-        Dictionary containing news sentiment data or JSON string.
-    """
+    """News for a ticker, including the whole end_date when it is a date."""
 
     params = {
         "tickers": ticker,
         "time_from": format_datetime_for_api(start_date),
-        "time_to": format_datetime_for_api(end_date),
+        "time_to": _end_time(end_date),
     }
 
     return _make_api_request("NEWS_SENTIMENT", params)
@@ -27,18 +23,7 @@ def get_news(ticker, start_date, end_date) -> dict[str, str] | str:
 def get_global_news(
     curr_date, look_back_days: int = 7, limit: int = 50
 ) -> dict[str, str] | str:
-    """Returns global market news & sentiment data without ticker-specific filtering.
-
-    Covers broad market topics like financial markets, economy, and more.
-
-    Args:
-        curr_date: Current date in yyyy-mm-dd format.
-        look_back_days: Number of days to look back (default 7).
-        limit: Maximum number of articles (default 50).
-
-    Returns:
-        Dictionary containing global news sentiment data or JSON string.
-    """
+    """Global news through curr_date, with an explicit look-back and limit."""
     from datetime import datetime, timedelta
 
     # Calculate start date
@@ -49,7 +34,7 @@ def get_global_news(
     params = {
         "topics": "financial_markets,economy_macro,economy_monetary",
         "time_from": format_datetime_for_api(start_date),
-        "time_to": format_datetime_for_api(curr_date),
+        "time_to": _end_time(curr_date),
         "limit": str(limit),
     }
 
@@ -57,16 +42,7 @@ def get_global_news(
 
 
 def get_insider_transactions(symbol: str) -> dict[str, str] | str:
-    """Returns latest and historical insider transactions by key stakeholders.
-
-    Covers transactions by founders, executives, board members, etc.
-
-    Args:
-        symbol: Ticker symbol. Example: "IBM".
-
-    Returns:
-        Dictionary containing insider transaction data or JSON string.
-    """
+    """Latest and historical insider transactions for symbol."""
 
     params = {
         "symbol": symbol,
