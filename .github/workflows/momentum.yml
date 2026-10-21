@@ -1,0 +1,61 @@
+name: Momentum checks
+
+on:
+  pull_request:
+    paths:
+      - 'apps/backend/momentum-adk/**'
+      - '.github/workflows/momentum.yml'
+      - 'database/**'
+      - 'infra/momentum/**'
+  push:
+    branches: [main]
+    paths:
+      - 'apps/backend/momentum-adk/**'
+      - '.github/workflows/momentum.yml'
+      - 'database/**'
+      - 'infra/momentum/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: momentum-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  library:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: apps/backend/momentum-adk
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
+        with:
+          version: '0.9.17'
+          enable-cache: true
+          cache-dependency-glob: apps/backend/momentum-adk/uv.lock
+      - name: Verify lock and install Python 3.12 dependencies
+        run: |
+          uv lock --check --python 3.12
+          uv sync --frozen --python 3.12
+      - name: Lint and check formatting
+        run: |
+          uv run --frozen ruff check app tests
+          uv run --frozen ruff format --check app tests
+      - name: Test the independent library
+        run: TZ=UTC uv run --frozen pytest -q tests/unit
+      - name: Build and import the installed wheel outside the checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          uv build --wheel --out-dir "$RUNNER_TEMP/momentum-dist"
+          wheels=("$RUNNER_TEMP"/momentum-dist/*.whl)
+          cd "$RUNNER_TEMP"
+          uv run --python 3.12 --isolated --no-project --with "${wheels[0]}" \
+            python -I -c 'import app; from app.domain.contracts import AnalysisRequest'
+
