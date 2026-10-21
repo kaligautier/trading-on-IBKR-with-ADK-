@@ -20,6 +20,27 @@ def _check_schema(connection):
         }
         if not {i.name for i in table.indexes}.issubset(indexes):
             raise ValueError("Session indexes do not match the pinned SDK")
+        expected = {
+            (
+                tuple(e.parent.name for e in fk.elements),
+                tuple(e.column.name for e in fk.elements),
+                fk.referred_table.name,
+                fk.ondelete,
+            )
+            for fk in table.foreign_key_constraints
+        }
+        actual = {
+            (
+                tuple(fk["constrained_columns"]),
+                tuple(fk["referred_columns"]),
+                fk["referred_table"],
+                fk["options"].get("ondelete"),
+            )
+            for fk in inspector.get_foreign_keys(table.name, schema="_sessions")
+            if fk["referred_schema"] in (None, "_sessions")
+        }
+        if actual != expected:
+            raise ValueError("Session foreign keys do not match the pinned SDK")
     version = connection.execute(
         text(
             "SELECT value FROM _sessions.adk_internal_metadata "

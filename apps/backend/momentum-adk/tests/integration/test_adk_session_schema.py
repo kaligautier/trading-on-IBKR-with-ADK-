@@ -96,3 +96,30 @@ async def test_missing_migrations_fail_without_repair(unified_database, mutation
         else:
             await admin.execute("UPDATE _sessions.adk_internal_metadata SET value='1'")
         await admin.close()
+
+
+@pytest.mark.parametrize("cascade", [False, True])
+async def test_invalid_session_foreign_key_is_rejected(unified_database, cascade):
+    admin = await asyncpg.connect(unified_database["admin"])
+    key = await admin.fetchrow(
+        "SELECT conname, pg_get_constraintdef(oid) AS ddl FROM pg_constraint "
+        "WHERE conrelid='_sessions.events'::regclass AND contype='f'"
+    )
+    name = '"' + key["conname"].replace('"', '""') + '"'
+    try:
+        await admin.execute(f"ALTER TABLE _sessions.events DROP CONSTRAINT {name}")
+        if cascade:
+            await admin.execute(
+                f"ALTER TABLE _sessions.events ADD CONSTRAINT {name} "
+                + key["ddl"].replace(" ON DELETE CASCADE", "")
+            )
+        with pytest.raises(RuntimeError, match="session migrations are required"):
+            await create_session_service(unified_database["sessions_runtime"])
+    finally:
+        await admin.execute(
+            f"ALTER TABLE _sessions.events DROP CONSTRAINT IF EXISTS {name}"
+        )
+        await admin.execute(
+            f"ALTER TABLE _sessions.events ADD CONSTRAINT {name} " + key["ddl"]
+        )
+        await admin.close()
