@@ -105,3 +105,15 @@ jobs:
           version: '0.9.17'
       - run: uv export --project apps/backend/momentum-adk --frozen --no-dev --no-emit-project --format requirements-txt --output-file=/tmp/momentum-requirements.txt
       - run: uvx --from pip-audit==2.10.1 --python 3.12 pip-audit -r /tmp/momentum-requirements.txt --disable-pip --no-deps
+
+  image:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - name: Build Linux production image
+        run: docker build --platform linux/amd64 --tag momentum-ci apps/backend/momentum-adk
+      - name: Verify offline runtime as the production user
+        run: |
+          docker run --rm -i --network none --read-only --tmpfs /tmp:rw,nosuid,size=64m \
+            --entrypoint python momentum-ci - < apps/backend/momentum-adk/scripts/container_smoke.py

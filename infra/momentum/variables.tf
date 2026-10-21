@@ -25,12 +25,24 @@ variable "model" {
 variable "llm_key_version" {
   type    = string
   default = "1"
+  validation {
+    condition     = can(regex("^[1-9][0-9]*$", var.llm_key_version))
+    error_message = "Pin a positive numeric Secret Manager version."
+  }
 }
 variable "session_database_version" {
   type    = string
   default = "1"
+  validation {
+    condition     = can(regex("^[1-9][0-9]*$", var.session_database_version))
+    error_message = "Pin a positive numeric Secret Manager version."
+  }
 }
 variable "result_database_version" {
   type    = string
   default = "1"
+  validation {
+    condition     = can(regex("^[1-9][0-9]*$", var.result_database_version))
+    error_message = "Pin a positive numeric Secret Manager version."
+  }
 }
