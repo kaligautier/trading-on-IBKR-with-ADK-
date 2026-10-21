@@ -19,6 +19,7 @@ class TestSafeTickerComponent(unittest.TestCase):
             "7203.T",
             "BHP.AX",
             "^GSPC",
+            "EURUSD=X",
         ):
             self.assertEqual(safe_ticker_component(ticker), ticker)
 
