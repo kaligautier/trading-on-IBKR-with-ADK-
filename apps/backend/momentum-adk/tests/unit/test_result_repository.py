@@ -12,6 +12,7 @@ from app.infrastructure.models import (
     Fundamentals,
     PortfolioDecisionRow,
     TechnicalIndicators,
+    TraderProposalRow,
 )
 from app.infrastructure.result_writer import ModelMetadata, PostgresResultWriter
 
@@ -100,3 +101,15 @@ async def test_writer_rejects_missing_or_oversized_correlation(field, value):
             session, item
         )
     assert session.rows == []
+
+
+@pytest.mark.parametrize("reasoning", [None, "", "Evidence-based rationale"])
+async def test_optional_trader_reasoning_matches_nonnullable_storage(reasoning):
+    session = RecordingSession()
+    item = execution()
+    item.result.structured["Trader"] = {"action": "Hold", "reasoning": reasoning}
+    await PostgresResultWriter(ModelMetadata("litellm", "deep", "quick")).write(
+        session, item
+    )
+    trader = next(row for row in session.rows if isinstance(row, TraderProposalRow))
+    assert trader.reasoning == (reasoning or "")

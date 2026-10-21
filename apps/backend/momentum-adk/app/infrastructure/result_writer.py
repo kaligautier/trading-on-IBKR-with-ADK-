@@ -359,7 +359,7 @@ class DecisionSectionWriter:
             TraderProposalRow(
                 **self._common(parent, record),
                 action=self._enum_value(trader.get("action")),
-                reasoning=trader.get("reasoning", ""),
+                reasoning=trader.get("reasoning") or "",
                 entry_price=trader.get("entry_price"),
                 stop_loss=trader.get("stop_loss"),
                 take_profit=trader.get("take_profit"),
