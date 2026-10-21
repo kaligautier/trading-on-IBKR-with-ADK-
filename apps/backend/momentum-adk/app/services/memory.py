@@ -29,8 +29,13 @@ class MarketOutcomeResolver:
         try:
             stock = self._history(ticker, trade_date, holding_days)
             benchmark = self._history("SPY", trade_date, holding_days)
-            actual_days = min(holding_days, len(stock) - 1, len(benchmark) - 1)
-            if actual_days < 1:
+            # Compare identical dates across different trading calendars.
+            stock.index = stock.index.tz_localize(None).normalize()
+            benchmark.index = benchmark.index.tz_localize(None).normalize()
+            common = stock.index.intersection(benchmark.index).sort_values()
+            stock, benchmark = stock.loc[common], benchmark.loc[common]
+            actual_days = holding_days
+            if holding_days < 1 or len(common) <= holding_days:
                 return None
             raw_return = self._return(stock, actual_days)
             alpha_return = raw_return - self._return(benchmark, actual_days)

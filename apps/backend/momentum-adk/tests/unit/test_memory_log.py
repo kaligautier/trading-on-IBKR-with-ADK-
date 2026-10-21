@@ -32,6 +32,8 @@ def test_outcome_update_exposes_reflection_as_future_context(tmp_path):
         ]
     )
 
+    log.store_decision("NVDA", "2026-07-01", "Rating: Buy")
+    assert len(log.load_entries()) == 1
     context = log.get_past_context("NVDA")
     assert "Momentum persisted" in context
     assert log.get_pending_entries() == []

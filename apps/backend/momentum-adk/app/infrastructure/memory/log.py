@@ -46,7 +46,7 @@ class TradingMemoryLog:
             raw = self._log_path.read_text(encoding="utf-8")
             for line in raw.splitlines():
                 if line.startswith(f"[{trade_date} | {ticker} |") and line.endswith(
-                    "| pending]"
+                    "]"
                 ):
                     return
         rating = parse_rating(final_trade_decision)
