@@ -401,3 +401,8 @@ This is a worker deployment, not completion of every checklist item. The private
 HTTP dispatcher, its IAM/invocation checks, broader controlled provider cases and
 automated image publication remain outstanding. Existing unchecked items are
 not promoted to complete solely because a live worker succeeds.
+
+Live verification completed: Cloud Run execution `momentum-analysis-stwdd` exited
+0; independent reads verified one AAPL result, all eleven child-table categories
+and 92 correlated ADK events in the dedicated database. See the
+[rollout evidence](../infra/momentum/README.md#verified-preprod-execution).
