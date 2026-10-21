@@ -1,22 +1,39 @@
-# Public frontend delivery plan
+# Momentum delivery and review plan
 
-Specification: [public frontend](../docs/specs/public-frontend.md).
+The target is a private Cloud Run analysis worker using LiteLLM and one PostgreSQL
+`momentum` database: `_sessions` for ADK history and `_analysis` for financial
+results. See the [specification](../docs/specs/momentum-service.md).
 
-1. Bootstrap a reproducible standalone Next.js application and `just` commands.
-2. Port the active landing design in bounded slices; replace account/newsletter
-   actions with public documentation and scanner navigation.
-3. Port public documentation without the account/IBKR credential journey.
-4. Adapt report-v3 with validated data and an isolated IAM reader client.
-5. Connect the public scanner display and cover failure/empty/data-quality states.
-6. Add container, CI and Terraform-managed public Cloud Run deployment.
-7. Show conclusion and public arbitration first, and keep detailed figures and
-   macro analysis in keyboard-accessible disclosures. Preserve historical reports.
-8. Run accessibility/responsive checks, review commit size and verify live behavior.
+## Review strategy
 
-Keep the frontend in PR #12 and review the scanner arbitration producer/API
-changes in a separate backend PR. Both PRs target main independently; the frontend
-supports reports without arbitration. Keep frontend slices in dependency-ordered
-commits, each below 1,000 changed lines excluding only the generated npm lockfile.
-Report lockfile size separately. Cloud Run deployment remains a separate follow-up.
-Local fixture checks do not establish live synthesis quality.
-Do not merge PRs automatically. Deploy only the reviewed and tested final image.
+The replacement stack starts from `main` at `1ad365b`. Each PR covers one domain
+and changes fewer than 1,000 counted lines (additions plus deletions); generated
+`uv.lock` and `package-lock.json` are excluded by repository policy. Dependencies
+are explicit: review and merge from the bottom of the stack upwards, retargeting
+and rerunning checks as parent PRs land. No automatic merge is configured.
+
+The stack starts from tested worker source `83003b5`. Review corrections cover
+provider date windows, fallback and durable resume statistics. Previously deployed
+migrations stay byte-for-byte unchanged, including the obsolete layouts whose
+checksums and compatibility tests must remain valid. Their presence is historical
+compatibility, not a request to provision separate databases again.
+
+The old 25-PR stack remains available as history. The replacement folds live
+fixes into the responsible domain: gateway pacing into agent configuration and
+nullable trader rationale into result persistence. This avoids asking reviewers
+to approve behavior already known to fail before reviewing its correction.
+
+## Validation
+
+Each code checkpoint runs all unit tests present at that checkpoint plus Ruff.
+Each database checkpoint runs the applicable real PostgreSQL integration suite
+against the labeled disposable local container. The final stack preserves the
+155 unit and 49 database tests, the immutable image reference and Terraform tests.
+CI is introduced progressively: library checks with the package, database checks
+with the harness, and infrastructure/dependency checks with the deployment root.
+
+The deployed worker has already completed a real AAPL analysis through LiteLLM
+and persisted its correlated financial result. Restacking PRs does not redeploy
+infrastructure or execute another paid analysis. Live evidence is in
+[the infrastructure PR](https://github.com/kaligautier/trading-on-IBKR-with-ADK-/pull/98),
+which introduces the rollout guide.
