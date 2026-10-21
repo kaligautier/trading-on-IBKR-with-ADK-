@@ -32,9 +32,9 @@ run "bounded_private_worker" {
 run "reject_secret_aliases" {
   command = plan
   variables {
-    llm_key_version = "latest"
+    llm_key_version          = "latest"
     session_database_version = "active"
-    result_database_version = "0"
+    result_database_version  = "0"
   }
   expect_failures = [var.llm_key_version, var.session_database_version, var.result_database_version]
 }
