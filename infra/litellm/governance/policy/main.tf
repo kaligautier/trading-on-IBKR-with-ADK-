@@ -54,13 +54,23 @@ resource "litellm_team" "agents" {
   models     = var.models
   lifecycle {
     prevent_destroy = true
+    # This provider cannot clear a cap; validate the API value below instead.
+    ignore_changes = [max_budget]
+  }
+}
+# The resource's optional float conflates an absent budget with zero. The
+# datasource's computed value preserves null from the management API.
+data "litellm_team" "agents" {
+  team_id = litellm_team.agents.id
+  lifecycle {
     postcondition {
-      condition     = self.max_budget == null || self.max_budget == 0
+      condition     = self.max_budget == null
       error_message = "The agents team must have no shared budget. Adopt a budget-free team to keep per-agent budgets independent."
     }
   }
 }
 resource "litellm_key" "agent" {
+  depends_on            = [data.litellm_team.agents]
   for_each              = var.agents
   key                   = var.client_keys[each.key]
   key_alias             = each.key

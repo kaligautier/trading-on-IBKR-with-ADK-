@@ -68,6 +68,19 @@ class TerraformPolicy:
             secret not in plan for secret in [self.env["TF_VAR_master"], *keys.values()]
         )
 
+    def reject_team_budget(self):
+        result = subprocess.run(
+            ["terraform", f"-chdir={self.path}", "plan", "-input=false", "-no-color"],
+            env=self.env,
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 1 and "no shared budget" in result.stderr, (
+            "A capped team passed the independent-budget guard\n"
+            + result.stdout
+            + result.stderr
+        )
+
 
 def main():
     import httpx
@@ -89,6 +102,17 @@ def main():
                 "-parallelism=1"  # The mock stores a shared snapshot.
             )
             policy.apply(agents, keys)
+            policy.run("state", "rm", "module.policy.litellm_team.agents")
+            policy.env["TF_VAR_import_team"] = "true"
+            for budget in [0, 5]:
+                client.post(
+                    "team/update", json={"team_id": "agents", "max_budget": budget}
+                ).raise_for_status()
+                policy.reject_team_budget()
+            client.post(
+                "team/update", json={"team_id": "agents", "max_budget": None}
+            ).raise_for_status()
+            policy.apply(agents, keys, import_team=True)
             state = client.get("__state").raise_for_status().json()
             assert (
                 state["keys"][hashlib.sha256(keys["scanner"].encode()).hexdigest()][

@@ -325,6 +325,21 @@ def main():
             }
             terraform_keys = {"scanner": legacy_key, "weekly": weekly_key}
             policy.apply(terraform_agents, terraform_keys)
+            policy.run("state", "rm", "module.policy.litellm_team.agents")
+            policy.env["TF_VAR_import_team"] = "true"
+            for budget in [0, 5]:
+                sql(
+                    f"""UPDATE "LiteLLM_TeamTable" SET max_budget = {budget} WHERE team_id = 'agents';"""
+                )
+                policy.reject_team_budget()
+            sql(
+                """UPDATE "LiteLLM_TeamTable" SET max_budget = NULL WHERE team_id = 'agents';"""
+            )
+            policy.apply(terraform_agents, terraform_keys, import_team=True)
+            print(
+                "PASS: zero/positive team caps rejected; null budget restored without key changes",
+                flush=True,
+            )
             assert (
                 float(
                     sql(

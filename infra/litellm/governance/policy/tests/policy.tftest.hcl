@@ -1,4 +1,8 @@
 mock_provider "litellm" {}
+override_data {
+  target = data.litellm_team.agents
+  values = { max_budget = null }
+}
 variables {
   models      = ["gemini-test"]
   agents      = { scanner = {}, weekly = { max_budget = 4, budget_duration = "7d" } }

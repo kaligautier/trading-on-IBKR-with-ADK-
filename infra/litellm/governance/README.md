@@ -55,9 +55,10 @@ Provider 1.106.0 resends `budget_duration` on key updates, so a policy change ca
 recompute the next reset even when the duration string is unchanged. It does not
 clear accumulated spend. Review policy changes near a reset boundary accordingly.
 
-Import a team without a shared budget. The provider cannot reliably clear a
-pre-existing team budget with an omitted/null value; the team postcondition stops
-adoption rather than claiming independent budgets while a shared cap remains.
+Import a team without a shared budget (`max_budget: null`, never zero). The
+provider cannot reliably clear a pre-existing cap with an omitted value. A
+`litellm_team` data source preserves the API's null/zero distinction and blocks
+key reconciliation whenever the team has any shared cap, including zero.
 
 ## Verification and lifecycle
 
