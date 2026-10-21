@@ -1,10 +1,12 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Annotated
 
 import pandas as pd
 import yfinance as yf
 from dateutil.relativedelta import relativedelta
+from yfinance.exceptions import YFRateLimitError
 
+from app.infrastructure.market_data.dates import require_current_fundamentals
 from app.infrastructure.market_data.stockstats import (
     StockstatsUtils,
     filter_financials_by_date,
@@ -21,23 +23,25 @@ def get_YFin_data_online(  # noqa: N802 - retained as a public compatibility API
     datetime.strptime(start_date, "%Y-%m-%d")
     datetime.strptime(end_date, "%Y-%m-%d")
 
-    # Create ticker object
     ticker = yf.Ticker(symbol.upper())
 
-    # Fetch historical data for the specified date range
-    data = yf_retry(lambda: ticker.history(start=start_date, end=end_date))
+    data = yf_retry(
+        lambda: ticker.history(
+            start=start_date,
+            end=(datetime.strptime(end_date, "%Y-%m-%d") + timedelta(days=1)).strftime(
+                "%Y-%m-%d"
+            ),
+        )
+    )
 
-    # Check if data is empty
     if data.empty:
         return (
             f"No data found for symbol '{symbol}' between {start_date} and {end_date}"
         )
 
-    # Remove timezone info from index for cleaner output
     if data.index.tz is not None:
         data.index = data.index.tz_localize(None)
 
-    # Round numerical values to 2 decimal places for cleaner display
     numeric_columns = ["Open", "High", "Low", "Close", "Adj Close"]
     for col in numeric_columns:
         if col in data.columns:
@@ -46,7 +50,6 @@ def get_YFin_data_online(  # noqa: N802 - retained as a public compatibility API
     # Convert DataFrame to CSV string
     csv_string = data.to_csv()
 
-    # Add header information
     header = f"# Stock data for {symbol.upper()} from {start_date} to {end_date}\n"
     header += f"# Total records: {len(data)}\n"
     header += f"# Data retrieved on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n"
@@ -63,7 +66,6 @@ def get_stock_stats_indicators_window(
     look_back_days: Annotated[int, "how many days to look back"],
 ) -> str:
     best_ind_params = {
-        # Moving Averages
         "close_50_sma": (
             "50 SMA: A medium-term trend indicator. "
             "Usage: Identify trend direction and serve as dynamic support/resistance. "
@@ -79,7 +81,6 @@ def get_stock_stats_indicators_window(
             "Usage: Capture quick shifts in momentum and potential entry points. "
             "Tips: Prone to noise in choppy markets; use alongside longer averages for filtering false signals."
         ),
-        # MACD Related
         "macd": (
             "MACD: Computes momentum via differences of EMAs. "
             "Usage: Look for crossovers and divergence as signals of trend changes. "
@@ -95,13 +96,11 @@ def get_stock_stats_indicators_window(
             "Usage: Visualize momentum strength and spot divergence early. "
             "Tips: Can be volatile; complement with additional filters in fast-moving markets."
         ),
-        # Momentum Indicators
         "rsi": (
             "RSI: Measures momentum to flag overbought/oversold conditions. "
             "Usage: Apply 70/30 thresholds and watch for divergence to signal reversals. "
             "Tips: In strong trends, RSI may remain extreme; always cross-check with trend analysis."
         ),
-        # Volatility Indicators
         "boll": (
             "Bollinger Middle: A 20 SMA serving as the basis for Bollinger Bands. "
             "Usage: Acts as a dynamic benchmark for price movement. "
@@ -122,7 +121,6 @@ def get_stock_stats_indicators_window(
             "Usage: Set stop-loss levels and adjust position sizes based on current market volatility. "
             "Tips: It's a reactive measure, so use it as part of a broader risk management strategy."
         ),
-        # Volume-Based Indicators
         "vwma": (
             "VWMA: A moving average weighted by volume. "
             "Usage: Confirm trends by integrating price action with volume data. "
@@ -148,14 +146,12 @@ def get_stock_stats_indicators_window(
     try:
         indicator_data = _get_stock_stats_bulk(symbol, indicator, curr_date)
 
-        # Generate the date range we need
         current_dt = curr_date_dt
         date_values = []
 
         while current_dt >= before:
             date_str = current_dt.strftime("%Y-%m-%d")
 
-            # Look up the indicator value for this date
             if date_str in indicator_data:
                 indicator_value = indicator_data[date_str]
             else:
@@ -169,6 +165,8 @@ def get_stock_stats_indicators_window(
         for date_str, value in date_values:
             ind_string += f"{date_str}: {value}\n"
 
+    except YFRateLimitError:
+        raise
     except Exception as e:
         print(f"Error getting bulk stockstats data: {e}")
         # Fallback to original implementation if bulk method fails
@@ -241,6 +239,8 @@ def get_stockstats_indicator(
             indicator,
             curr_date,
         )
+    except YFRateLimitError:
+        raise
     except Exception as e:
         print(
             f"Error getting stockstats indicator data for indicator {indicator} on {curr_date}: {e}"
@@ -252,10 +252,13 @@ def get_stockstats_indicator(
 
 def get_fundamentals(
     ticker: Annotated[str, "ticker symbol of the company"],
-    curr_date: Annotated[str, "current date (not used for yfinance)"] = None,
+    curr_date: Annotated[
+        str, "current UTC date; historical fundamentals are unavailable"
+    ] = None,
 ):
     """Get company fundamentals overview from yfinance."""
     try:
+        require_current_fundamentals(curr_date)
         ticker_obj = yf.Ticker(ticker.upper())
         info = yf_retry(lambda: ticker_obj.info)
 
@@ -305,6 +308,8 @@ def get_fundamentals(
 
         return header + "\n".join(lines)
 
+    except YFRateLimitError:
+        raise
     except Exception as e:
         return f"Error retrieving fundamentals for {ticker}: {str(e)}"
 
@@ -316,6 +321,7 @@ def get_balance_sheet(
 ):
     """Get balance sheet data from yfinance."""
     try:
+        require_current_fundamentals(curr_date)
         ticker_obj = yf.Ticker(ticker.upper())
 
         if freq.lower() == "quarterly":
@@ -328,10 +334,8 @@ def get_balance_sheet(
         if data.empty:
             return f"No balance sheet data found for symbol '{ticker}'"
 
-        # Convert to CSV string for consistency with other functions
         csv_string = data.to_csv()
 
-        # Add header information
         header = f"# Balance Sheet data for {ticker.upper()} ({freq})\n"
         header += (
             f"# Data retrieved on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n"
@@ -339,6 +343,8 @@ def get_balance_sheet(
 
         return header + csv_string
 
+    except YFRateLimitError:
+        raise
     except Exception as e:
         return f"Error retrieving balance sheet for {ticker}: {str(e)}"
 
@@ -350,6 +356,7 @@ def get_cashflow(
 ):
     """Get cash flow data from yfinance."""
     try:
+        require_current_fundamentals(curr_date)
         ticker_obj = yf.Ticker(ticker.upper())
 
         if freq.lower() == "quarterly":
@@ -362,10 +369,8 @@ def get_cashflow(
         if data.empty:
             return f"No cash flow data found for symbol '{ticker}'"
 
-        # Convert to CSV string for consistency with other functions
         csv_string = data.to_csv()
 
-        # Add header information
         header = f"# Cash Flow data for {ticker.upper()} ({freq})\n"
         header += (
             f"# Data retrieved on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n"
@@ -373,6 +378,8 @@ def get_cashflow(
 
         return header + csv_string
 
+    except YFRateLimitError:
+        raise
     except Exception as e:
         return f"Error retrieving cash flow for {ticker}: {str(e)}"
 
@@ -384,6 +391,7 @@ def get_income_statement(
 ):
     """Get income statement data from yfinance."""
     try:
+        require_current_fundamentals(curr_date)
         ticker_obj = yf.Ticker(ticker.upper())
 
         if freq.lower() == "quarterly":
@@ -396,10 +404,8 @@ def get_income_statement(
         if data.empty:
             return f"No income statement data found for symbol '{ticker}'"
 
-        # Convert to CSV string for consistency with other functions
         csv_string = data.to_csv()
 
-        # Add header information
         header = f"# Income Statement data for {ticker.upper()} ({freq})\n"
         header += (
             f"# Data retrieved on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n"
@@ -407,6 +413,8 @@ def get_income_statement(
 
         return header + csv_string
 
+    except YFRateLimitError:
+        raise
     except Exception as e:
         return f"Error retrieving income statement for {ticker}: {str(e)}"
 
@@ -420,10 +428,8 @@ def get_insider_transactions(ticker: Annotated[str, "ticker symbol of the compan
         if data is None or data.empty:
             return f"No insider transactions data found for symbol '{ticker}'"
 
-        # Convert to CSV string for consistency with other functions
         csv_string = data.to_csv()
 
-        # Add header information
         header = f"# Insider Transactions data for {ticker.upper()}\n"
         header += (
             f"# Data retrieved on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n"
@@ -431,5 +437,7 @@ def get_insider_transactions(ticker: Annotated[str, "ticker symbol of the compan
 
         return header + csv_string
 
+    except YFRateLimitError:
+        raise
     except Exception as e:
         return f"Error retrieving insider transactions for {ticker}: {str(e)}"

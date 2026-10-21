@@ -1,3 +1,5 @@
+from yfinance.exceptions import YFRateLimitError
+
 # Import from vendor-specific modules
 from app.infrastructure.market_data.alpha_vantage import (
     get_balance_sheet as get_alpha_vantage_balance_sheet,
@@ -148,7 +150,7 @@ class MarketDataRouter:
         for vendor_name in self._fallback_vendors(vendor, implementations):
             try:
                 return implementations[vendor_name](*args, **kwargs)
-            except AlphaVantageRateLimitError:
+            except (AlphaVantageRateLimitError, YFRateLimitError):
                 continue
         raise RuntimeError(f"No available vendor for '{method}'")
 
