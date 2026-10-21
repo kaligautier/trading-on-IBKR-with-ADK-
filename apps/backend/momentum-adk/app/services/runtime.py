@@ -14,6 +14,7 @@ from app.components.agents.momentum.workflow import MomentumWorkflowFactory
 from app.config.llm import LiteLLMGatewayModel
 from app.domain.contracts import (
     AnalysisRequest,
+    RunStatistics,
     WorkflowExecution,
     WorkflowResult,
 )
@@ -43,8 +44,28 @@ class MomentumAdkEngine:
             session_id,
             invocation_id,
         )
+        result = WorkflowResult.model_validate(output)
+        session = await self._session_service.get_session(
+            app_name=self.APP_NAME,
+            user_id=user_id,
+            session_id=session_id,
+        )
+        if session is None:
+            raise RuntimeError("Momentum session disappeared after execution")
+        # Persisted events include completed nodes replayed during resume.
+        usage = RunStatistics()
+        for event in session.events:
+            if event.invocation_id != current_invocation_id or event.partial:
+                continue
+            if event.usage_metadata is not None:
+                usage.llm_calls += 1
+                usage.tokens_in += event.usage_metadata.prompt_token_count or 0
+                usage.tokens_out += event.usage_metadata.candidates_token_count or 0
+            usage.tool_calls += len(event.get_function_responses())
+        for field in ("llm_calls", "tokens_in", "tokens_out", "tool_calls"):
+            setattr(result.run_stats, field, getattr(usage, field))
         return WorkflowExecution(
-            result=WorkflowResult.model_validate(output),
+            result=result,
             user_id=user_id,
             session_id=session_id,
             invocation_id=current_invocation_id,

@@ -83,6 +83,7 @@ async def execute(request: AnalysisRequest):
             async_sessionmaker(database, expire_on_commit=False),
             writer,
         ).save(execution)
+        memory.complete(request, execution.result)
         print(
             json.dumps(
                 {
