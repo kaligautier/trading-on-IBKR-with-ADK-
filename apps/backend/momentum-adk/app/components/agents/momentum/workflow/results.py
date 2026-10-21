@@ -1,5 +1,7 @@
 """Stable workflow result construction and report rendering."""
 
+from datetime import timedelta
+
 from app.components.callbacks.statistics import MomentumStatistics
 from app.domain.analysis import (
     render_fundamentals_analysis,
@@ -29,6 +31,10 @@ class WorkflowResultBuilder:
         next_run: NextAnalysisRecommendation,
     ) -> WorkflowResult:
         reports = outcome.risk.trader.research.reports
+        if next_run.analysis_date < reports.request.analysis_date + timedelta(days=7):
+            raise ValueError(
+                "Next analysis must be at least seven days after this analysis"
+            )
         decision = outcome.decision
         return WorkflowResult(
             ticker=reports.request.ticker,
