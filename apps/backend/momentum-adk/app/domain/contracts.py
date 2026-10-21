@@ -5,13 +5,20 @@ Ported from DeepCopy 38d0736; reject non-iterable analyst input during validatio
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Sequence
 from datetime import date
 from enum import StrEnum
 from typing import Any, Protocol
 from uuid import UUID
 
-from pydantic import BaseModel, Field, RootModel, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    Field,
+    FiniteFloat,
+    RootModel,
+    field_validator,
+    model_validator,
+)
 
 from app.domain.ticker import TickerSymbol
 
@@ -26,8 +33,8 @@ class AnalystKind(StrEnum):
 class SelectedAnalysts(RootModel[tuple[AnalystKind, ...]]):
     """Ordered, duplicate-free collection of analyst roles."""
 
-    def __init__(self, values: Iterable[AnalystKind | str]) -> None:
-        if not isinstance(values, Iterable) or isinstance(values, (str, bytes)):
+    def __init__(self, values: Sequence[AnalystKind | str]) -> None:
+        if not isinstance(values, Sequence) or isinstance(values, (str, bytes)):
             raise ValueError("analysts must be a collection of role names")
         super().__init__(root=tuple(AnalystKind(value) for value in values))
 
@@ -53,7 +60,7 @@ class AnalysisRequest(BaseModel):
     ticker: str
     analysis_date: date
     selected_analysts: SelectedAnalysts = Field(
-        default_factory=lambda: SelectedAnalysts(AnalystKind)
+        default_factory=lambda: SelectedAnalysts(tuple(AnalystKind))
     )
     requested_by: str
     session_id: UUID
@@ -93,8 +100,8 @@ class PendingOutcome(BaseModel):
     ticker: str
     trade_date: date
     decision: str
-    raw_return: float
-    alpha_return: float
+    raw_return: FiniteFloat
+    alpha_return: FiniteFloat
     holding_days: int
 
 

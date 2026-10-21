@@ -67,6 +67,7 @@ def test_default_roles_and_execution_limits_are_preserved():
         {"selected_analysts": ["unknown"]},
         {"selected_analysts": None},
         {"selected_analysts": 42},
+        {"selected_analysts": {"market": "invalid"}},
         {"analysis_date": "2026-02-30"},
         {"session_id": "invalid"},
         {"max_debate_rounds": 0},
@@ -130,3 +131,21 @@ def test_execution_json_roundtrip_preserves_results_and_correlation():
     assert restored == execution
     assert restored.result.run_stats.llm_calls == 8
     assert restored.result.structured["portfolio"]["rating"] == "Hold"
+
+
+@pytest.mark.parametrize("field", ["raw_return", "alpha_return"])
+@pytest.mark.parametrize("value", [float("nan"), float("inf"), -float("inf")])
+def test_outcome_returns_must_survive_json_roundtrip(field, value):
+    from app.domain.contracts import PendingOutcome
+
+    outcome = {
+        "ticker": "AAPL",
+        "trade_date": "2026-10-21",
+        "decision": "Hold",
+        "raw_return": 0.1,
+        "alpha_return": 0.0,
+        "holding_days": 5,
+    }
+    outcome[field] = value
+    with pytest.raises(ValueError):
+        PendingOutcome.model_validate(outcome)
