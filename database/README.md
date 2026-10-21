@@ -58,3 +58,11 @@ Use the [Momentum DBA/developer guide](MOMENTUM.md) for the supported single-dat
 layout, role separation, the pinned Liquibase commands and verification steps.
 The dedicated `compose.momentum.yaml` override selects `momentum.yaml` explicitly.
 Old Momentum migration roots remain only for historical compatibility.
+
+## JDBC driver updates
+
+`Dockerfile` pins the PostgreSQL JDBC version and SHA-256 from the Maven Central
+artifact. Update the URL, destination filename and digest together, then rebuild
+without cache and run the PostgreSQL integration checks before merging.
+The driver is installed directly into Liquibase's library path; builds do not
+resolve a moving Liquibase Package Manager catalog.
