@@ -135,11 +135,13 @@ async def persistence(unified_database):
         await engine.dispose()
 
 
+@pytest.mark.parametrize("trader_reasoning", ["Synthetic", None])
 async def test_all_sections_commit_with_real_adk_correlation(
-    persistence, unified_database
+    persistence, unified_database, trader_reasoning
 ):
     factory, writer = persistence
     execution = complete_execution()
+    execution.result.structured["Trader"]["reasoning"] = trader_reasoning
     service = await create_session_service(unified_database["sessions_runtime"])
     verifier = await asyncpg.connect(unified_database["admin"])
     try:
@@ -187,6 +189,7 @@ async def test_all_sections_commit_with_real_adk_correlation(
         assert sections["news_items"][0]["headline"] == "Synthetic headline"
         assert sections["research_plans"][0]["strategic_actions"] == "Observe"
         assert sections["trader_proposals"][0]["entry_price"] == 12.5
+        assert sections["trader_proposals"][0]["reasoning"] == (trader_reasoning or "")
         assert sections["portfolio_decisions"][0]["price_target"] == 15.0
         assert sections["run_stats"][0]["tokens_in"] == 2**33
         assert {
