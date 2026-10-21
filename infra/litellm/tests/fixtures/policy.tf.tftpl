@@ -1,0 +1,36 @@
+terraform {
+  required_providers { litellm = { source = "BerriAI/litellm", version = "= 1.106.0" } }
+}
+variable "master" {
+ type = string
+ sensitive = true
+ ephemeral = true
+}
+variable "keys" {
+ type = map(string)
+ sensitive = true
+ ephemeral = true
+}
+variable "agents" { type = any }
+variable "base_url" { type = string }
+variable "import_team" { default = false }
+provider "litellm" {
+  api_base = var.base_url
+  api_key = var.master
+}
+module "policy" {
+  source = ${policy_source}
+  models = ${models}
+  agents = var.agents
+  client_keys = var.keys
+}
+import {
+  for_each = var.import_team ? toset(["agents"]) : toset([])
+  to = module.policy.litellm_team.agents
+  id = each.value
+}
+import {
+  for_each = { for name, agent in var.agents : name => agent.existing_token_id if try(agent.existing_token_id, null) != null }
+  to = module.policy.litellm_key.agent[each.key]
+  id = each.value
+}
