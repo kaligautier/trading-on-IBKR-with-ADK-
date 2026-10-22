@@ -7,6 +7,7 @@ on:
       - 'infra/**'
       - '.github/workflows/scanner.yml'
       - 'scripts/scanner_image_smoke.py'
+      - '.github/scripts/verify_adk_telemetry.py'
   push:
     branches: [main]
     paths:
@@ -14,6 +15,7 @@ on:
       - 'infra/**'
       - '.github/workflows/scanner.yml'
       - 'scripts/scanner_image_smoke.py'
+      - '.github/scripts/verify_adk_telemetry.py'
   workflow_dispatch:
 
 permissions:
@@ -45,6 +47,8 @@ jobs:
         run: uv run --no-sync ruff format --check src/app ../../../scripts/scanner_image_smoke.py
       - name: Test scanner and gateway failure handling
         run: TZ=UTC uv run --no-sync pytest -q src/test/unit
+      - name: Verify locked ADK and OpenTelemetry compatibility offline
+        run: uv run --no-sync python ../../../.github/scripts/verify_adk_telemetry.py
 
   infrastructure:
     runs-on: ubuntu-24.04

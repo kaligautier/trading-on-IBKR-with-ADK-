@@ -82,3 +82,11 @@ dev = [
     "pytest-env>=1.2.0",
     "ruff>=0.14.7",
 ]
+
+[tool.uv]
+# ADK caps OpenTelemetry at a version affected by CVE-2026-114603.
+# Keep API and SDK aligned; remove when ADK supports the fixed release directly.
+override-dependencies = [
+    "opentelemetry-api==1.45.1",
+    "opentelemetry-sdk==1.45.1",
+]
