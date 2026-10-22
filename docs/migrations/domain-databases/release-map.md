@@ -17,7 +17,8 @@ built from source commit `5452ecc33e0f4f82d1b4b105414ad82b9666099f`,
 retained by tag `source/domain-databases-20261021`. Scanner service revision: `market-scanner-adk-00005-pmz`;
 reader revision: `market-scanner-api-00011-zs8`, each with all traffic.
 
-Terraform owners: `infra` (GCS prefix `preprod/runtime`) and `infra/reader`
+Current Terraform owners: `infra/market-scanner` (formerly `infra`, GCS prefix
+`preprod/runtime`) and `infra/reader`
 (`preprod/reader`), bucket `preprod-deep-copy-tfstate`. Numeric release inputs are
 in their ignored `release.local.tfvars`; this map records their non-secret values.
 Plans changed only images, DB secret versions and `DATABASE_SCHEMA=_analysis`.

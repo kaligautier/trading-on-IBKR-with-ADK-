@@ -10,7 +10,7 @@ Dependabot**; a valid configuration alone does not prove a successful update run
 | uv | `apps/backend/market-scanner-adk`, `apps/backend/market-scanner-api` |
 | npm | `apps/frontend` |
 | Docker | Both backend Dockerfiles and `database/Dockerfile` |
-| Terraform | `infra`, `infra/bootstrap`, `infra/litellm`, `infra/reader` |
+| Terraform | `infra/market-scanner`, `infra/bootstrap`, `infra/litellm`, `infra/reader` |
 | GitHub Actions | `.github/workflows` (configured with directory `/`) |
 
 Each application has its own update entry to respect the one-component-per-PR
