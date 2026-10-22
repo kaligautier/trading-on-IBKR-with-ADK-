@@ -12,6 +12,7 @@ from starlette.types import Scope
 from app.config import Settings
 from app.http.middleware import HTTPPolicy
 from app.http.problems import APIError, problem_bytes
+from app.routes import router
 
 Lifespan = Callable[[FastAPI], AbstractAsyncContextManager[None]]
 
@@ -48,5 +49,6 @@ def create_app(settings: Settings, lifespan: Lifespan | None = None) -> FastAPI:
                 return str(getattr(route, "path", "unknown"))
         return None
 
+    app.include_router(router)
     app.add_middleware(HTTPPolicy, settings=settings, route_name=route_name)
     return app
