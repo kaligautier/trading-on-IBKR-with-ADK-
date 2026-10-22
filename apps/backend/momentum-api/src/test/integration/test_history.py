@@ -5,14 +5,16 @@ from uuid import UUID
 import pytest
 from sqlalchemy import text
 
-from app.http.problems import APIError
-from app.query import Query
+from app.domain.analyses.search import AnalysisSearchParams
+from app.presentation.http.problems import APIError
 
 from .conftest import seed
 
 
 def query(page_token="", page_size=20, ticker=None):
-    return Query.from_parameters("history", ticker, None, page_size, page_token)
+    return AnalysisSearchParams.from_parameters(
+        "history", ticker, None, page_size, page_token
+    )
 
 
 async def test_empty_history_and_bounded_keyset_traversal(admin, service):

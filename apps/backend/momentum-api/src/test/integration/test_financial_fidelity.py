@@ -5,8 +5,8 @@ from uuid import UUID
 
 import pytest
 
-from app.http.problems import APIError
-from app.query import Query
+from app.domain.analyses.search import AnalysisSearchParams
+from app.presentation.http.problems import APIError
 
 from .conftest import seed
 from .financial_fixture import FIELDS, SUMMARY_FIELDS
@@ -93,7 +93,9 @@ async def test_complete_projection_from_independent_legacy_snapshot(
     assert result["next_analysis_desc"] == (None if nulls else "synthetic follow-up")
     assert not {"session_id", "invocation_id", "user_id"} & result.keys()
     summarized = (
-        await reader.list(Query.from_parameters("history", None, None, 20, ""))
+        await reader.list(
+            AnalysisSearchParams.from_parameters("history", None, None, 20, "")
+        )
     ).items[0]
     for field, (section, source) in SUMMARY_FIELDS.items():
         assert getattr(summarized, field) == expected[section][source], field
@@ -114,7 +116,9 @@ async def test_invalid_stored_values_and_singleton_duplicates(admin, service):
     )
     for operation in (
         lambda: reader.get(UUID(int=1)),
-        lambda: reader.list(Query.from_parameters("history", None, None, 20, "")),
+        lambda: reader.list(
+            AnalysisSearchParams.from_parameters("history", None, None, 20, "")
+        ),
     ):
         with pytest.raises(APIError) as caught:
             await operation()

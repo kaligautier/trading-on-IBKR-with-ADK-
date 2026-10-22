@@ -6,12 +6,12 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from app.application import create_app as application
-from app.config import Settings
-from app.database import create_engine
-from app.http.middleware import LOGGER
-from app.repository import AnalysisRepository
-from app.service import AnalysisService
+from app.adapters.postgresql.connection import create_engine
+from app.adapters.postgresql.repository import AnalysisRepository
+from app.app_factory import create_app as application
+from app.config.settings import Settings
+from app.presentation.http.middleware import LOGGER
+from app.services.analysis_service import AnalysisService
 
 
 def create_app() -> FastAPI:

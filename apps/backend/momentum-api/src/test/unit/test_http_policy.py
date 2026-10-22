@@ -4,9 +4,9 @@ import json
 
 import pytest
 
-from app.http.conditional import precondition, representation_tag
-from app.http.negotiation import accepts, accepts_identity
-from app.http.problems import APIError, problem_bytes
+from app.presentation.http.conditional import precondition, representation_tag
+from app.presentation.http.negotiation import accepts, accepts_identity
+from app.presentation.http.problems import APIError, problem_bytes
 
 
 @pytest.mark.parametrize(

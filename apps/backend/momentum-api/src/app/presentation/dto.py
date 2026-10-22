@@ -5,7 +5,7 @@ from uuid import UUID
 
 from pydantic import AwareDatetime, field_validator
 
-from app.sections import (
+from app.domain.analyses.financial_sections import (
     DebateArgument,
     FinancialModel,
     Fundamentals,

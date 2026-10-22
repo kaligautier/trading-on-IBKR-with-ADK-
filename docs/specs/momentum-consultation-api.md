@@ -216,7 +216,7 @@ Implementation layout:
 
 ```text
 apps/backend/momentum-api/
-  src/app/                  Factory, configuration, routes, DTOs, service, repository
+  src/app/                  Composition root plus domain, ports, services, adapters, presentation
   src/test/unit/            Validation, mapping, route and error contracts
   src/test/integration/     Real migrated PostgreSQL and effective role permissions
   scripts/                  Contract export, disposable DB and container verification
@@ -353,3 +353,16 @@ Technical references checked while drafting:
 [Cloud Run service authentication](https://docs.cloud.google.com/run/docs/authenticating/service-to-service),
 [PostgreSQL ordering and DISTINCT](https://www.postgresql.org/docs/current/sql-select.html),
 [FastAPI lifespan](https://fastapi.tiangolo.com/advanced/events/).
+
+## Internal architecture refinement
+
+The authorized follow-up separates domain read models and search criteria,
+reader ports, application services, PostgreSQL adapters and HTTP presentation.
+Services return domain read models; presentation maps them to versioned DTOs.
+Only HTTP presentation assigns status codes or serializes Problem Details.
+PostgreSQL projections enumerate storage columns independently of response DTOs.
+The runtime composition root owns connections and injects the reader port.
+Acceptance: unchanged exported OpenAPI and financial HTTP behavior, enforced
+import boundaries, transport-free service exceptions, real PostgreSQL tests,
+Ruff, strict mypy and the existing image/Postman checks. No new dependency,
+schema migration, endpoint, authentication change or live rollout is needed.

@@ -12,10 +12,10 @@ from uuid import uuid4
 from starlette.datastructures import Headers
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
-from app.config import Settings
-from app.http.conditional import precondition, representation_tag
-from app.http.negotiation import HTTP_WORD, accepts, accepts_identity
-from app.http.problems import CODES, APIError, problem_bytes
+from app.config.settings import Settings
+from app.presentation.http.conditional import precondition, representation_tag
+from app.presentation.http.negotiation import HTTP_WORD, accepts, accepts_identity
+from app.presentation.http.problems import CODES, APIError, problem_bytes
 
 LOGGER = logging.getLogger("momentum_api")
 ALLOW = "GET, HEAD, OPTIONS"

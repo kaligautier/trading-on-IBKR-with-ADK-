@@ -5,8 +5,7 @@ from dataclasses import dataclass
 
 from pydantic import BaseModel, ValidationError
 
-from app.dto import AnalysisDetail, AnalysisHeader, AnalysisSummary
-from app.sections import (
+from app.domain.analyses.financial_sections import (
     DebateArgument,
     Fundamentals,
     News,
@@ -19,6 +18,7 @@ from app.sections import (
     TechnicalIndicators,
     TraderProposal,
 )
+from app.presentation.dto import AnalysisDetail, AnalysisHeader, AnalysisSummary
 
 Row = Mapping[str, object]
 SECTION_MODELS: dict[str, type[BaseModel]] = {

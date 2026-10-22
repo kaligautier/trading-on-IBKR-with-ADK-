@@ -5,9 +5,9 @@ import logging
 import httpx
 import pytest
 
-from app.application import create_app
-from app.config import Settings
-from app.http.problems import APIError
+from app.app_factory import create_app
+from app.config.settings import Settings
+from app.presentation.http.problems import APIError
 
 BEARER = "Bearer disposable-reader-token"
 

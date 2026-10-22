@@ -6,10 +6,10 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Request
 from fastapi import Query as HTTPQuery
 
-from app.dto import AnalysisDetail, AnalysisPage
-from app.http.problems import APIError
-from app.query import Query, View
-from app.service import AnalysisService
+from app.domain.analyses.search import AnalysisSearchParams, View
+from app.presentation.dto import AnalysisDetail, AnalysisPage
+from app.presentation.http.problems import APIError
+from app.services.analysis_service import AnalysisService
 
 router = APIRouter()
 
@@ -32,7 +32,7 @@ def parameters(
     rating: str | None,
     page_size: int,
     page_token: str,
-) -> Query:
+) -> AnalysisSearchParams:
     allowed = {"ticker", "page_size", "page_token"}
     if view != "history":
         allowed.add("rating")
@@ -42,7 +42,9 @@ def parameters(
     ):
         raise APIError(400, "invalid-argument")
     try:
-        return Query.from_parameters(view, ticker, rating, page_size, page_token)
+        return AnalysisSearchParams.from_parameters(
+            view, ticker, rating, page_size, page_token
+        )
     except ValueError:
         raise APIError(400, "invalid-argument") from None
 

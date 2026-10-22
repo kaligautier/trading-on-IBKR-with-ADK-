@@ -63,7 +63,7 @@ case "${1:-}" in
       --publish 127.0.0.1:55451:5432 --publish 127.0.0.1:55452:8080 \
       --env POSTGRES_PASSWORD=local-only "$image"
     for ((attempt=0; attempt<60; attempt++)); do
-      if docker exec "$name" pg_isready -U postgres >/dev/null 2>&1; then
+      if docker exec "$name" pg_isready -h 127.0.0.1 -U postgres >/dev/null 2>&1; then
         migrate
         exit 0
       fi

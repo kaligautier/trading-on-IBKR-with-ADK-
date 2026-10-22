@@ -52,7 +52,7 @@ ignore = []
 [tool.ruff.lint.per-file-ignores]
 "src/test/**" = ["S101", "S105", "S106"] # Assertions and disposable test credentials.
 "scripts/**" = ["S101", "S603", "S607"] # Test assertions and fixed Docker commands.
-"src/app/repository.py" = ["S608"] # Validated schema only; query values are bound.
+"src/app/adapters/postgresql/repository.py" = ["S608"] # Validated schema only; query values are bound.
 
 [tool.ruff.lint.isort]
 known-first-party = ["app"]

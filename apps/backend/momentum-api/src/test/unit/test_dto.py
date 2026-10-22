@@ -3,7 +3,12 @@ from uuid import UUID
 
 import pytest
 
-from app.assembly import InvalidStoredAnalysisError, StoredAnalysis, detail, summary
+from app.adapters.postgresql.mapper import (
+    InvalidStoredAnalysisError,
+    StoredAnalysis,
+    detail,
+    summary,
+)
 
 
 def stored(sections=None, **changes):
