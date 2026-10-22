@@ -179,3 +179,16 @@ run "reject_mutable_gateway_key" {
   }
   expect_failures = [var.litellm_gateway]
 }
+
+run "domain_analysis_schema" {
+  command = plan
+  assert {
+    condition = alltrue([
+      for envs in [
+        google_cloud_run_v2_service.scanner.template[0].containers[0].env,
+        google_cloud_run_v2_job.daily_scan.template[0].template[0].containers[0].env
+      ] : [for env in envs : env.value if env.name == "DATABASE_SCHEMA"] == ["_analysis"]
+    ])
+    error_message = "Scanner API and job must write the domain analysis schema."
+  }
+}

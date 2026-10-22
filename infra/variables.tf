@@ -65,7 +65,7 @@ variable "database_secret_version" {
 
 variable "database_schema" {
   type    = string
-  default = "market_scanner"
+  default = "_analysis"
   validation {
     condition     = can(regex("^[a-z_][a-z0-9_]{0,62}$", var.database_schema))
     error_message = "Use a PostgreSQL schema accepted by the application."
