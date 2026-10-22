@@ -100,6 +100,13 @@ larger reviewed budget or stopped consumers. Reader pool default is one; Momentu
 session pool is one. Both engines close on shutdown. Service-wide live capacity,
 new immutable images and numeric secret versions must be checked before rollout.
 
+The remote cutover was applied on 2026-10-21. Both domains use their dedicated
+databases, and `defaultdb` is free of application data. See the
+[remote evidence](../docs/migrations/domain-databases/evidence.md),
+[release map](../docs/migrations/domain-databases/release-map.md), and
+[operations runbook](../docs/migrations/domain-databases/operations.md).
+Local test evidence remains separate from the successful live Scanner execution.
+
 Test the non-superuser remote bootstrap SQL safely on a disposable local container:
 
 ```sh
