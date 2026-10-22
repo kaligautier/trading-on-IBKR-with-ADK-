@@ -47,10 +47,10 @@ async def database():
                 await admin.execute(
                     f"CREATE ROLE {role} LOGIN PASSWORD 'integration-only'"
                 )
-        await admin.execute("DROP SCHEMA IF EXISTS market_scanner CASCADE")
+        await admin.execute("DROP SCHEMA IF EXISTS _analysis CASCADE")
         # Apply the same checked-in DDL and grants as the Liquibase changeset.
         await admin.execute(
-            (ROOT / "database/changelog/market-scanner/001-initial.sql").read_text()
+            (ROOT / "database/changelog/market-scanner/001-analysis.sql").read_text()
         )
         reader = url.set(username="market_scanner_reader", password="integration-only")
         settings = Settings(
@@ -65,7 +65,7 @@ async def database():
 
 async def insert(admin, number, *, timestamp=None, report=REPORT):
     await admin.execute(
-        "INSERT INTO market_scanner.market_scans "
+        "INSERT INTO _analysis.market_scans "
         "(id, scan_date, session_id, regime, summary, report, created_at) "
         "VALUES ($1, '2026-10-05', 'private-session', 'cautious', 'Summary', $2, $3)",
         UUID(int=number),
@@ -120,14 +120,12 @@ async def test_reader_pagination_detail_and_concurrent_insert(database):
                 await connection.execute(
                     text(
                         "SELECT has_table_privilege(current_user, "
-                        "'market_scanner.market_scans', 'INSERT')"
+                        "'_analysis.market_scans', 'INSERT')"
                     )
                 )
             ).scalar()
             with pytest.raises(DBAPIError):
-                await connection.execute(
-                    text("DELETE FROM market_scanner.market_scans")
-                )
+                await connection.execute(text("DELETE FROM _analysis.market_scans"))
     finally:
         await engine.dispose()
 
@@ -150,7 +148,7 @@ async def test_empty_store_invalid_report_and_unavailable_schema(database):
         }
         await insert(admin, 1, report=None)
         assert (await client.get("/market-scans/latest")).status_code == 500
-        await admin.execute("DROP SCHEMA market_scanner CASCADE")
+        await admin.execute("DROP SCHEMA _analysis CASCADE")
         response = await client.get("/market-scans/latest")
         assert response.status_code == 503
         assert "integration-only" not in response.text
