@@ -24,7 +24,7 @@ DETAILS = {
 }
 
 
-@dataclass(frozen=True)
+@dataclass
 class APIError(Exception):
     status: int
     code: str
