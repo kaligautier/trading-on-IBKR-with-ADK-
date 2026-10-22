@@ -22,7 +22,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: litellm-${{ github.ref }}
+  group: litellm-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -96,6 +96,9 @@ jobs:
           audit=true
           if [[ "$EVENT_NAME" == pull_request || "$EVENT_NAME" == push ]]; then
             if [[ -n "$BASE_SHA" && ! "$BASE_SHA" =~ ^0+$ ]]; then
+              if [[ "$EVENT_NAME" == pull_request ]]; then
+                BASE_SHA=$(git merge-base "$BASE_SHA" "$HEAD_SHA")
+              fi
               git diff --name-only "$BASE_SHA" "$HEAD_SHA" > "$RUNNER_TEMP/litellm-changes.txt"
               if ! grep -q '^infra/litellm/' "$RUNNER_TEMP/litellm-changes.txt"; then
                 audit=false
