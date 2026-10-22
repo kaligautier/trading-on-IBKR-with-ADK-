@@ -46,7 +46,7 @@ resource "google_cloud_run_v2_service" "scanner" {
       }
     }
 
-    # One writer connection per instance; allow capacity for revision overlap in DB.
+    # Two writer pools per process (sessions + analyses); budget jobs and revision overlap.
     scaling {
       min_instance_count = 0
       max_instance_count = 1

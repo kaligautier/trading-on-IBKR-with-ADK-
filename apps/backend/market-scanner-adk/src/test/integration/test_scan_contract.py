@@ -1,6 +1,7 @@
 """Real PostgreSQL graph round trip using the current Liquibase schema."""
 
 import json
+from uuid import uuid4
 
 import pytest
 from google.adk.models import LlmResponse
@@ -15,6 +16,7 @@ from app.jobs.daily_scan import run_scan
 from app.models.market_regime import MarketRegime
 from app.models.structured_output.research_critique import ResearchCritique
 from app.services.market_scan_persistence import MarketScanPersistence
+from app.services.session_database import ScannerSessionService
 from test.integration import test_shared_database
 from test.integration.test_shared_database import ROLES, run_liquibase
 from test.report_fixtures import (
@@ -35,8 +37,8 @@ async def local_schema(shared_database):
         make_url(urls[ROLES[0]]).set(drivername="postgresql+asyncpg"),
     )
     try:
-        await owner.execute("SET search_path TO market_scanner")
-        yield owner, engine, "market_scanner"
+        await owner.execute("SET search_path TO _analysis")
+        yield owner, engine, "_analysis"
     finally:
         await engine.dispose()
 
@@ -110,7 +112,9 @@ async def should_round_trip_the_25_asset_graph(local_schema, monkeypatch, missin
 
     monkeypatch.setattr(scanner.market_data_collection_service, "collect", lambda: data)
     monkeypatch.setattr(Gemini, "generate_content_async", respond)
-    monkeypatch.setattr(settings, "DATABASE_URL", "postgresql://local-test")
+    monkeypatch.setattr(
+        settings, "DATABASE_URL", engine.url.render_as_string(hide_password=False)
+    )
     monkeypatch.setattr(
         "app.services.market_scan_persistence.get_engine", lambda: engine
     )
@@ -170,7 +174,9 @@ async def should_roll_back_the_whole_report_when_an_asset_write_fails(
     from test.unit.services.test_market_scan_persistence import _regime
 
     report = _regime()
-    monkeypatch.setattr(settings, "DATABASE_URL", "postgresql://local-test")
+    monkeypatch.setattr(
+        settings, "DATABASE_URL", engine.url.render_as_string(hide_password=False)
+    )
     monkeypatch.setattr(
         "app.services.market_scan_persistence.get_engine", lambda: engine
     )
@@ -188,7 +194,10 @@ async def should_roll_back_the_whole_report_when_an_asset_write_fails(
     )
 
 
-async def should_persist_a_report_through_the_job_runner(local_schema, monkeypatch):
+@pytest.mark.parametrize("save_fails", [False, True])
+async def should_persist_a_report_through_the_job_runner(
+    local_schema, monkeypatch, save_fails
+):
     connection, engine, schema = local_schema
     data = market_data()
     calls = []
@@ -218,13 +227,45 @@ async def should_persist_a_report_through_the_job_runner(local_schema, monkeypat
 
     monkeypatch.setattr(scanner.market_data_collection_service, "collect", lambda: data)
     monkeypatch.setattr(Gemini, "generate_content_async", respond)
-    monkeypatch.setattr(settings, "DATABASE_URL", "postgresql://local-test")
+    monkeypatch.setattr(
+        settings, "DATABASE_URL", engine.url.render_as_string(hide_password=False)
+    )
     monkeypatch.setattr(settings, "DATABASE_SCHEMA", schema)
     monkeypatch.setattr(settings, "MARKET_SCANNER_TOKEN", "test-token")
     monkeypatch.setattr(
         "app.services.market_scan_persistence.get_engine", lambda: engine
     )
+    execution = f"local-scan-{uuid4().hex}"
+    monkeypatch.setenv("CLOUD_RUN_EXECUTION", execution)
+    if save_fails:
+        from unittest.mock import AsyncMock
+
+        monkeypatch.setattr(
+            MarketScanPersistence,
+            "save",
+            AsyncMock(side_effect=RuntimeError("offline")),
+        )
+        with pytest.raises(RuntimeError, match="ADK workflow failed"):
+            await run_scan()
+        async with ScannerSessionService(settings.DATABASE_URL) as reopened:
+            session = await reopened.get_session(
+                app_name="market_scanner", user_id="scheduler", session_id=execution
+            )
+            assert session.events
+        assert await connection.fetchval("SELECT count(*) FROM market_scans") == 0
+        with pytest.raises(RuntimeError, match="already exists"):
+            await run_scan()
+        return
     result = await run_scan()
+    async with ScannerSessionService(settings.DATABASE_URL) as reopened:
+        session = await reopened.get_session(
+            app_name="market_scanner", user_id="scheduler", session_id=execution
+        )
+        assert session.state["session_id"] == result["marker"]
+        assert len(session.events) > 1
+        assert session.state["market_data"]["market_regime"]["assets"]
+    with pytest.raises(RuntimeError, match="already exists"):
+        await run_scan()
     stored = await connection.fetchrow(
         "SELECT id, report FROM market_scans WHERE session_id=$1", result["marker"]
     )
@@ -260,7 +301,9 @@ async def should_persist_macro_with_real_adk_tools_even_when_data_is_unavailable
     )
     monkeypatch.setattr(settings, "MARKET_SCANNER_RESEARCH_TOOLS_ENABLED", not disabled)
     monkeypatch.setattr(scanner.market_data_collection_service, "collect", lambda: data)
-    monkeypatch.setattr(settings, "DATABASE_URL", "postgresql://local-test")
+    monkeypatch.setattr(
+        settings, "DATABASE_URL", engine.url.render_as_string(hide_password=False)
+    )
     monkeypatch.setattr(settings, "DATABASE_SCHEMA", schema)
     monkeypatch.setattr(
         "app.services.market_scan_persistence.get_engine", lambda: engine
