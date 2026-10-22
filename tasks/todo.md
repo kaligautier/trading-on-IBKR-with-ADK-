@@ -73,3 +73,9 @@ Production acceptance remains explicitly outside this implementation/MR delivery
     presentation owns public DTO mapping and status codes; SQL columns are explicit.
   - Verify: architecture/service regressions, independent financial golden fixtures,
     143 tests on fresh PostgreSQL, 97.07% coverage and 56 release-image Postman assertions.
+
+- [x] T17 Apply operational engineering practices.
+  - Accept: structured safe JSON diagnostics, upstream trace correlation only,
+    preserved internal causes, injected test settings and primary-failure-safe cleanup.
+  - Verify: 152 tests with real PostgreSQL, 97.14% coverage, real failing-handler
+    regression and release-image JSON log/Request-ID checks plus 56 Postman assertions.

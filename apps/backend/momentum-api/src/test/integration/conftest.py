@@ -50,6 +50,10 @@ async def admin(local_database):
 @pytest.fixture
 async def service(admin):
     settings = Settings(
+        _env_file=None,
+        AUTH_MODE="token",
+        DATABASE_POOL_SIZE=1,
+        DATABASE_POOL_TIMEOUT=5,
         DATABASE_URL=BASE.format("momentum_results_reader"),
         API_TOKEN="disposable-test-token",
     )

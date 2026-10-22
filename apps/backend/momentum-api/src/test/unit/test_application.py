@@ -1,5 +1,6 @@
 """End-to-end application protocol, before introducing any database dependency."""
 
+import json
 import logging
 
 import httpx
@@ -16,6 +17,10 @@ BEARER = "Bearer disposable-reader-token"
 async def client():
     app = create_app(
         Settings(
+            _env_file=None,
+            AUTH_MODE="token",
+            DATABASE_POOL_SIZE=1,
+            DATABASE_POOL_TIMEOUT=5,
             DATABASE_URL="postgresql://momentum_results_reader:local@localhost/momentum",
             API_TOKEN="disposable-reader-token",
         )
@@ -51,8 +56,9 @@ async def test_unexpected_failure_has_safe_correlated_diagnostics(client, caplog
         response = await client.get("/crash", headers={"Authorization": BEARER})
     assert response.status_code == 500
     assert response.headers["request-id"] in caplog.text
-    assert "exception_type=RuntimeError" in caplog.text
-    assert "source=app." in caplog.text
+    diagnostic = json.loads(caplog.records[-1].getMessage())
+    assert diagnostic["exception_type"] == "RuntimeError"
+    assert diagnostic["source"].startswith("app.")
     assert "never expose credentials or SQL" not in caplog.text
 
 
@@ -137,7 +143,11 @@ async def test_errors_are_safe_bodyless_when_needed_and_never_logged(client, cap
     assert crash.status_code == 500 and "SQL" not in crash.text
     assert "disposable-reader-token" not in caplog.text
     assert "hidden" not in caplog.text and "/absent" not in caplog.text
-    assert "status=500" in caplog.text
+    assert any(
+        json.loads(record.getMessage()).get("status") == 500
+        for record in caplog.records
+        if record.name == "momentum_api"
+    )
     unknown_method = await client.request("UNKNOWN", "/absent", headers=auth)
     assert unknown_method.status_code == 501
 
@@ -161,7 +171,7 @@ async def test_bearer_multiple_spaces_and_correlated_safe_failure(client, caplog
     failure = await client.get("/crash", headers={"Authorization": BEARER})
     assert failure.json()["code"] == "INTERNAL_ERROR"
     assert failure.headers["request-id"] in caplog.text
-    assert "category=INTERNAL_ERROR" in caplog.text
+    assert json.loads(caplog.records[-1].getMessage())["category"] == "INTERNAL_ERROR"
 
 
 @pytest.mark.parametrize(

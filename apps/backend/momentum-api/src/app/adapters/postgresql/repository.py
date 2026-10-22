@@ -58,7 +58,7 @@ class AnalysisRepository:
                 )
                 yield connection
         except (SQLAlchemyError, TimeoutError, OSError) as error:
-            raise storage_error(error) from None
+            raise storage_error(error) from error
 
     async def load(
         self,

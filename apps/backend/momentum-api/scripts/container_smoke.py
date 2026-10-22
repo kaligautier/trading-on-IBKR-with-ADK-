@@ -114,9 +114,29 @@ def main() -> None:
             ],
             check=True,
         )
+        traced = call(
+            "/health",
+            traceparent="00-1234567890abcdef1234567890abcdef-1234567890abcdef-01",
+        )
+        assert traced.status == 200
+        logs = subprocess.check_output(
+            ["docker", "logs", name], stderr=subprocess.STDOUT, text=True
+        )
+        events = [
+            json.loads(line) for line in logs.splitlines() if line.startswith("{")
+        ]
+        request = next(
+            event
+            for event in events
+            if event.get("request_id") == traced.headers["Request-ID"]
+        )
+        assert request["event"] == "request_completed"
+        assert request["trace_id"] == "1234567890abcdef1234567890abcdef"
+        assert request["parent_span_id"] == "1234567890abcdef"
+        assert credential not in logs and "fixture-user" not in logs
         print(
             "Release image: non-root, storage, auth, HEAD/304, "
-            "exact OpenAPI and Postman passed."
+            "exact OpenAPI, structured logs and Postman passed."
         )
     finally:
         subprocess.run(["docker", "stop", name], check=False, capture_output=True)
