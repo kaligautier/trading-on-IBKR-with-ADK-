@@ -23,7 +23,7 @@ dependencies = [
 ]
 
 [dependency-groups]
-dev = ["pytest>=8.4.1,<9", "pytest-asyncio>=1.0,<2", "ruff==0.14.7"]
+dev = ["pytest>=8.4.1,<10", "pytest-asyncio>=1.0,<2", "ruff==0.14.7"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["app"]
