@@ -171,3 +171,25 @@ Remote bases and head SHAs match the local series; each PR has exactly one commi
 Cloud Run errors can precede the application's Problem Details contract. Record
 those edge responses separately. No blanket transport/RFC certification follows
 from the application tests or this report.
+
+## Architecture follow-up
+
+The package now separates `domain/analyses`, `ports`, `services`,
+`adapters/postgresql` and `presentation`. The composition root remains
+`app.main:create_app`. Domain read models are mapped into explicit public DTOs;
+services use only the reader port and domain types. Domain failures receive HTTP
+statuses only at the presentation boundary. SQL projections are explicit and do
+not inspect response model fields. Unexpected failures retain only safe correlated
+code-location diagnostics, without exception messages or local values.
+
+Verification after the refactor: 143 tests pass against fresh Liquibase/PostgreSQL,
+with 97.07% combined coverage. Ruff and strict mypy pass for all 33 runtime modules;
+the exported OpenAPI is byte-for-byte unchanged. Architecture tests cover import
+direction; service tests exercise pagination through a fake port and HTTP failure
+mapping; independent financial fixtures also traverse the presentation mappers.
+Wheel, source distribution and Linux amd64 release image build successfully.
+The non-root release-image smoke passes all 15 Postman requests and 56 assertions,
+including exact runtime OpenAPI, authentication, real storage, HEAD and 304.
+The initial delivery evidence above describes the original tip; these checks
+validate the subsequent architecture refinement. No endpoint, dependency, schema,
+authentication policy or deployment change is introduced.

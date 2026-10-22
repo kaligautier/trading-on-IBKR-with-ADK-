@@ -6,6 +6,7 @@ import logging
 import re
 from collections.abc import Callable
 from time import monotonic
+from traceback import walk_tb
 from urllib.parse import parse_qsl
 from uuid import uuid4
 
@@ -74,6 +75,7 @@ class HTTPPolicy:
             await self.app(scope, receive, send)
             return
         started = monotonic()
+        request_id = str(uuid4())
         headers, method = Headers(scope=scope), scope["method"]
 
         def combined(name: str) -> str | None:
@@ -141,11 +143,21 @@ class HTTPPolicy:
                 if error.code:
                     challenge += f', error="{error.code.replace("-", "_")}"'
                 response_headers.append((b"www-authenticate", challenge.encode()))
-        except Exception:
-            # Categories only: driver/framework exception text can contain secrets.
+        except Exception as error:
+            # Log code locations, never exception messages, source lines or locals.
+            sources = [
+                f"{frame.f_globals.get('__name__')}:{line}"
+                for frame, line in walk_tb(error.__traceback__)
+                if str(frame.f_globals.get("__name__", "")).startswith("app.")
+            ]
+            LOGGER.error(
+                "request_id=%s exception_type=%s source=%s",
+                request_id,
+                type(error).__name__,
+                sources[-1] if sources else "unknown",
+            )
             status, body = 500, problem_bytes(APIError(500, "internal-error"))
             response_headers = [(b"content-type", b"application/problem+json")]
-        request_id = str(uuid4())
         category = "SUCCESS"
         if status >= 400:
             category = "UNAUTHENTICATED" if status == 401 else "INTERNAL_ERROR"

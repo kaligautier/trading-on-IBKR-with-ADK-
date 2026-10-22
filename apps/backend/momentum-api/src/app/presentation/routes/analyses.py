@@ -9,6 +9,7 @@ from fastapi import Query as HTTPQuery
 from app.domain.analyses.search import AnalysisSearchParams, View
 from app.presentation.dto import AnalysisDetail, AnalysisPage
 from app.presentation.http.problems import APIError
+from app.presentation.mappers import detail_to_dto, page_to_dto
 from app.services.analysis_service import AnalysisService
 
 router = APIRouter()
@@ -58,8 +59,10 @@ async def history(
     page_token: PageToken = "",
 ) -> AnalysisPage:
     """All retained runs, including repeated ticker/date analyses, newest first."""
-    return await reader.list(
-        parameters(request, "history", ticker, None, page_size, page_token)
+    return page_to_dto(
+        await reader.list(
+            parameters(request, "history", ticker, None, page_size, page_token)
+        )
     )
 
 
@@ -75,8 +78,10 @@ async def latest(
     page_token: PageToken = "",
 ) -> AnalysisPage:
     """One winner per ticker, by creation time then UUID, before rating filtering."""
-    return await reader.list(
-        parameters(request, "latest", ticker, rating, page_size, page_token)
+    return page_to_dto(
+        await reader.list(
+            parameters(request, "latest", ticker, rating, page_size, page_token)
+        )
     )
 
 
@@ -94,8 +99,12 @@ async def recommendations(
     page_token: PageToken = "",
 ) -> AnalysisPage:
     """Latest-per-ticker results, defaulting to Buy and Overweight."""
-    return await reader.list(
-        parameters(request, "recommendations", ticker, rating, page_size, page_token)
+    return page_to_dto(
+        await reader.list(
+            parameters(
+                request, "recommendations", ticker, rating, page_size, page_token
+            )
+        )
     )
 
 
@@ -106,10 +115,11 @@ async def recommendations(
 )
 async def get_analysis(analysis_id: UUID, reader: Service) -> AnalysisDetail:
     """Financial sections of one retained analysis; optional sections remain null."""
-    return await reader.get(analysis_id)
+    return detail_to_dto(await reader.get(analysis_id))
 
 
 @router.get("/ready", operation_id="ready", tags=["operations"])
 async def ready(reader: Service) -> dict[str, str]:
     """Connectivity and effective SELECT access to every required table."""
-    return await reader.ready()
+    await reader.ready()
+    return {"status": "ready"}

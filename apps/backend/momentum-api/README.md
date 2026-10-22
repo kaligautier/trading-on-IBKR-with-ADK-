@@ -48,6 +48,15 @@ Execution/session/user correlation is excluded from responses.
 - `config/settings.py`: validated runtime configuration.
 - `main.py`: runtime composition and resource lifecycle.
 
+Dependencies point toward the domain: services use `ports/analysis_reader.py`,
+PostgreSQL adapters implement that contract, and routes translate domain results
+through `presentation/mappers.py` into explicit public DTOs. HTTP status mapping
+lives only in `presentation/http/errors.py`. Storage projections enumerate SQL
+columns independently in `adapters/postgresql/projections.py`. Architecture tests
+prevent core modules from importing presentation or concrete storage adapters.
+Unexpected-error diagnostics contain a request ID, exception class and application
+module/line only; raw exception messages, source lines and local values are omitted.
+
 ## Local development
 
 From this directory:

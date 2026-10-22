@@ -10,6 +10,8 @@ from starlette.routing import Match
 from starlette.types import Scope
 
 from app.config.settings import Settings
+from app.domain.analyses.errors import ConsultationError
+from app.presentation.http.errors import application_problem
 from app.presentation.http.middleware import HTTPPolicy
 from app.presentation.http.problems import APIError, problem_bytes
 from app.presentation.http.schema import install_schema
@@ -42,6 +44,10 @@ def create_app(settings: Settings, lifespan: Lifespan | None = None) -> FastAPI:
     @app.exception_handler(RequestValidationError)
     async def validation_error(_: Request, error: RequestValidationError) -> Response:
         return await application_error(_, APIError(400, "invalid-argument"))
+
+    @app.exception_handler(ConsultationError)
+    async def consultation_error(_: Request, error: ConsultationError) -> Response:
+        return await application_error(_, application_problem(error))
 
     def route_name(scope: Scope) -> str | None:
         for route in app.routes:
