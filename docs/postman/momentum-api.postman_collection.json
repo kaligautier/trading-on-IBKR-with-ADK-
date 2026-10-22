@@ -1,0 +1,537 @@
+{
+  "info": {
+    "name": "Momentum consultation API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Private read-only Momentum v1; run against a known synthetic analysis."
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{api_token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "momentum_api_base_url",
+      "value": "https://localhost:8002"
+    },
+    {
+      "key": "api_token",
+      "value": ""
+    },
+    {
+      "key": "analysis_id",
+      "value": "00000000-0000-0000-0000-000000000001"
+    }
+  ],
+  "item": [
+    {
+      "name": "Liveness",
+      "request": {
+        "method": "GET",
+        "url": "{{momentum_api_base_url}}/health",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json, application/problem+json"
+          }
+        ]
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Private cache policy\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\"));",
+              "pm.test(\"Request ID\", () => pm.expect(pm.response.headers.get(\"Request-ID\")).to.match(/^[0-9a-f-]{36}$/));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Contract",
+      "request": {
+        "method": "GET",
+        "url": "{{momentum_api_base_url}}/openapi.json",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json, application/problem+json"
+          }
+        ]
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Private cache policy\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\"));",
+              "pm.test(\"Request ID\", () => pm.expect(pm.response.headers.get(\"Request-ID\")).to.match(/^[0-9a-f-]{36}$/));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Readiness",
+      "request": {
+        "method": "GET",
+        "url": "{{momentum_api_base_url}}/ready",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json, application/problem+json"
+          }
+        ]
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Private cache policy\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\"));",
+              "pm.test(\"Request ID\", () => pm.expect(pm.response.headers.get(\"Request-ID\")).to.match(/^[0-9a-f-]{36}$/));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "History",
+      "request": {
+        "method": "GET",
+        "url": "{{momentum_api_base_url}}/v1/analyses?page_size=20",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json, application/problem+json"
+          }
+        ]
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Private cache policy\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\"));",
+              "pm.test(\"Request ID\", () => pm.expect(pm.response.headers.get(\"Request-ID\")).to.match(/^[0-9a-f-]{36}$/));",
+              "pm.test(\"Bounded page\", () => { const p = pm.response.json(); pm.expect(p.items).to.be.an(\"array\"); pm.expect(p.items.length).to.be.at.most(20); pm.expect(p.next_page_token).to.be.a(\"string\"); p.items.forEach(item => { [\"user_id\", \"session_id\", \"invocation_id\"].forEach(key => pm.expect(item).not.to.have.property(key)); }); });"
+            ]
+          }
+        }
+      ],
+      "response": [
+        {
+          "name": "Synthetic example",
+          "originalRequest": {
+            "method": "GET",
+            "url": "{{momentum_api_base_url}}/v1/analyses?page_size=20",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json, application/problem+json"
+              }
+            ]
+          },
+          "status": "OK",
+          "code": 200,
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "body": "{\n  \"items\": [],\n  \"next_page_token\": \"\"\n}"
+        }
+      ]
+    },
+    {
+      "name": "Latest",
+      "request": {
+        "method": "GET",
+        "url": "{{momentum_api_base_url}}/v1/analyses/latest?page_size=20",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json, application/problem+json"
+          }
+        ]
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Private cache policy\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\"));",
+              "pm.test(\"Request ID\", () => pm.expect(pm.response.headers.get(\"Request-ID\")).to.match(/^[0-9a-f-]{36}$/));",
+              "pm.test(\"Bounded page\", () => { const p = pm.response.json(); pm.expect(p.items).to.be.an(\"array\"); pm.expect(p.items.length).to.be.at.most(20); pm.expect(p.next_page_token).to.be.a(\"string\"); p.items.forEach(item => { [\"user_id\", \"session_id\", \"invocation_id\"].forEach(key => pm.expect(item).not.to.have.property(key)); }); });"
+            ]
+          }
+        }
+      ],
+      "response": [
+        {
+          "name": "Synthetic example",
+          "originalRequest": {
+            "method": "GET",
+            "url": "{{momentum_api_base_url}}/v1/analyses/latest?page_size=20",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json, application/problem+json"
+              }
+            ]
+          },
+          "status": "OK",
+          "code": 200,
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "body": "{\n  \"items\": [\n    {\n      \"id\": \"00000000-0000-0000-0000-000000000001\",\n      \"ticker\": \"T000\",\n      \"analysis_date\": \"2026-10-22\",\n      \"created_at\": \"2026-10-22T12:00:00Z\",\n      \"llm_provider\": \"synthetic\",\n      \"next_analysis_date\": null,\n      \"rating\": null,\n      \"executive_summary\": null,\n      \"price_target\": null,\n      \"entry_price\": null,\n      \"stop_loss\": null,\n      \"position_size\": null,\n      \"position_size_description\": null,\n      \"time_horizon_months\": null,\n      \"time_horizon_description\": null,\n      \"risk_reward_ratio\": null,\n      \"risk_reward_description\": null,\n      \"trader_action\": null,\n      \"trader_entry\": null,\n      \"trader_stop\": null,\n      \"trader_take_profit\": null,\n      \"close_price\": null,\n      \"rsi\": null,\n      \"rsi_signal\": null,\n      \"trend_direction\": null,\n      \"key_support\": null,\n      \"key_resistance\": null,\n      \"pe_ratio\": null,\n      \"peg_ratio\": null,\n      \"beta\": null\n    }\n  ],\n  \"next_page_token\": \"\"\n}"
+        }
+      ]
+    },
+    {
+      "name": "Recommendations",
+      "request": {
+        "method": "GET",
+        "url": "{{momentum_api_base_url}}/v1/recommendations",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json, application/problem+json"
+          }
+        ]
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Private cache policy\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\"));",
+              "pm.test(\"Request ID\", () => pm.expect(pm.response.headers.get(\"Request-ID\")).to.match(/^[0-9a-f-]{36}$/));",
+              "pm.test(\"Bounded page\", () => { const p = pm.response.json(); pm.expect(p.items).to.be.an(\"array\"); pm.expect(p.items.length).to.be.at.most(10); pm.expect(p.next_page_token).to.be.a(\"string\"); p.items.forEach(item => { [\"user_id\", \"session_id\", \"invocation_id\"].forEach(key => pm.expect(item).not.to.have.property(key)); }); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Detail",
+      "request": {
+        "method": "GET",
+        "url": "{{momentum_api_base_url}}/v1/analyses/{{analysis_id}}",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json, application/problem+json"
+          }
+        ]
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Private cache policy\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\"));",
+              "pm.test(\"Request ID\", () => pm.expect(pm.response.headers.get(\"Request-ID\")).to.match(/^[0-9a-f-]{36}$/));"
+            ]
+          }
+        }
+      ],
+      "response": [
+        {
+          "name": "Synthetic example",
+          "originalRequest": {
+            "method": "GET",
+            "url": "{{momentum_api_base_url}}/v1/analyses/{{analysis_id}}",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json, application/problem+json"
+              }
+            ]
+          },
+          "status": "OK",
+          "code": 200,
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "body": "{\n  \"id\": \"00000000-0000-0000-0000-000000000001\",\n  \"ticker\": \"T000\",\n  \"analysis_date\": \"2026-10-22\",\n  \"created_at\": \"2026-10-22T12:00:00Z\",\n  \"llm_provider\": \"synthetic\",\n  \"next_analysis_date\": null,\n  \"deep_think_llm\": \"test\",\n  \"quick_think_llm\": \"test\",\n  \"next_analysis_desc\": null,\n  \"technical_indicators\": null,\n  \"fundamentals\": null,\n  \"sentiment\": null,\n  \"news\": null,\n  \"research_plan\": null,\n  \"trader_proposal\": null,\n  \"portfolio_decision\": null,\n  \"debate_arguments\": [],\n  \"run_stats\": null\n}"
+        }
+      ]
+    },
+    {
+      "name": "Unknown analysis",
+      "request": {
+        "method": "GET",
+        "url": "{{momentum_api_base_url}}/v1/analyses/ffffffff-ffff-ffff-ffff-ffffffffffff",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json, application/problem+json"
+          }
+        ]
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 404\", () => pm.response.to.have.status(404));",
+              "pm.test(\"Private cache policy\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\"));",
+              "pm.test(\"Request ID\", () => pm.expect(pm.response.headers.get(\"Request-ID\")).to.match(/^[0-9a-f-]{36}$/));",
+              "pm.test(\"Problem Details\", () => { const p = pm.response.json(); pm.expect(p.status).to.eql(404); pm.expect(p.type).to.match(/^https:/); pm.expect(pm.response.headers.get(\"Content-Type\")).to.eql(\"application/problem+json\"); });"
+            ]
+          }
+        }
+      ],
+      "response": [
+        {
+          "name": "Synthetic example",
+          "originalRequest": {
+            "method": "GET",
+            "url": "{{momentum_api_base_url}}/v1/analyses/ffffffff-ffff-ffff-ffff-ffffffffffff",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json, application/problem+json"
+              }
+            ]
+          },
+          "status": "Not Found",
+          "code": 404,
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/problem+json"
+            }
+          ],
+          "body": "{\n  \"type\": \"https://github.com/kaligautier/trading-on-IBKR-with-ADK-/blob/main/apps/backend/momentum-api/README.md#not-found\",\n  \"title\": \"Not Found\",\n  \"status\": 404,\n  \"detail\": \"The requested resource does not exist.\",\n  \"code\": \"not-found\"\n}"
+        }
+      ]
+    },
+    {
+      "name": "Invalid UUID",
+      "request": {
+        "method": "GET",
+        "url": "{{momentum_api_base_url}}/v1/analyses/invalid",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json, application/problem+json"
+          }
+        ]
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 400\", () => pm.response.to.have.status(400));",
+              "pm.test(\"Private cache policy\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\"));",
+              "pm.test(\"Request ID\", () => pm.expect(pm.response.headers.get(\"Request-ID\")).to.match(/^[0-9a-f-]{36}$/));",
+              "pm.test(\"Problem Details\", () => { const p = pm.response.json(); pm.expect(p.status).to.eql(400); pm.expect(p.type).to.match(/^https:/); pm.expect(pm.response.headers.get(\"Content-Type\")).to.eql(\"application/problem+json\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Invalid page size",
+      "request": {
+        "method": "GET",
+        "url": "{{momentum_api_base_url}}/v1/analyses?page_size=101",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json, application/problem+json"
+          }
+        ]
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 400\", () => pm.response.to.have.status(400));",
+              "pm.test(\"Private cache policy\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\"));",
+              "pm.test(\"Request ID\", () => pm.expect(pm.response.headers.get(\"Request-ID\")).to.match(/^[0-9a-f-]{36}$/));",
+              "pm.test(\"Problem Details\", () => { const p = pm.response.json(); pm.expect(p.status).to.eql(400); pm.expect(p.type).to.match(/^https:/); pm.expect(pm.response.headers.get(\"Content-Type\")).to.eql(\"application/problem+json\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Invalid rating",
+      "request": {
+        "method": "GET",
+        "url": "{{momentum_api_base_url}}/v1/recommendations?rating=unknown",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json, application/problem+json"
+          }
+        ]
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 400\", () => pm.response.to.have.status(400));",
+              "pm.test(\"Private cache policy\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\"));",
+              "pm.test(\"Request ID\", () => pm.expect(pm.response.headers.get(\"Request-ID\")).to.match(/^[0-9a-f-]{36}$/));",
+              "pm.test(\"Problem Details\", () => { const p = pm.response.json(); pm.expect(p.status).to.eql(400); pm.expect(p.type).to.match(/^https:/); pm.expect(pm.response.headers.get(\"Content-Type\")).to.eql(\"application/problem+json\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Missing authentication",
+      "request": {
+        "method": "GET",
+        "url": "{{momentum_api_base_url}}/openapi.json",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json, application/problem+json"
+          }
+        ],
+        "auth": {
+          "type": "noauth"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 401\", () => pm.response.to.have.status(401));",
+              "pm.test(\"Private cache policy\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\"));",
+              "pm.test(\"Request ID\", () => pm.expect(pm.response.headers.get(\"Request-ID\")).to.match(/^[0-9a-f-]{36}$/));",
+              "pm.test(\"Bodyless response\", () => pm.expect(pm.response.text()).to.eql(\"\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Metadata",
+      "request": {
+        "method": "HEAD",
+        "url": "{{momentum_api_base_url}}/v1/analyses",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json, application/problem+json"
+          }
+        ]
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Private cache policy\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\"));",
+              "pm.test(\"Request ID\", () => pm.expect(pm.response.headers.get(\"Request-ID\")).to.match(/^[0-9a-f-]{36}$/));",
+              "pm.test(\"Bodyless response\", () => pm.expect(pm.response.text()).to.eql(\"\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Allowed methods",
+      "request": {
+        "method": "OPTIONS",
+        "url": "{{momentum_api_base_url}}/v1/analyses",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json, application/problem+json"
+          }
+        ]
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 204\", () => pm.response.to.have.status(204));",
+              "pm.test(\"Private cache policy\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\"));",
+              "pm.test(\"Request ID\", () => pm.expect(pm.response.headers.get(\"Request-ID\")).to.match(/^[0-9a-f-]{36}$/));",
+              "pm.test(\"Bodyless response\", () => pm.expect(pm.response.text()).to.eql(\"\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Conditional read",
+      "request": {
+        "method": "GET",
+        "url": "{{momentum_api_base_url}}/v1/analyses",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json, application/problem+json"
+          },
+          {
+            "key": "If-None-Match",
+            "value": "*"
+          }
+        ]
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 304\", () => pm.response.to.have.status(304));",
+              "pm.test(\"Private cache policy\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\"));",
+              "pm.test(\"Request ID\", () => pm.expect(pm.response.headers.get(\"Request-ID\")).to.match(/^[0-9a-f-]{36}$/));",
+              "pm.test(\"Bodyless response\", () => pm.expect(pm.response.text()).to.eql(\"\"));"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
