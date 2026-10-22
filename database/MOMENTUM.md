@@ -127,3 +127,33 @@ from schema migrations.
 References: [PostgreSQL privileges](https://www.postgresql.org/docs/current/ddl-priv.html),
 [Liquibase update](https://docs.liquibase.com/community/reference-guide-5-0-4/init-update-and-rollback-commands/update),
 [rollback previews](https://docs.liquibase.com/community/reference-guide-5-0/init-update-and-rollback-commands/what-are-rollback-commands).
+
+## Consultation reader provisioning and migrations
+
+The worker-only root remains `momentum.yaml`. To provision the consultation API,
+create its non-administrative `momentum_results_reader` login privately first.
+The reader must not inherit CONNECT on any other connectable database, including
+through PUBLIC. Review existing clients before changing PUBLIC grants: explicitly
+grant their approved roles access, revoke PUBLIC CONNECT and revoke any direct
+reader CONNECT on each non-Momentum database. Do not revoke shared production
+privileges without that administrator-reviewed access inventory.
+
+Run `momentum-reader-bootstrap.sql` as administrator in `momentum`; it fails
+closed if effective cross-database CONNECT remains. It does not silently alter
+other applications' database grants. Then use the supported reader override:
+
+```sh
+lb_reader() {
+  LIQUIBASE_COMMAND_CHANGELOG_FILE=momentum-reader.yaml docker compose --env-file .env.momentum \
+    -f compose.yaml -f compose.momentum.yaml -f compose.momentum-reader.yaml \
+    --profile migration "$@"
+}
+lb_reader run --rm liquibase validate
+lb_reader run --rm liquibase update-sql
+# Review target, grants, index locks and backup before a live update.
+lb_reader run --rm liquibase update
+lb_reader run --rm liquibase status --verbose
+```
+
+The reader root includes the existing writer changesets plus its additive grants
+and indexes. A successful worker-only update does not provision reader access.
