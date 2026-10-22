@@ -42,7 +42,7 @@ For Terraform changes, run these checks from the repository root:
 (
 set -e
 terraform fmt -check -recursive infra
-for root in infra/bootstrap infra infra/litellm infra/reader infra/frontend/build infra/frontend; do
+for root in infra/bootstrap infra/market-scanner infra/litellm infra/reader infra/frontend/build infra/frontend; do
   terraform -chdir="$root" init -backend=false -input=false -lockfile=readonly
   terraform -chdir="$root" validate
   terraform -chdir="$root" test
@@ -51,7 +51,7 @@ done
 ```
 
 Terraform tests use mocked providers and do not verify a live deployment.
-See the [deployment guide](infra/README.md) for live validation.
+See the [deployment guide](infra/market-scanner/README.md) for live validation.
 Documentation-only changes should have valid links and commands that match the
 repository.
 

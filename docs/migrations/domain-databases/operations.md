@@ -41,11 +41,11 @@ cutover inspect
 
 ```sh
 umask 077
-terraform -chdir=infra plan -var-file=config/preprod.tfvars -var-file=config/release.local.tfvars -out=/private/tmp/scanner.tfplan
+terraform -chdir=infra/market-scanner plan -var-file=config/preprod.tfvars -var-file=config/release.local.tfvars -out=/private/tmp/scanner.tfplan
 terraform -chdir=infra/reader plan -var-file=release.local.tfvars -out=/private/tmp/reader.tfplan
 # Review these saved plans before pausing and applying them.
 gcloud scheduler jobs pause market-scanner-daily-0700 --project=preprod-deep-copy --location=europe-west1
-terraform -chdir=infra apply /private/tmp/scanner.tfplan
+terraform -chdir=infra/market-scanner apply /private/tmp/scanner.tfplan
 terraform -chdir=infra/reader apply /private/tmp/reader.tfplan
 gcloud run jobs execute market-scanner-daily --project=preprod-deep-copy --region=europe-west1
 ```

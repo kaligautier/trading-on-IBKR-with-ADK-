@@ -138,7 +138,7 @@ local PostgreSQL 17 fixtures when different. No new service tier or SDK upgrade.
 | `apps/backend/market-scanner-adk/src/app/` | Persistent session adapter, scheduled job and ADK service integration. |
 | `apps/backend/market-scanner-api/` | Analysis-only reader configuration and access tests. |
 | Authoritative `apps/backend/momentum-adk/` | Session adapter and existing analysis storage configuration. |
-| `infra/`, `infra/reader/`, actual Momentum deployment owner | Explicit schemas, secret versions, pools and runtime release. |
+| `infra/market-scanner/`, `infra/reader/`, actual Momentum deployment owner | Explicit schemas, secret versions, pools and runtime release. |
 | `tasks/plan.md`, `tasks/todo.md` | Updated execution plan/checklist; old migration tooling is superseded. |
 
 ## Commands
