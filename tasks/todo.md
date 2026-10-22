@@ -1,51 +1,62 @@
-# Momentum review checklist
+# Momentum consultation execution checklist
 
-Status: implementation is deployed and verified; source integration into `main`
-is pending review. This checklist replaces the chronological implementation
-steps with the final domain boundaries. The original SPEC remains authoritative
-for unfinished functionality.
+Status: authorized implementation in an isolated worktree; no production rollout.
+Paths below are relative to `apps/backend/momentum-api` unless qualified.
+Each item has at most five implementation/test files; checkpoint evidence is
+recorded in the delivery report and PR descriptions.
 
-## Ordered stack
-
-- [ ] 01 `review/momentum-01-design` — define final architecture and review sequence.
-- [ ] 02 `review/momentum-02-contracts` — package validated analysis inputs and storage configuration.
-- [ ] 03 `review/momentum-03-financial-schemas` — preserve financial schemas and rendering contracts.
-- [ ] 04 `review/momentum-04-result-models` — model financial results and execution correlation.
-- [ ] 05 `review/momentum-05-database-foundation` — preserve migration history and restricted database grants.
-- [ ] 06 `review/momentum-06-database-compatibility` — retain applied split-database migrations and compatibility checks.
-- [ ] 07 `review/momentum-07-database-runtime` — use one database with isolated session and analysis schemas.
-- [ ] 08 `review/momentum-08-result-persistence` — commit complete financial results atomically.
-- [ ] 09 `review/momentum-09-alpha-market-data` — add market primitives and Alpha Vantage adapters.
-- [ ] 10 `review/momentum-10-yahoo-market-tools` — connect Yahoo data and provider routing to ADK tools.
-- [ ] 11 `review/momentum-11-gateway-agents` — route all agent roles through a bounded LiteLLM gateway.
-- [ ] 12 `review/momentum-12-workflow` — compose analyst debates and final decisions.
-- [ ] 13 `review/momentum-13-decision-memory` — enrich analyses with decision memory and outcomes.
-- [ ] 14 `review/momentum-14-worker-image` — package the persistent analysis worker.
-- [ ] 15 `review/momentum-15-cloud-run` — deploy and verify the private analysis job.
-
-## Reviewer checks
-
-- Package and contracts: invalid tickers/analysts fail validation; no eager cloud initialization.
-- Financial schemas: original fields, enums and renderers remain compatible.
-- Result models: twelve tables and required execution correlation; no session foreign key.
-- Database foundation: runtime privileges are restricted; migration rollback preserves Scanner.
-- Migration compatibility: applied historical checksums remain unchanged.
-- Unified runtime: both explicit URLs target `momentum`; each login accesses its own schema.
-- Persistence: all sections commit together; failures roll back; null trader rationale is supported.
-- Market data: provider selection, report formats and ticker path handling are preserved.
-- Agents: every role uses LiteLLM; shared request pacing respects the existing virtual key.
-- Workflow: all analyst, investment, risk and portfolio stages remain present.
-- Memory: outcome enrichment is preserved; filesystem memory/cache remains ephemeral in Cloud Run.
-- Worker: validated payload, bounded connections, correlated result commit before exit zero.
-- Deployment: private job, dedicated identity, secret references, immutable image, isolated state.
-
-## Remaining implementation scope
-
-- [ ] Private HTTP dispatcher, request contract and job-scoped execution permissions.
-- [ ] HTTP authentication/anonymous-denial tests and authorized dispatch verification.
-- [ ] Broader controlled provider/transport failure coverage from the original specification.
-- [ ] Automated image publication after checks; current release was explicitly deployed.
-
-The 97 historical analyses were copied separately into `_analysis` with `legacy`
-correlation markers. No old sessions were imported. That operational data copy is
-not a schema migration or a tracked database dump; backups remain private.
+- [x] T01 Design baseline and isolated worktree.
+  - Files: specs (2), plan, checklist; preserve prior worker files in archive.
+  - Verify: links/format, fresh `origin/main`, clean scoped diff.
+- [ ] T02 Package, reader configuration and input contracts.
+  - Files: pyproject.toml, uv.lock, src/app/config.py, src/app/query.py, src/test/unit/test_inputs.py.
+  - Accept: safe reader URL/auth defaults; canonical ticker/rating; bound cursors.
+  - Verify: focused pytest, Ruff, mypy.
+- [ ] T03 Typed summaries and financial detail projection.
+  - Files: src/app/dto.py, src/app/sections.py, src/app/assembly.py, src/test/unit/test_dto.py, src/test/fixtures.py.
+  - Accept: source field/alias parity, finite values, no execution/user fields.
+  - Verify: mapping and malformed-storage tests.
+- [ ] T04 Negotiation and conditional read policy.
+  - Files: src/app/http/negotiation.py, src/app/http/conditional.py, src/app/http/problems.py, src/test/unit/test_http_policy.py.
+  - Accept: q-values/wildcards, strong/weak ETags, stable typed errors.
+  - Verify: focused protocol cases, Ruff and mypy.
+- [ ] T05 Authenticated HTTP lifecycle and liveness.
+  - Files: src/app/http/middleware.py, src/app/application.py, src/app/main.py, src/test/unit/test_application.py.
+  - Accept: HEAD/OPTIONS/auth/challenges, no secret logs, engine lifecycle hook.
+  - Verify: in-process full request matrix; storage not called for unauthorized input.
+- [ ] T06 Database permission foundation.
+  - Files: database/momentum-reader-bootstrap.sql, database/changelog/momentum-reader.yaml, database/changelog/momentum-reader/001-reader.sql, scripts/test_database.sh.
+  - Accept: isolated reader role/grants and safe disposable Liquibase harness.
+  - Verify: migration validation/update/repeat on labelled local PostgreSQL.
+- [ ] T07 Storage connection and bounded history queries.
+  - Files: src/app/database.py, src/app/repository.py, src/app/service.py, src/test/integration/conftest.py, src/test/integration/test_history.py.
+  - Accept: read-only lifecycle, deterministic history/cursors, sanitized SQL errors.
+  - Verify: real database history/timeout/configuration tests.
+- [ ] T08 Detail/latest/recommendations and HTTP routes.
+  - Files: src/app/routes.py, src/app/repository.py, src/app/service.py, src/test/integration/test_analyses.py, src/test/unit/test_routes.py.
+  - Accept: all four use cases, ties, rating-after-latest and complete detail.
+  - Verify: >100-row pagination and API field-preservation assertions.
+- [ ] T09 Effective privilege and writer compatibility verification.
+  - Files: src/test/integration/test_permissions.py, scripts/check_storage_contract.py, src/test/unit/test_storage_contract.py.
+  - Accept: writes/DDL/TEMP/cross-schema reads denied, projected columns exist.
+  - Verify: real roles, worker model AST compatibility without runtime imports.
+- [ ] T10 Reusable API artifacts and documentation.
+  - Files: scripts/export_openapi.py, openapi.json, README.md, docs/postman/momentum-api.postman_collection.json, .env.example.
+  - Accept: deterministic contract, documented problems/commands, runnable requests.
+  - Verify: OpenAPI drift check and collection assertions against local service.
+- [ ] T11 Production image and local runtime verification.
+  - Files: Dockerfile, .dockerignore, scripts/container_smoke.py, src/test/unit/test_packaging.py.
+  - Accept: non-root locked image boots and enforces real HTTP behavior.
+  - Verify: Linux amd64 build, wheel build, container smoke and dependency audit.
+- [ ] T12 Dedicated Terraform root and validation.
+  - Files: infra/momentum-api/main.tf, variables.tf, tests/reader.tftest.hcl, .terraform.lock.hcl, README.md.
+  - Accept: private IAM, immutable inputs, bounded pool/replicas and isolated state.
+  - Verify: fmt/init/validate/test, Linux/macOS provider checksums.
+- [ ] T13 CI and update automation.
+  - Files: .github/workflows/momentum-api.yml, .github/dependabot.yml.
+  - Accept: offline PR gates, mandatory PostgreSQL/coverage/image/contract/TF checks.
+  - Verify: workflow inspection plus local equivalents and remote CI.
+- [ ] T14 Review and PR publication.
+  - Files: scoped corrections and docs/specs/momentum-api-delivery.md evidence.
+  - Accept: spec audit, no secrets, <=1,000 lines per PR, dependency links, no auto-merge.
+  - Verify: published diffs/head SHAs/checks; live deployment explicitly separate.

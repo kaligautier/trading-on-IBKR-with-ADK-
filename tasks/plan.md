@@ -1,39 +1,65 @@
-# Momentum delivery and review plan
+# Momentum consultation implementation plan
 
-The target is a private Cloud Run analysis worker using LiteLLM and one PostgreSQL
-`momentum` database: `_sessions` for ADK history and `_analysis` for financial
-results. See the [specification](../docs/specs/momentum-service.md).
+Authorized by the 2026-10-22 implementation/MR request. Scope follows
+[the product spec](../docs/specs/momentum-consultation-api.md) and
+[the HTTP profile](../docs/specs/momentum-http-rfc-profile.md).
+The old worker plan/checklist are preserved under `tasks/archive/momentum-worker-*`.
 
-## Review strategy
+## Architecture and delivery
 
-The replacement stack starts from `main` at `1ad365b`. Each PR covers one domain
-and changes fewer than 1,000 counted lines (additions plus deletions); generated
-`uv.lock` and `package-lock.json` are excluded by repository policy. Dependencies
-are explicit: review and merge from the bottom of the stack upwards, retargeting
-and rerunning checks as parent PRs land. No automatic merge is configured.
+A standalone Python 3.12 FastAPI reader uses the existing `momentum._analysis`
+contract. Explicit Pydantic DTOs expose only the reviewed financial projection.
+Parameterized SQL queries return bounded summaries and one complete detail;
+HTTP policy owns authentication, negotiation, conditional reads and problem details.
+There are no sibling imports, ADK/model calls, database writes or job dispatch.
 
-The stack starts from tested worker source `83003b5`. Review corrections cover
-provider date windows, fallback and durable resume statistics. Previously deployed
-migrations stay byte-for-byte unchanged, including the obsolete layouts whose
-checksums and compatibility tests must remain valid. Their presence is historical
-compatibility, not a request to provision separate databases again.
+Dependency order: contracts/configuration -> private liveness HTTP -> database
+reader/grants -> history/detail -> latest/recommendations -> contract artifacts
+-> image/CI/Terraform -> full verification and review. Database and runtime checks
+use synthetic fixtures and an isolated labelled PostgreSQL server.
 
-The old 25-PR stack remains available as history. The replacement folds live
-fixes into the responsible domain: gateway pacing into agent configuration and
-nullable trader rationale into result persistence. This avoids asking reviewers
-to approve behavior already known to fail before reviewing its correction.
+Each independently checked commit becomes a dependent PR under 1,000 counted
+lines and affecting only the new application component. Generated OpenAPI changes
+are reviewed in the corresponding contract slices; never weaken size checks or
+compress source to evade them. First PR contains design; later PRs depend on it.
+Only the final service is releasable. No merge, deployment or paid analysis occurs.
 
-## Validation
+## Decisions
 
-Each code checkpoint runs all unit tests present at that checkpoint plus Ruff.
-Each database checkpoint runs the applicable real PostgreSQL integration suite
-against the labeled disposable local container. The final stack preserves the
-164 unit and 52 database tests, the immutable image reference and Terraform tests.
-CI is introduced progressively: library checks with the package, database checks
-with the harness, and infrastructure/dependency checks with the deployment root.
+- Preserve DeepCopy field names/aliases, but declare nested schemas explicitly.
+- Use the existing database/migration history; add a separate reader bootstrap and
+  reader-only changelog so existing worker migration counts/checksums stay intact.
+- Bound cursors to view and normalized filters; query latest-per-ticker before
+  applying ratings/cursor. An older Buy cannot outlive a newer Sell in discovery.
+- Enforce RFC HTTP semantics at an ASGI boundary; no streaming report endpoint is
+  needed. HEAD and ETags operate on the same deterministic representation bytes.
+- Default local authentication is opaque bearer; Cloud Run IAM mode requires the
+  managed ingress. Problem types use the owned repository documentation URL so
+  they are stable and reviewable without adding a public application endpoint.
+- Choose dependency versions from the existing Scanner lock where compatible;
+  generate the new lock and audit runtime dependencies before delivery.
+- Main acceptance is locally reproducible source, tests, image and Terraform plus
+  published PRs. Live deployment criteria stay explicitly pending in the report.
 
-The deployed worker has already completed a real AAPL analysis through LiteLLM
-and persisted its correlated financial result. Restacking PRs does not redeploy
-infrastructure or execute another paid analysis. Live evidence is in
-[the infrastructure PR](https://github.com/kaligautier/trading-on-IBKR-with-ADK-/pull/98),
-which introduces the rollout guide.
+## Checkpoints
+
+1. Contracts/HTTP: focused negative tests, Ruff and mypy; no runnable storage path
+   until the repository is wired.
+2. Real storage: actual Liquibase migrations, fixture round-trip, permission
+   denials, tied timestamps and >100 results across all list views.
+3. Delivery: all tests with >=90% branch-inclusive coverage, deterministic OpenAPI,
+   Postman assertions against the real local service, production image smoke,
+   dependency audit, Terraform fmt/init/validate/test and PR policies.
+4. Review: inspect requirements against evidence, fix findings, publish the complete
+   dependent PR series and verify remote head/check status.
+
+## Risks
+
+- RFC middleware can mishandle HEAD/304, Accept precedence or auth failures:
+  explicit protocol tests precede implementation and run against the container.
+- Data/ORM drift can leak or drop fields: explicit projection plus synthetic
+  all-field fixtures and a static writer-column compatibility check.
+- Effective PUBLIC/inherited privileges can bypass nominal read-only grants:
+  real negative permission tests with a non-owner role and bootstrap validation.
+- Production identity/TLS are outside unit-test proof: no deployed-conformance
+  claim until separate live checks are authorized and performed.

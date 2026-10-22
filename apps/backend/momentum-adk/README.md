@@ -2,7 +2,7 @@
 
 Independent Python 3.12 package for the private Momentum extraction described in
 the [specification](../../../docs/specs/momentum-service.md) and
-[execution checklist](../../../tasks/todo.md).
+[execution checklist](../../../tasks/archive/momentum-worker-todo.md).
 
 ## Current implementation
 
