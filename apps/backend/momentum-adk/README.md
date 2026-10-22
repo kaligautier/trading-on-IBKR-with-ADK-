@@ -53,6 +53,17 @@ uv build --wheel
 network services or source repository. Each application has its own environment;
 do not add sibling applications to `PYTHONPATH`.
 
+Install dependencies through the committed `uv.lock`. The application and wheel
+require OpenTelemetry API/SDK 1.45.1 to fix CVE-2026-114603. ADK 2.6.1 still caps
+these dependencies at 1.42.1, so the project contains a narrow, tested uv override.
+A standalone resolver without that override fails rather than silently installing
+the vulnerable version. For an internal wheel, first prepare the frozen environment
+with `uv sync --frozen --no-dev`, then install the wheel there with
+`uv pip install --python .venv/bin/python --no-deps path/to/momentum_adk.whl`.
+CI verifies both the wheel requirements and installed versions outside the checkout,
+and exercises actual ADK model/tool spans with the fixed SDK. Remove the override
+when ADK supports the corrected dependency pair directly.
+
 ## Source and adaptation
 
 Domain contracts/value objects and their original regression cases come from

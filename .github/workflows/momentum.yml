@@ -5,6 +5,7 @@ on:
     paths:
       - 'apps/backend/momentum-adk/**'
       - '.github/workflows/momentum.yml'
+      - '.github/scripts/verify_adk_telemetry.py'
       - 'database/**'
       - 'infra/momentum/**'
   push:
@@ -12,6 +13,7 @@ on:
     paths:
       - 'apps/backend/momentum-adk/**'
       - '.github/workflows/momentum.yml'
+      - '.github/scripts/verify_adk_telemetry.py'
       - 'database/**'
       - 'infra/momentum/**'
   workflow_dispatch:
@@ -49,15 +51,19 @@ jobs:
           uv run --frozen ruff format --check app tests
       - name: Test the independent library
         run: TZ=UTC uv run --frozen pytest -q tests/unit
+      - name: Verify locked ADK and OpenTelemetry compatibility offline
+        run: uv run --frozen python ../../../.github/scripts/verify_adk_telemetry.py
       - name: Build and import the installed wheel outside the checkout
         shell: bash
         run: |
           set -euo pipefail
           uv build --wheel --out-dir "$RUNNER_TEMP/momentum-dist"
           wheels=("$RUNNER_TEMP"/momentum-dist/*.whl)
+          uv sync --frozen --no-dev --no-editable --python 3.12
+          runtime_python="$PWD/.venv/bin/python"
+          uv pip install --python "$runtime_python" --no-deps --reinstall "${wheels[0]}"
           cd "$RUNNER_TEMP"
-          uv run --python 3.12 --isolated --no-project --with "${wheels[0]}" \
-            python -I -c 'import app; from app.domain.contracts import AnalysisRequest'
+          "$runtime_python" -I -c 'import app; from app.domain.contracts import AnalysisRequest; import importlib.metadata as m; required = m.requires("momentum-adk"); assert "opentelemetry-api==1.45.1" in required; assert "opentelemetry-sdk==1.45.1" in required; assert m.version("opentelemetry-api") == "1.45.1"; assert m.version("opentelemetry-sdk") == "1.45.1"'
 
   database:
     runs-on: ubuntu-24.04
