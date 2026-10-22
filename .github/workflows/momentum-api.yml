@@ -42,6 +42,7 @@ jobs:
       - run: uv run --frozen mypy src/app
       - run: uv run --frozen python scripts/check_storage_contract.py
       - run: uv run --frozen python scripts/export_openapi.py --check
+      - run: uvx --python 3.12 --from openapi-spec-validator==0.7.2 openapi-spec-validator openapi.json
       - name: Real Liquibase, PostgreSQL and effective reader permissions
         run: bash scripts/test_database.sh verify --cov=app --cov-branch --cov-report=term-missing --cov-fail-under=90 -q
       - run: uv build --out-dir dist

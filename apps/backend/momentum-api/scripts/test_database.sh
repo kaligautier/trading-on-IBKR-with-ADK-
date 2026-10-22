@@ -41,8 +41,15 @@ SQL
 
 case "${1:-}" in
   verify)
+    MOMENTUM_API_FIXTURE_OWNER=$(python3 -c 'from uuid import uuid4; print(uuid4().hex)')
+    export MOMENTUM_API_FIXTURE_OWNER
+    cleanup_verify() {
+      if test "$(docker inspect --format '{{index .Config.Labels "org.deepcopy.momentum-api-test-owner"}}' "$name" 2>/dev/null)" = "$MOMENTUM_API_FIXTURE_OWNER"; then
+        bash "$script" stop
+      fi
+    }
+    trap cleanup_verify EXIT
     bash "$script" start
-    trap 'bash "$script" stop' EXIT
     cd "$root/apps/backend/momentum-api"
     MOMENTUM_API_TEST_DATABASE=1 uv run --frozen pytest src/test "${@:2}"
     ;;
@@ -52,6 +59,7 @@ case "${1:-}" in
       exit 1
     fi
     docker run --detach --rm --name "$name" --label "$label=true" \
+      --label "org.deepcopy.momentum-api-test-owner=${MOMENTUM_API_FIXTURE_OWNER:-manual}" \
       --publish 127.0.0.1:55451:5432 --publish 127.0.0.1:55452:8080 \
       --env POSTGRES_PASSWORD=local-only "$image"
     for ((attempt=0; attempt<60; attempt++)); do

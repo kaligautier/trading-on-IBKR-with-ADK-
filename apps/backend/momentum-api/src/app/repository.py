@@ -25,6 +25,22 @@ SUMMARY_TABLES = (
 )
 
 
+SECTION_COLUMNS = {
+    table: ", ".join(
+        (
+            "id",
+            "result_id",
+            *(
+                str(field.validation_alias or name)
+                for name, field in model.model_fields.items()
+                if name != "items"
+            ),
+        )
+    )
+    for table, model in SECTION_MODELS.items()
+}
+
+
 def storage_error(error: Exception) -> APIError:
     cause: BaseException | None = error
     while cause is not None:
@@ -65,7 +81,8 @@ class AnalysisRepository:
                 if table not in SECTION_MODELS:
                     raise ValueError("Unsupported section")
                 statement = text(
-                    f"SELECT * FROM _analysis.{table} WHERE result_id IN :ids"
+                    f"SELECT {SECTION_COLUMNS[table]} FROM _analysis.{table} "
+                    "WHERE result_id IN :ids"
                 ).bindparams(bindparam("ids", expanding=True))
                 rows = (await connection.execute(statement, {"ids": ids})).mappings()
                 for row in rows:
@@ -131,7 +148,8 @@ class AnalysisRepository:
 
     async def ready(self) -> None:
         async with self.read() as connection:
-            for table in ("analysis_results", *SECTION_MODELS):
+            tables = {"analysis_results": HEADER_COLUMNS, **SECTION_COLUMNS}
+            for table, columns in tables.items():
                 await connection.execute(
-                    text(f"SELECT * FROM _analysis.{table} LIMIT 0")
+                    text(f"SELECT {columns} FROM _analysis.{table} LIMIT 0")
                 )

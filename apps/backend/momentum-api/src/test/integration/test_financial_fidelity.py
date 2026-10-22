@@ -37,6 +37,12 @@ async def test_complete_projection_from_independent_legacy_snapshot(
     admin, service, nulls
 ):
     await seed(admin)
+    await admin.execute(
+        "UPDATE _analysis.analysis_results SET next_analysis_date=$1, "
+        "next_analysis_desc=$2",
+        None if nulls else date(2026, 10, 25),
+        None if nulls else "synthetic follow-up",
+    )
     reader, _ = service
     expected = {}
     for table_index, (section, table) in enumerate(TABLES.items(), start=1):
@@ -79,6 +85,12 @@ async def test_complete_projection_from_independent_legacy_snapshot(
     for section, value in expected.items():
         assert result[section] == value, section
     assert result["created_at"] == "2026-10-22T12:00:00Z"
+    assert result["id"] == str(UUID(int=1)) and result["ticker"] == "T000"
+    assert result["llm_provider"] == "test-provider"
+    assert result["deep_think_llm"] == "test-deep"
+    assert result["quick_think_llm"] == "test-quick"
+    assert result["next_analysis_date"] == (None if nulls else "2026-10-25")
+    assert result["next_analysis_desc"] == (None if nulls else "synthetic follow-up")
     assert not {"session_id", "invocation_id", "user_id"} & result.keys()
     summarized = (
         await reader.list(Query.from_parameters("history", None, None, 20, ""))

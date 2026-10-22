@@ -16,6 +16,11 @@ def test_openapi_policy_and_financial_shapes():
         assert set(operations) == {"get", "head", "options"}
         for method, operation in operations.items():
             ids.append(operation["operationId"])
+            if "{analysis_id}" in path:
+                assert any(
+                    parameter["in"] == "path" and parameter["name"] == "analysis_id"
+                    for parameter in operation["parameters"]
+                )
             assert "422" not in operation["responses"]
             assert operation["security"] == (
                 [] if path == "/health" else [{"Bearer": []}]
@@ -31,3 +36,15 @@ def test_openapi_policy_and_financial_shapes():
     assert "macd_signal_state" not in financial["TechnicalIndicators"]["properties"]
     assert "user_id" not in financial["AnalysisDetail"]["properties"]
     assert schema["components"]["responses"]["405"]["headers"]["Allow"]
+
+
+def test_offline_export_is_independent_of_runtime_environment(monkeypatch):
+    monkeypatch.setenv("AUTH_MODE", "cloud_run")
+    monkeypatch.delenv("K_SERVICE", raising=False)
+    monkeypatch.setenv("DATABASE_POOL_SIZE", "999")
+    exporter = runpy.run_path(
+        str(Path(__file__).resolve().parents[3] / "scripts/export_openapi.py")
+    )
+    assert (
+        json.loads(exporter["export"]())["info"]["title"] == "Momentum consultation API"
+    )

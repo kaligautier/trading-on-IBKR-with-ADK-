@@ -65,3 +65,24 @@ async def test_timeout_is_transient_and_does_not_leak_driver_details(admin, serv
         assert engine.pool.checkedout() == 0
     finally:
         await transaction.rollback()
+
+
+async def test_missing_optional_physical_column_is_configuration_error(admin, service):
+    reader, _ = service
+    await seed(admin)
+    await admin.execute(
+        "ALTER TABLE _analysis.technical_indicators RENAME COLUMN rsi TO missing_rsi"
+    )
+    try:
+        for operation in (reader.ready, lambda: reader.list(query())):
+            with pytest.raises(APIError) as caught:
+                await operation()
+            assert (
+                caught.value.status == 500
+                and caught.value.code == "configuration-error"
+            )
+    finally:
+        await admin.execute(
+            "ALTER TABLE _analysis.technical_indicators "
+            "RENAME COLUMN missing_rsi TO rsi"
+        )

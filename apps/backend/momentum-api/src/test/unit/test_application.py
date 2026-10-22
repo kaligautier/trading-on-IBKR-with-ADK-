@@ -127,6 +127,8 @@ async def test_errors_are_safe_bodyless_when_needed_and_never_logged(client, cap
     assert "disposable-reader-token" not in caplog.text
     assert "hidden" not in caplog.text and "/absent" not in caplog.text
     assert "status=500" in caplog.text
+    unknown_method = await client.request("UNKNOWN", "/absent", headers=auth)
+    assert unknown_method.status_code == 501
 
 
 async def test_error_format_and_repeated_accept_fields(client):
@@ -149,3 +151,16 @@ async def test_bearer_multiple_spaces_and_correlated_safe_failure(client, caplog
     assert failure.json()["code"] == "INTERNAL_ERROR"
     assert failure.headers["request-id"] in caplog.text
     assert "category=INTERNAL_ERROR" in caplog.text
+
+
+@pytest.mark.parametrize(
+    "path, headers",
+    [
+        ("/openapi.json", {"Authorization": "Bearer\tdisposable-reader-token"}),
+        ("/openapi.json?access_token=", {"Authorization": BEARER}),
+    ],
+)
+async def test_malformed_bearer_transport(client, path, headers):
+    response = await client.get(path, headers=headers)
+    assert response.status_code == 400
+    assert "invalid_request" in response.headers["www-authenticate"]
