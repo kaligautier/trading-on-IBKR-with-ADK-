@@ -28,7 +28,7 @@ to approve behavior already known to fail before reviewing its correction.
 Each code checkpoint runs all unit tests present at that checkpoint plus Ruff.
 Each database checkpoint runs the applicable real PostgreSQL integration suite
 against the labeled disposable local container. The final stack preserves the
-155 unit and 49 database tests, the immutable image reference and Terraform tests.
+164 unit and 52 database tests, the immutable image reference and Terraform tests.
 CI is introduced progressively: library checks with the package, database checks
 with the harness, and infrastructure/dependency checks with the deployment root.
 
