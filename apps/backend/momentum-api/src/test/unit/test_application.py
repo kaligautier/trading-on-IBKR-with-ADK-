@@ -132,8 +132,20 @@ async def test_errors_are_safe_bodyless_when_needed_and_never_logged(client, cap
 async def test_error_format_and_repeated_accept_fields(client):
     auth = {"Authorization": BEARER, "Accept": "application/problem+json"}
     error = await client.get("/failure", headers=auth)
-    assert error.status_code == 503 and error.json()["code"] == "store-unavailable"
+    assert error.status_code == 503 and error.json()["code"] == "STORE_UNAVAILABLE"
     response = await client.get(
         "/health", headers=[("Accept", "text/html"), ("Accept", "application/json")]
     )
     assert response.status_code == 200
+
+
+async def test_bearer_multiple_spaces_and_correlated_safe_failure(client, caplog):
+    caplog.set_level(logging.INFO, logger="momentum_api")
+    response = await client.get(
+        "/openapi.json", headers={"Authorization": "bEaReR   disposable-reader-token"}
+    )
+    assert response.status_code == 200
+    failure = await client.get("/crash", headers={"Authorization": BEARER})
+    assert failure.json()["code"] == "INTERNAL_ERROR"
+    assert failure.headers["request-id"] in caplog.text
+    assert "category=INTERNAL_ERROR" in caplog.text

@@ -12,6 +12,7 @@ DETAILS = {
     "invalid-argument": "The request parameters or headers are invalid.",
     "invalid-request": "Use a single Authorization Bearer credential.",
     "invalid-token": "The supplied credential is invalid.",
+    "analysis-not-found": "The requested analysis does not exist.",
     "not-found": "The requested resource does not exist.",
     "method-not-allowed": "This resource does not support the requested method.",
     "not-acceptable": "The requested representation is unavailable.",
@@ -21,6 +22,23 @@ DETAILS = {
     "store-unavailable": "The analysis store is temporarily unavailable.",
     "internal-error": "The service could not complete the request.",
     "not-implemented": "The requested method is not implemented.",
+}
+
+
+CODES = {
+    "invalid-argument": "INVALID_ARGUMENT",
+    "invalid-request": "INVALID_ARGUMENT",
+    "invalid-token": "UNAUTHENTICATED",
+    "analysis-not-found": "ANALYSIS_NOT_FOUND",
+    "not-found": "NOT_FOUND",
+    "method-not-allowed": "METHOD_NOT_ALLOWED",
+    "not-acceptable": "NOT_ACCEPTABLE",
+    "precondition-failed": "PRECONDITION_FAILED",
+    "invalid-stored-data": "INVALID_STORED_ANALYSIS",
+    "configuration-error": "STORE_CONFIGURATION_ERROR",
+    "store-unavailable": "STORE_UNAVAILABLE",
+    "internal-error": "INTERNAL_ERROR",
+    "not-implemented": "NOT_IMPLEMENTED",
 }
 
 
@@ -37,7 +55,7 @@ def problem_bytes(error: APIError) -> bytes:
             "title": HTTPStatus(error.status).phrase,
             "status": error.status,
             "detail": DETAILS[error.code],
-            "code": error.code,
+            "code": CODES[error.code],
         },
         ensure_ascii=False,
         allow_nan=False,

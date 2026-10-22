@@ -82,10 +82,31 @@ def test_malformed_condition(value: str) -> None:
 def test_problem_has_stable_type_and_matching_status() -> None:
     problem = json.loads(problem_bytes(APIError(400, "invalid-argument")))
     assert problem["status"] == 400
-    assert problem["code"] == "invalid-argument"
+    assert problem["code"] == "INVALID_ARGUMENT"
     assert problem["type"].startswith("https://github.com/kaligautier/")
     assert "instance" not in problem
 
 
 def test_etags_use_literal_backslashes_not_quoted_string_escaping() -> None:
     assert precondition('"same"', None, '"a\\", "same"') == 304
+
+
+@pytest.mark.parametrize("condition", [', "same",', ',, W/"same", ,'])
+def test_empty_etag_list_elements_are_ignored(condition):
+    assert precondition('"same"', None, condition) == 304
+
+
+def test_public_problem_codes_and_distinct_not_found_types():
+    assert (
+        json.loads(problem_bytes(APIError(401, "invalid-token")))["code"]
+        == "UNAUTHENTICATED"
+    )
+    assert (
+        json.loads(problem_bytes(APIError(500, "invalid-stored-data")))["code"]
+        == "INVALID_STORED_ANALYSIS"
+    )
+    assert (
+        json.loads(problem_bytes(APIError(404, "analysis-not-found")))["code"]
+        == "ANALYSIS_NOT_FOUND"
+    )
+    assert json.loads(problem_bytes(APIError(404, "not-found")))["code"] == "NOT_FOUND"

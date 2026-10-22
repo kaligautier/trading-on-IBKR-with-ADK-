@@ -144,8 +144,11 @@ nonempty GET/HEAD body. Correct the request; retries without changes do not help
 ### invalid-token
 401: invalid local credential. Bearer `invalid_token` challenge; obtain a valid token.
 
+### analysis-not-found
+404, `ANALYSIS_NOT_FOUND`: unknown retained UUID.
+
 ### not-found
-404: unknown retained UUID or resource. An unknown ticker remains an empty 200 page.
+404, `NOT_FOUND`: unknown resource. An unknown ticker remains an empty 200 page.
 
 ### method-not-allowed
 405: recognized method unavailable on this resource; consult `Allow`.
@@ -171,6 +174,7 @@ No fixed Retry-After is promised because recovery time is unknown.
 ### internal-error
 500: unexpected server failure. Logs contain safe route/status/duration only;
 financial payloads, credentials, raw URLs and driver exceptions are excluded.
+The returned Request-ID and safe failure code are logged for correlation.
 
 ### not-implemented
 501: the HTTP method is not implemented by this service.

@@ -333,7 +333,7 @@
               "value": "application/problem+json"
             }
           ],
-          "body": "{\n  \"type\": \"https://github.com/kaligautier/trading-on-IBKR-with-ADK-/blob/main/apps/backend/momentum-api/README.md#not-found\",\n  \"title\": \"Not Found\",\n  \"status\": 404,\n  \"detail\": \"The requested resource does not exist.\",\n  \"code\": \"not-found\"\n}"
+          "body": "{\n  \"type\": \"https://github.com/kaligautier/trading-on-IBKR-with-ADK-/blob/main/apps/backend/momentum-api/README.md#analysis-not-found\",\n  \"title\": \"Not Found\",\n  \"status\": 404,\n  \"detail\": \"The requested analysis does not exist.\",\n  \"code\": \"ANALYSIS_NOT_FOUND\"\n}"
         }
       ]
     },

@@ -1,6 +1,7 @@
 """Bounded JSON response policy at the ASGI boundary, shared by every route."""
 
 import hmac
+import json
 import logging
 import re
 from collections.abc import Callable
@@ -14,7 +15,7 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 from app.config import Settings
 from app.http.conditional import precondition, representation_tag
 from app.http.negotiation import accepts, accepts_identity
-from app.http.problems import APIError, problem_bytes
+from app.http.problems import CODES, APIError, problem_bytes
 
 LOGGER = logging.getLogger("momentum_api")
 ALLOW = "GET, HEAD, OPTIONS"
@@ -54,6 +55,7 @@ class HTTPPolicy:
         if not credentials:
             raise APIError(401, "")
         scheme, _, credential = credentials[0].partition(" ")
+        credential = credential.lstrip(" ")
         if scheme.lower() != "bearer":
             raise APIError(401, "")
         if not re.fullmatch(r"[A-Za-z0-9._~+/-]+=*", credential):
@@ -139,6 +141,14 @@ class HTTPPolicy:
             # Categories only: driver/framework exception text can contain secrets.
             status, body = 500, problem_bytes(APIError(500, "internal-error"))
             response_headers = [(b"content-type", b"application/problem+json")]
+        request_id = str(uuid4())
+        category = "SUCCESS"
+        if status >= 400:
+            category = "UNAUTHENTICATED" if status == 401 else "INTERNAL_ERROR"
+            if body:
+                candidate = json.loads(body).get("code")
+                if candidate in CODES.values():
+                    category = candidate
         if status >= 400 and (
             not accepts(combined("accept"), "application/problem+json")
             or not accepts_identity(combined("accept-encoding"))
@@ -154,7 +164,7 @@ class HTTPPolicy:
             [
                 (b"cache-control", b"no-store"),
                 (b"vary", b"Accept, Accept-Encoding"),
-                (b"request-id", str(uuid4()).encode()),
+                (b"request-id", request_id.encode()),
             ]
         )
         if route is not None and status in {204, 405}:
@@ -172,8 +182,10 @@ class HTTPPolicy:
             {"type": "http.response.body", "body": b"" if method == "HEAD" else body}
         )
         LOGGER.info(
-            "route=%s status=%d duration_ms=%.1f",
+            "request_id=%s route=%s status=%d category=%s duration_ms=%.1f",
+            request_id,
             route or "unknown",
             status,
+            category,
             (monotonic() - started) * 1000,
         )
