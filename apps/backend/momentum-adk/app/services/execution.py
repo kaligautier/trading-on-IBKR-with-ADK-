@@ -20,7 +20,6 @@ class MomentumExecutionService:
             invocation_id=request.invocation_id,
         )
         self._complete_statistics(execution, request, started_at)
-        self._memory_log.complete(request, execution.result)
         return execution
 
     @staticmethod
