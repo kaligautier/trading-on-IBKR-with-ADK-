@@ -15,6 +15,8 @@ on:
       - 'apps/backend/market-scanner-adk/pyproject.toml'
       - 'apps/backend/market-scanner-adk/uv.lock'
   workflow_dispatch:
+  schedule:
+    - cron: '30 5 * * *'
 
 permissions:
   contents: read
@@ -25,6 +27,7 @@ concurrency:
 
 jobs:
   configuration:
+    if: github.event_name != 'schedule'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
@@ -59,6 +62,7 @@ jobs:
       - name: Test bootstrap regressions
         run: uv run --project apps/backend/market-scanner-adk --no-sync pytest -c /dev/null -p no:cacheprovider infra/litellm/tests
   containers:
+    if: github.event_name != 'schedule'
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -78,8 +82,35 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+      - name: Select image audit scope
+        id: scope
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          audit=true
+          if [[ "$EVENT_NAME" == pull_request || "$EVENT_NAME" == push ]]; then
+            if [[ -n "$BASE_SHA" && ! "$BASE_SHA" =~ ^0+$ ]]; then
+              git diff --name-only "$BASE_SHA" "$HEAD_SHA" > "$RUNNER_TEMP/litellm-changes.txt"
+              if ! grep -q '^infra/litellm/' "$RUNNER_TEMP/litellm-changes.txt"; then
+                audit=false
+              fi
+            fi
+          fi
+          echo "audit=$audit" >> "$GITHUB_OUTPUT"
+          echo "Image audit selected: $audit (event: $EVENT_NAME)" >> "$GITHUB_STEP_SUMMARY"
+          if [[ "$audit" == false ]]; then
+            echo 'Pinned LiteLLM images and infrastructure are unchanged; Scanner dependencies retain their own audit.' >> "$GITHUB_STEP_SUMMARY"
+          fi
       - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
+        if: steps.scope.outputs.audit == 'true'
         with:
           version: '0.9.17'
       - name: Audit pinned proxy and migration image packages
+        if: steps.scope.outputs.audit == 'true'
         run: python3 infra/litellm/scripts/audit_images.py --output-dir=${{ runner.temp }}/litellm-audit
