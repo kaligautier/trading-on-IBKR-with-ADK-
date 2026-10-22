@@ -140,3 +140,8 @@ def test_required_header_and_duplicate_single_sections_fail():
     for assembler in (detail, summary):
         with pytest.raises(InvalidStoredAnalysisError):
             assembler(row)
+
+
+def test_unknown_child_column_cannot_overwrite_an_existing_summary_field():
+    row = stored({"technical_indicators": [{"id": UUID(int=2), "rating": "private"}]})
+    assert summary(row).rating is None

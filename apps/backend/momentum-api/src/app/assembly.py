@@ -123,17 +123,34 @@ def detail(stored: StoredAnalysis) -> AnalysisDetail:
 
 def summary(stored: StoredAnalysis) -> AnalysisSummary:
     data = projection(AnalysisHeader, stored.header)
-    # These source tables have no overlapping public summary fields. Header fields
-    # are selected separately so child IDs/dates never replace the result identity.
-    financial_fields = set(AnalysisSummary.model_fields) - set(
-        AnalysisHeader.model_fields
-    )
-    for table in ("technical_indicators", "fundamentals", "portfolio_decisions"):
+    fields_by_table = {
+        "portfolio_decisions": (
+            "rating",
+            "executive_summary",
+            "price_target",
+            "entry_price",
+            "stop_loss",
+            "position_size",
+            "position_size_description",
+            "time_horizon_months",
+            "time_horizon_description",
+            "risk_reward_ratio",
+            "risk_reward_description",
+        ),
+        "technical_indicators": (
+            "close_price",
+            "rsi",
+            "rsi_signal",
+            "trend_direction",
+            "key_support",
+            "key_resistance",
+        ),
+        "fundamentals": ("pe_ratio", "peg_ratio", "beta"),
+    }
+    for table, columns in fields_by_table.items():
         row = single(stored, table)
         if row is not None:
-            data.update(
-                {key: value for key, value in row.items() if key in financial_fields}
-            )
+            data.update({column: row.get(column) for column in columns})
     trader = single(stored, "trader_proposals")
     if trader is not None:
         for target, source in {
