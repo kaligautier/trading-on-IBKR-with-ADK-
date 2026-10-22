@@ -1,8 +1,9 @@
 # Momentum HTTP RFC inventory and conformance profile
 
-Status: specification only, researched on 2026-10-22 from RFC Editor and IETF
-Datatracker. Companion to [the product spec](momentum-consultation-api.md).
-No running implementation, transport audit or blanket certification is implied.
+Status: researched on 2026-10-22 from RFC Editor and IETF Datatracker.
+Companion to [the product spec](momentum-consultation-api.md). Application and
+container verification is recorded in [the delivery report](momentum-api-delivery.md).
+Live transport and IAM verification remain pending; no blanket certification is implied.
 
 ## Scope and interpretation
 
@@ -166,7 +167,8 @@ TLS/certificate verification, negotiated HTTP version, IAM rejection and permitt
 reads. Record upstream/edge error formats separately. Before a conformance claim,
 review applicable verified errata, locked server/library versions and any SHOULD
 exceptions; reported errata alone are not automatically normative corrections.
-This inventory and its tests-to-build are not evidence those checks have passed.
+This inventory alone is not verification evidence. See the delivery report for
+executed application/container checks and remaining live responsibilities.
 
 Superseded baselines: use 9110/9111/9112 rather than the old 7230–7235 HTTP suite;
 9113 rather than 7540; 9457 rather than 7807; 8259 rather than 7159; 9562 rather
