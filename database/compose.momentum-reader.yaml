@@ -1,4 +1,0 @@
-services:
-  liquibase:
-    environment:
-      LIQUIBASE_COMMAND_CHANGELOG_FILE: momentum-reader.yaml
