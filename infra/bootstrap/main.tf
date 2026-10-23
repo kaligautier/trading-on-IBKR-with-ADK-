@@ -3,7 +3,7 @@ terraform {
   required_providers {
     google = {
       source  = "hashicorp/google"
-      version = "~> 7.0"
+      version = "~> 8.7"
     }
   }
   # First apply uses local state; migrate it with backend.remote.tf.example.
