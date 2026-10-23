@@ -1,0 +1,56 @@
+graph TB
+  linkStyle default fill:none,stroke:#627d94,stroke-width:1.5px
+
+  subgraph diagram ["04 | Momentum - analysis via private inference"]
+    style diagram fill:#ffffff,stroke:#ffffff
+
+    3["<div style='font-weight: bold'>Market data providers</div><div style='font-size: 70%; margin-top: 0px'>[Software System]</div><div style='font-size: 80%; margin-top:10px'>Yahoo Finance, US Treasury;<br />optional FRED, Polymarket and<br />Alpha Vantage.</div>"]
+    style 3 fill:#eef1f5,stroke:#627d94,color:#31475d
+    5[("<div style='font-weight: bold'>Managed PostgreSQL</div><div style='font-size: 70%; margin-top: 0px'>[Software System]</div><div style='font-size: 80%; margin-top:10px'>Separate market_scanner,<br />momentum and litellm<br />databases.</div>")]
+    style 5 fill:#fff0cc,stroke:#627d94,color:#674c16
+
+    subgraph 7 ["Deepcopy"]
+      style 7 fill:#ffffff,stroke:#627d94,color:#627d94
+
+      subgraph 22 ["Momentum job"]
+        style 22 fill:#ffffff,stroke:#627d94,color:#627d94
+
+        23["<div style='font-weight: bold'>Execution + runner</div><div style='font-size: 70%; margin-top: 0px'>[Component: ADK Runner]</div><div style='font-size: 80%; margin-top:10px'>Admits request; prepares<br />memory; starts or resumes<br />invocation.</div>"]
+        style 23 fill:#e6f3ed,stroke:#627d94,color:#18344d
+        24["<div style='font-weight: bold'>Trading memory</div><div style='font-size: 70%; margin-top: 0px'>[Component: Python / PostgreSQL]</div><div style='font-size: 80%; margin-top:10px'>Reads durable context and<br />resolves pending outcomes;<br />records reflections in<br />PostgreSQL.</div>"]
+        style 24 fill:#e6f3ed,stroke:#627d94,color:#18344d
+        25["<div style='font-weight: bold'>Selected analysts</div><div style='font-size: 70%; margin-top: 0px'>[Component: ADK sub-branches]</div><div style='font-size: 80%; margin-top:10px'>Parallel market, social, news<br />and fundamentals.</div>"]
+        style 25 fill:#eee5fa,stroke:#627d94,color:#533474
+        26["<div style='font-weight: bold'>Investment debate</div><div style='font-size: 70%; margin-top: 0px'>[Component: ADK nodes]</div><div style='font-size: 80%; margin-top:10px'>Bounded bull / bear rounds;<br />research manager.</div>"]
+        style 26 fill:#eee5fa,stroke:#627d94,color:#533474
+        27["<div style='font-weight: bold'>Trader proposal</div><div style='font-size: 70%; margin-top: 0px'>[Component: LlmAgent]</div><div style='font-size: 80%; margin-top:10px'>Builds a typed trade<br />proposal.</div>"]
+        style 27 fill:#eee5fa,stroke:#627d94,color:#533474
+        28["<div style='font-weight: bold'>Risk debate</div><div style='font-size: 70%; margin-top: 0px'>[Component: ADK nodes]</div><div style='font-size: 80%; margin-top:10px'>Aggressive, conservative and<br />neutral views.</div>"]
+        style 28 fill:#eee5fa,stroke:#627d94,color:#533474
+        29["<div style='font-weight: bold'>Portfolio decision</div><div style='font-size: 70%; margin-top: 0px'>[Component: LlmAgent]</div><div style='font-size: 80%; margin-top:10px'>Produces the final research<br />decision.</div>"]
+        style 29 fill:#eee5fa,stroke:#627d94,color:#533474
+        30["<div style='font-weight: bold'>Result + next analysis</div><div style='font-size: 70%; margin-top: 0px'>[Component: Python / LlmAgent]</div><div style='font-size: 80%; margin-top:10px'>Typed reports, statistics and<br />next review date.</div>"]
+        style 30 fill:#e6f3ed,stroke:#627d94,color:#18344d
+        31["<div style='font-weight: bold'>Result repository</div><div style='font-size: 70%; margin-top: 0px'>[Component: SQLAlchemy]</div><div style='font-size: 80%; margin-top:10px'>Atomically reserves memory,<br />writes results and records<br />reflections.</div>"]
+        style 31 fill:#e6f3ed,stroke:#627d94,color:#18344d
+        32["<div style='font-weight: bold'>Market data tools</div><div style='font-size: 70%; margin-top: 0px'>[Component: Python / HTTP]</div><div style='font-size: 80%; margin-top:10px'>Yahoo default; alternate<br />vendor adapters.</div>"]
+        style 32 fill:#e6f3ed,stroke:#627d94,color:#18344d
+      end
+
+    end
+
+    23-. "<div>Prepares past context</div><div style='font-size: 70%'></div>" .->24
+    23-. "<div>Persists resumable events</div><div style='font-size: 70%'>[momentum / _sessions]</div>" .->5
+    23-. "<div>Starts / resumes graph</div><div style='font-size: 70%'></div>" .->25
+    25-. "<div>Selected analyst reports</div><div style='font-size: 70%'></div>" .->26
+    26-. "<div>Research plan</div><div style='font-size: 70%'></div>" .->27
+    27-. "<div>Trade proposal</div><div style='font-size: 70%'></div>" .->28
+    28-. "<div>Risk perspectives</div><div style='font-size: 70%'></div>" .->29
+    29-. "<div>Decision</div><div style='font-size: 70%'></div>" .->30
+    30-. "<div>Completed execution</div><div style='font-size: 70%'></div>" .->31
+    31-. "<div>Commits correlated results</div><div style='font-size: 70%'>[momentum / _analysis]</div>" .->5
+    31-. "<div>Then records completion</div><div style='font-size: 70%'></div>" .->24
+    25-. "<div>Collectors call tools</div><div style='font-size: 70%'></div>" .->32
+    32-. "<div>Stock data / news</div><div style='font-size: 70%'>[HTTPS]</div>" .->3
+
+  end
