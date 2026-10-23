@@ -19,13 +19,13 @@ async def main():
         settings.DATABASE_URL = os.environ["PROBE_URL"]
         admission, busy, cleanup = admit_scan, ScannerBusyError, close_database
     else:
-        from app.infrastructure.admission import MomentumBusy, admit_execution
+        from app.infrastructure.admission import MomentumBusyError, admit_execution
         from app.job_runner import create_result_engine
 
         engine = create_result_engine(os.environ["PROBE_URL"])
         admission, busy, cleanup = (
             lambda: admit_execution(engine),
-            MomentumBusy,
+            MomentumBusyError,
             engine.dispose,
         )
     try:

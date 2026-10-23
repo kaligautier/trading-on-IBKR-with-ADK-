@@ -52,7 +52,7 @@ SECRET --project=YOUR_PROJECT --data-file=/PROTECTED_PATH/value`:
 For a custom CA, the database URL uses Prisma's verified TLS options:
 
 ```text
-postgresql://USER:PASSWORD@HOST:PORT/litellm?sslmode=require&sslcert=/etc/database/ca.pem&sslaccept=strict&connection_limit=2
+postgresql://USER:PASSWORD@HOST:PORT/litellm?sslmode=require&sslcert=/etc/database/ca.pem&sslaccept=strict&connection_limit=1
 ```
 
 URL-encode credentials. Record only the returned numeric secret versions in
@@ -342,3 +342,13 @@ References: [LiteLLM configuration](https://docs.litellm.ai/docs/proxy/configs),
 [private networking](https://docs.cloud.google.com/run/docs/securing/private-networking).
 
 For rebuilding after an incident, see [RECOVERY.md](RECOVERY.md).
+
+### Shared connection capacity
+
+Admin and gateway each use one database connection, with a combined role limit
+of two. Both the pinned DATABASE_URL secret (`connection_limit=1`) and
+`general_settings.database_connection_pool_limit=1` must agree. Drain the old
+pools before publishing the new secret version and lowering the role limit.
+Prisma migrations run while both services are stopped, within the same role
+allocation. Follow `docs/database-connection-capacity.md`; a rolling overlap is
+not supported on the 15-connection tier. No production secret is modified by CI.

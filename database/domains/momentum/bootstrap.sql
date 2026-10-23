@@ -26,7 +26,8 @@ BEGIN
         EXECUTE format('REVOKE ALL ON DATABASE momentum FROM %I', runtime);
         EXECUTE format('GRANT CONNECT ON DATABASE momentum TO %I', runtime);
         EXECUTE format('REVOKE ALL ON SCHEMA public FROM %I', runtime);
-        EXECUTE format('ALTER ROLE %I NOINHERIT CONNECTION LIMIT 2', runtime);
+        EXECUTE format('ALTER ROLE %I NOINHERIT CONNECTION LIMIT %s', runtime,
+                       CASE WHEN runtime='momentum_results_writer' THEN 2 ELSE 1 END);
         EXECUTE format('ALTER ROLE %I IN DATABASE momentum SET search_path = %I, pg_catalog', runtime, target_schema);
         EXECUTE format('ALTER ROLE %I IN DATABASE momentum SET statement_timeout = %L', runtime, '30s');
         EXECUTE format('ALTER ROLE %I IN DATABASE momentum SET idle_in_transaction_session_timeout = %L', runtime, '30s');
@@ -59,7 +60,7 @@ DO $$ BEGIN
     REVOKE ALL ON DATABASE momentum FROM momentum_results_reader;
     GRANT CONNECT ON DATABASE momentum TO momentum_results_reader;
     REVOKE ALL ON SCHEMA public FROM momentum_results_reader;
-    ALTER ROLE momentum_results_reader NOINHERIT CONNECTION LIMIT 2;
+    ALTER ROLE momentum_results_reader NOINHERIT CONNECTION LIMIT 1;
     ALTER ROLE momentum_results_reader IN DATABASE momentum SET search_path = pg_catalog, _analysis;
     ALTER ROLE momentum_results_reader IN DATABASE momentum SET default_transaction_read_only = on;
     ALTER ROLE momentum_results_reader IN DATABASE momentum SET statement_timeout = '10s';
