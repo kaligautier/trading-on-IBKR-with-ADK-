@@ -56,7 +56,7 @@ disabled. Storage failure logs include a safe exception category.
 
 Use the existing Aiven PostgreSQL **`market_scanner` schema** and
 **`market_scanner_reader` role**. The existing Liquibase changeset in
-`database/changelog/market-scanner/001-initial.sql` already grants only SELECT.
+`database/domains/market_scanner/baseline.sql` already grants only SELECT.
 Runtime SQL is schema-qualified, parameterized and uses read-only transactions.
 The service never receives administrator, migrator or writer credentials.
 
