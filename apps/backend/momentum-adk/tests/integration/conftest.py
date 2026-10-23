@@ -83,12 +83,7 @@ def run_liquibase(url, *command):
     return result.stdout + result.stderr
 
 
-@pytest.fixture(scope="session")
-def domain_database(local_transport):
-    address = local_target(
-        os.environ.get("MOMENTUM_TEST_ADMIN_URL", ""),
-        os.environ.get("MOMENTUM_TEST_CONTAINER", ""),
-    )
+def _validate_container():
     metadata = json.loads(
         subprocess.check_output(["docker", "inspect", CONTAINER], text=True)
     )[0]
@@ -104,6 +99,15 @@ def domain_database(local_transport):
         {"HostIp": "127.0.0.1", "HostPort": str(PORT)}
     ]:
         pytest.fail("Refusing a stopped or inactive PostgreSQL container")
+
+
+@pytest.fixture(scope="session")
+def domain_database(local_transport):
+    address = local_target(
+        os.environ.get("MOMENTUM_TEST_ADMIN_URL", ""),
+        os.environ.get("MOMENTUM_TEST_CONTAINER", ""),
+    )
+    _validate_container()
     urls = {"admin": urlunsplit(address._replace(path="/momentum"))}
     for key, role in [
         ("migrator", ROLES[0]),
