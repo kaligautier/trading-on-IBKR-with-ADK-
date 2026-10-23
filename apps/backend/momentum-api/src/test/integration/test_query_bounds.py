@@ -12,7 +12,7 @@ from app.domain.analyses.search import AnalysisSearchParams
 from .conftest import seed
 
 BOOTSTRAP = (
-    Path(__file__).resolve().parents[6] / "database/momentum-reader-bootstrap.sql"
+    Path(__file__).resolve().parents[6] / "database/domains/momentum/bootstrap.sql"
 ).read_text()
 
 
@@ -68,15 +68,24 @@ async def test_ordering_index_and_latest_access_plan(admin):
     )
 
 
+async def test_domain_bootstrap_removes_public_database_creation_privileges(admin):
+    await admin.execute("GRANT TEMP ON DATABASE momentum TO PUBLIC")
+    try:
+        await admin.execute(BOOTSTRAP)
+        assert not await admin.fetchval(
+            "SELECT has_database_privilege('momentum_results_reader', "
+            "'momentum', 'CREATE,TEMP')"
+        )
+    finally:
+        await admin.execute("ROLLBACK")
+        await admin.execute("REVOKE TEMP ON DATABASE momentum FROM PUBLIC")
+
+
 async def test_reader_bootstrap_refuses_effective_public_or_direct_write_privileges(
     admin,
 ):
     # Bootstrap rolls back on failure; the test restores only its own grant.
     for grant, revoke in (
-        (
-            "GRANT TEMP ON DATABASE momentum TO PUBLIC",
-            "REVOKE TEMP ON DATABASE momentum FROM PUBLIC",
-        ),
         (
             "GRANT INSERT ON _analysis.analysis_results TO momentum_results_reader",
             "REVOKE INSERT ON _analysis.analysis_results FROM momentum_results_reader",
@@ -156,7 +165,7 @@ async def test_bootstrap_rejects_effective_cross_database_connect(admin):
         with pytest.raises(asyncpg.InsufficientPrivilegeError):
             await asyncpg.connect(
                 "postgresql://momentum_results_reader:local-only@"
-                "127.0.0.1:55451/reader_isolation_probe"
+                "127.0.0.1:55473/reader_isolation_probe"
             )
     finally:
         await admin.execute("DROP DATABASE reader_isolation_probe")

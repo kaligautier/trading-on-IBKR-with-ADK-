@@ -7,7 +7,7 @@ from pydantic import SecretStr, ValidationError
 from app.config.settings import Settings
 from app.domain.analyses.search import AnalysisSearchParams, Cursor
 
-URL = "postgresql://momentum_results_reader:fixture-only@localhost:55451/momentum"
+URL = "postgresql://momentum_results_reader:fixture-only@localhost:55473/momentum"
 TOKEN = "disposable-token-for-tests"
 
 

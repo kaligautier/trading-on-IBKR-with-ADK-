@@ -14,7 +14,12 @@ from app.adapters.postgresql.repository import AnalysisRepository
 from app.config.settings import Settings
 from app.services.analysis_service import AnalysisService
 
-BASE = "postgresql://{}:local-only@127.0.0.1:55451/momentum"
+BASE = "postgresql://{}:local-only@127.0.0.1:55473/momentum"
+
+
+@pytest.fixture(autouse=True)
+def local_transport(monkeypatch):
+    monkeypatch.setenv("PGSSLMODE", "disable")
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -27,12 +32,12 @@ def local_database():
     assert docker is not None
     metadata = json.loads(
         subprocess.check_output(  # noqa: S603 -- fixed inspection of our fixture
-            [docker, "inspect", "momentum-api-test-db"], text=True
+            [docker, "inspect", "momentum-current-api-test-db"], text=True
         )
     )[0]
     assert metadata["Config"]["Labels"]["org.deepcopy.momentum-api-test"] == "true"
     assert metadata["NetworkSettings"]["Ports"]["5432/tcp"] == [
-        {"HostIp": "127.0.0.1", "HostPort": "55451"}
+        {"HostIp": "127.0.0.1", "HostPort": "55473"}
     ]
 
 

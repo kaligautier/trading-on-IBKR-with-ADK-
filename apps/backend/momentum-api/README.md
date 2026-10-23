@@ -74,7 +74,7 @@ uv build --out-dir dist
 ```
 
 The database command owns only a labelled disposable PostgreSQL container on
-`127.0.0.1:55451`; it refuses an existing container, applies real Liquibase
+`127.0.0.1:55473`; it refuses an existing container, applies real Liquibase
 migrations, runs unit/integration tests and removes its container on exit.
 `start` and `stop` expose the same fixture for diagnosis. Integration tests fail
 without explicit fixture opt-in; they never silently skip.
@@ -120,14 +120,12 @@ SQL/connect timeout 10 seconds. Reads use repeatable-read read-only transactions
 Each list loads four summary tables in batches, independent of page length;
 detail loads the eleven typed financial tables. Readiness checks every table.
 
-Administrator preparation follows existing unified Momentum bootstrap:
-provision the reader login/password privately, then run
-`database/momentum-reader-bootstrap.sql` in database `momentum` as administrator.
-Run `database/changelog/momentum-reader.yaml` with Liquibase as `database_migrator`.
-This includes the existing three unified changesets plus additive reader grants
-and indexes. Applied writer migrations are unchanged. No runtime DDL is permitted.
-Review index creation against actual catalogue size before production migration;
-this release does not assume zero-lock index creation on a populated store.
+The current Aiven baseline includes the reader's grants and consultation indexes.
+Provision all domain logins privately and use the domain's
+[`bootstrap.sql`](../../../database/domains/momentum/bootstrap.sql) for a fresh installation.
+Follow the [database guide](../../../database/README.md) to verify or adopt an existing
+database as `database_migrator`. The current changelog has no pending consultation
+migration and requires no context filter. No runtime DDL is permitted.
 
 The dedicated `infra/momentum-api` root references immutable image digests and
 numeric secret versions. Configure the reader database URL and CA in Secret
