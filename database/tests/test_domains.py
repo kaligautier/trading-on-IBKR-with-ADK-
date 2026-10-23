@@ -1,6 +1,5 @@
 """Real fresh migrations, database isolation and durable ADK state."""
 
-import subprocess
 from pathlib import Path
 
 import asyncpg
@@ -13,15 +12,10 @@ PASSWORD = "domain-test-only"
 
 
 def url(domain, role):
-    return f"postgresql://{role}:{PASSWORD}@127.0.0.1:55461/{domain}"
+    return f"postgresql://{role}:{PASSWORD}@127.0.0.1:55471/{domain}"
 
 
-@pytest.fixture(scope="module", autouse=True)
-def databases():
-    subprocess.run(
-        ["python3", str(ROOT / "database/scripts/local_domains.py"), "reset"],
-        check=True,
-    )
+pytestmark = pytest.mark.usefixtures("domain_databases")
 
 
 @pytest.mark.parametrize("domain", ["market_scanner", "momentum"])

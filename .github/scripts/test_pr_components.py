@@ -25,7 +25,7 @@ class ComponentScopeTests(unittest.TestCase):
             "apps/backend/market-scanner-api/src/test/test_api.py",
             "apps/backend/market-scanner-api/uv.lock",
             ".github/workflows/scanner-reader.yml",
-            "database/changelog/schema.sql",
+            "database/domains/momentum/baseline.sql",
             "infra/reader/main.tf",
             "docs/api.md",
         ]
