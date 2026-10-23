@@ -13,9 +13,7 @@ pytestmark = pytest.mark.skipif(
     os.getenv("RUN_DOMAIN_TESTS") != "1", reason="Run the local domain rehearsal"
 )
 PORT = os.getenv("SCANNER_DOMAIN_TEST_PORT", "55471")
-URL = (
-    f"postgresql://market_scanner_reader:domain-test-only@127.0.0.1:{PORT}/market_scanner"
-)
+URL = f"postgresql://market_scanner_reader:domain-test-only@127.0.0.1:{PORT}/market_scanner"
 
 
 async def test_reader_restart_and_session_isolation():
