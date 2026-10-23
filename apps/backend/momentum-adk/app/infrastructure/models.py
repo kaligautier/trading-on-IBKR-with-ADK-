@@ -456,7 +456,7 @@ class TraderProposalRow(Base):
     stop_loss: Mapped[float | None] = mapped_column(Float, nullable=True)
     take_profit: Mapped[float | None] = mapped_column(Float, nullable=True)
     position_sizing: Mapped[str | None] = mapped_column(String(100), nullable=True)
-    risk_reward_ratio: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    risk_reward_ratio: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     result: Mapped["AnalysisResult"] = relationship(back_populates="trader_proposal")
 

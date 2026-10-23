@@ -69,8 +69,8 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     env:
-      MOMENTUM_TEST_ADMIN_URL: postgresql://postgres:local-test-only@127.0.0.1:55449/postgres
-      MOMENTUM_TEST_CONTAINER: momentum-test-db
+      MOMENTUM_TEST_ADMIN_URL: postgresql://postgres:local-test-only@127.0.0.1:55467/postgres
+      MOMENTUM_TEST_CONTAINER: momentum-current-test-db
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:

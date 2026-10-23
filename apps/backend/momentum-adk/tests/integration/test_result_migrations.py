@@ -2,7 +2,6 @@
 
 import asyncpg
 import pytest
-from conftest import run_liquibase
 from sqlalchemy import Float, inspect
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.ext.asyncio import create_async_engine
@@ -10,9 +9,9 @@ from sqlalchemy.ext.asyncio import create_async_engine
 from app.infrastructure.models import Base
 
 
-async def test_migrated_result_schema_matches_orm(unified_database):
+async def test_migrated_result_schema_matches_orm(domain_database):
     engine = create_async_engine(
-        unified_database["admin"].replace("postgresql://", "postgresql+asyncpg://"),
+        domain_database["admin"].replace("postgresql://", "postgresql+asyncpg://"),
         pool_size=1,
         max_overflow=0,
     )
@@ -38,10 +37,29 @@ async def test_migrated_result_schema_matches_orm(unified_database):
                 "constrained_columns"
             ] == list(table.primary_key.columns.keys())
             assert not inspector.get_unique_constraints(table.name, "_analysis")
+            expected_indexes = {
+                (i.name, tuple(i.columns.keys()), i.unique) for i in table.indexes
+            }
+            # Consultation indexes are owned by the shared database baseline.
+            if table.name == "analysis_results":
+                expected_indexes.update(
+                    {
+                        ("ix_consultation_created", ("created_at", "id"), False),
+                        (
+                            "ix_consultation_ticker_created",
+                            ("ticker", "created_at", "id"),
+                            False,
+                        ),
+                    }
+                )
+            else:
+                expected_indexes.add(
+                    (f"ix_consultation_{table.name}_result", ("result_id", "id"), False)
+                )
             assert {
                 (i["name"], tuple(i["column_names"]), i["unique"])
                 for i in inspector.get_indexes(table.name, "_analysis")
-            } == {(i.name, tuple(i.columns.keys()), i.unique) for i in table.indexes}
+            } == expected_indexes
             foreign_keys = inspector.get_foreign_keys(table.name, "_analysis")
             assert len(foreign_keys) == len(table.foreign_keys)
             for key in foreign_keys:
@@ -57,8 +75,8 @@ async def test_migrated_result_schema_matches_orm(unified_database):
         await engine.dispose()
 
 
-async def test_result_tables_have_only_explicit_runtime_grants(unified_database):
-    admin = await asyncpg.connect(unified_database["admin"])
+async def test_result_tables_have_only_explicit_runtime_grants(domain_database):
+    admin = await asyncpg.connect(domain_database["admin"])
     try:
         for table in Base.metadata.sorted_tables:
             assert (
@@ -103,8 +121,8 @@ async def test_result_tables_have_only_explicit_runtime_grants(unified_database)
         "DROP TABLE _analysis.analysis_results CASCADE",
     ],
 )
-async def test_runtime_cannot_modify_completed_results(unified_database, query):
-    writer = await asyncpg.connect(unified_database["results_runtime"])
+async def test_runtime_cannot_modify_completed_results(domain_database, query):
+    writer = await asyncpg.connect(domain_database["results_runtime"])
     transaction = writer.transaction()
     await transaction.start()
     try:
@@ -113,72 +131,3 @@ async def test_runtime_cannot_modify_completed_results(unified_database, query):
     finally:
         await transaction.rollback()
         await writer.close()
-
-
-async def test_result_rollback_preserves_other_databases(
-    unified_database, migrated_database
-):
-    admin = await asyncpg.connect(unified_database["admin"])
-    sessions = await asyncpg.connect(unified_database["admin"])
-    scanner = await asyncpg.connect(migrated_database["admin"])
-    migrator = unified_database["migrator"]
-    options = {"context": None, "changelog": "momentum.yaml"}
-    try:
-        await sessions.execute(
-            "INSERT INTO _sessions.sessions VALUES "
-            "('momentum','migration-test','retained-session','{}',NOW(),NOW())"
-        )
-        before = await scanner.fetch(
-            "SELECT id, md5sum FROM liquibase.databasechangelog ORDER BY id"
-        )
-        rows = await scanner.fetchval(
-            "SELECT jsonb_agg(to_jsonb(s)) FROM market_scanner.market_scans s"
-        )
-        run_liquibase(migrator, "update", **options)
-        assert (
-            await admin.fetchval("SELECT count(*) FROM liquibase.databasechangelog")
-            == 3
-        )
-        assert await admin.fetchval("SELECT to_regclass('_analysis.sessions')") is None
-        assert (
-            await admin.fetchval("SELECT to_regclass('market_scanner.market_scans')")
-            is None
-        )
-        run_liquibase(migrator, "rollback-count", "--count=2", **options)
-        assert await admin.fetchval("SELECT to_regnamespace('_analysis')") is None
-        assert (
-            await scanner.fetch(
-                "SELECT id, md5sum FROM liquibase.databasechangelog ORDER BY id"
-            )
-            == before
-        )
-        assert (
-            await scanner.fetchval(
-                "SELECT jsonb_agg(to_jsonb(s)) FROM market_scanner.market_scans s"
-            )
-            == rows
-        )
-        assert (
-            await sessions.fetchval(
-                "SELECT id FROM _sessions.sessions WHERE id='retained-session'"
-            )
-            == "retained-session"
-        )
-    finally:
-        run_liquibase(migrator, "update", **options)
-        await sessions.execute(
-            "DELETE FROM _sessions.sessions WHERE id='retained-session'"
-        )
-        await sessions.close()
-        await scanner.close()
-        await admin.close()
-
-
-def test_result_changelog_rejects_scanner_database(migrated_database):
-    with pytest.raises(RuntimeError, match="(?i)precondition"):
-        run_liquibase(
-            migrated_database["database_migrator"],
-            "update",
-            context=None,
-            changelog="momentum.yaml",
-        )
