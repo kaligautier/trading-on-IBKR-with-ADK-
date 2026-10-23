@@ -9,6 +9,7 @@ from pathlib import Path
 import ssl
 import subprocess
 import sys
+import uuid
 from urllib.parse import parse_qs, unquote, urlencode, urlsplit
 
 import asyncpg
@@ -80,23 +81,41 @@ def liquibase(domain, parameters, command, ca_file=None):
         "LIQUIBASE_COMMAND_CHANGELOG_FILE": f"domains/{domain}/changelog.yaml",
         "LIQUIBASE_LIQUIBASE_SCHEMA_NAME": "liquibase",
     }
-    result = subprocess.run(
-        [
-            "docker",
-            "run",
-            "--rm",
-            *extra,
-            "--volume",
-            f"{ROOT}:/liquibase/changelog:ro",
-            *[arg for key in settings for arg in ("--env", key)],
-            IMAGE,
-            *command,
-        ],
-        env={**os.environ, **settings},
-        capture_output=True,
-        text=True,
-        timeout=120,
-    )
+    container = "deepcopy-liquibase-" + uuid.uuid4().hex
+    try:
+        result = subprocess.run(
+            [
+                "docker",
+                "run",
+                "--rm",
+                "--name",
+                container,
+                *extra,
+                "--volume",
+                f"{ROOT}:/liquibase/changelog:ro",
+                *[arg for key in settings for arg in ("--env", key)],
+                IMAGE,
+                *command,
+            ],
+            env={**os.environ, **settings},
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+    except (subprocess.TimeoutExpired, KeyboardInterrupt):
+        cleanup = subprocess.run(
+            ["docker", "rm", "--force", container],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        if cleanup.returncode and "No such container" not in cleanup.stderr:
+            raise RuntimeError(
+                f"Liquibase interrupted; could not remove {container}"
+            ) from None
+        raise RuntimeError(
+            "Liquibase interrupted; migration container removed"
+        ) from None
     if result.returncode:
         raise RuntimeError("Liquibase failed; connection details suppressed")
     # JDBC diagnostics may contain credentials. Only expose output for SQL previews,
@@ -165,14 +184,13 @@ async def require_runtime_access(connection, roles):
     for role, limit in roles.items():
         state = await connection.fetchrow(
             """
-            SELECT r.rolconnlimit,
+            SELECT r.rolconnlimit, r.rolcanlogin,
               (r.rolsuper OR r.rolcreatedb OR r.rolcreaterole OR r.rolbypassrls
                OR r.rolreplication OR r.rolinherit) AS elevated,
               EXISTS(SELECT FROM pg_auth_members WHERE member=r.oid) AS memberships,
               has_database_privilege(r.oid,current_database(),'CONNECT') AS can_connect,
               has_database_privilege(r.oid,current_database(),'CREATE,TEMP') AS can_create,
-              EXISTS(SELECT FROM pg_database d WHERE d.datname IN
-                ('market_scanner','momentum','litellm','defaultdb')
+              EXISTS(SELECT FROM pg_database d WHERE d.datallowconn AND NOT d.datistemplate
                 AND d.datname<>current_database()
                 AND has_database_privilege(r.oid,d.oid,'CONNECT')) AS cross_domain,
               has_schema_privilege(r.oid,'public','CREATE') AS public_create
@@ -183,6 +201,7 @@ async def require_runtime_access(connection, roles):
         if (
             not state
             or state["rolconnlimit"] != limit
+            or not state["rolcanlogin"]
             or state["elevated"]
             or state["memberships"]
             or not state["can_connect"]
