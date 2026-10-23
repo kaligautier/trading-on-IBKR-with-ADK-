@@ -1,4 +1,4 @@
-workspace "Deepcopy" "Architecture from source and Terraform at 6e56f26, 2026-10-23. Not a live deployment attestation." {
+workspace "Deepcopy" "Architecture from source and Terraform at 76ecf7c, 2026-10-23. Not a live deployment attestation." {
     !impliedRelationships false
 
     model {
@@ -46,8 +46,8 @@ workspace "Deepcopy" "Architecture from source and Terraform at 6e56f26, 2026-10
             momentumReader = container "Momentum reader" "History, latest per ticker and recommendations." "FastAPI / Cloud Run"
             momentumJob = container "Momentum job" "One analysis request; private job execution." "Google ADK / Cloud Run Job" {
                 tags "AI"
-                mRuntime = component "Execution + runner" "Validates request; starts or resumes invocation." "ADK Runner"
-                mMemory = component "Trading memory" "Local Markdown log; ephemeral in Cloud Run." "Filesystem"
+                mRuntime = component "Execution + runner" "Admits request; prepares memory; starts or resumes invocation." "ADK Runner"
+                mMemory = component "Trading memory" "Reads durable context and resolves pending outcomes; records reflections in PostgreSQL." "Python / PostgreSQL"
                 mAnalysts = component "Selected analysts" "Parallel market, social, news and fundamentals." "ADK sub-branches" {
                     tags "AI"
                 }
@@ -64,7 +64,7 @@ workspace "Deepcopy" "Architecture from source and Terraform at 6e56f26, 2026-10
                     tags "AI"
                 }
                 mResult = component "Result + next analysis" "Typed reports, statistics and next review date." "Python / LlmAgent"
-                mPersist = component "Result repository" "Atomic financial sections with execution IDs." "SQLAlchemy"
+                mPersist = component "Result repository" "Atomically reserves memory, writes results and records reflections." "SQLAlchemy"
                 mTools = component "Market data tools" "Yahoo default; alternate vendor adapters." "Python / HTTP"
             }
             gateway = container "Private inference" "Nginx route filter + LiteLLM sidecar; virtual keys." "Cloud Run / internal ingress" {
@@ -167,7 +167,7 @@ workspace "Deepcopy" "Architecture from source and Terraform at 6e56f26, 2026-10
         }
         component momentumJob "04-MomentumComponents" {
             title "04 | Momentum - analysis via private inference"
-            description "Analysis only: no broker orders. All agent inference uses the private gateway. Local memory has no persistent Cloud Run volume."
+            description "Analysis only: no broker orders. All agent inference uses the private gateway. Durable memory and results use PostgreSQL."
             include mRuntime mMemory mAnalysts mResearch mTrader mRisk mPortfolio mResult mPersist mTools postgres data
             autoLayout tb
         }

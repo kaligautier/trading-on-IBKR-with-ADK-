@@ -62,18 +62,19 @@ and typed formatter. Bounded bull/bear research precedes the trader proposal,
 three-perspective risk debate, portfolio decision and final result construction.
 The next review date is generated, not automatically scheduled by this job.
 
-The job orchestrator then commits all result sections with their session and
-invocation IDs, and records memory completion. Arrows show execution/data flow,
+Before model execution, the job admits the request and prepares context from
+PostgreSQL, resolving pending market outcomes where data is available. The job
+orchestrator then commits all result sections with their session and invocation
+IDs and records memory completion in the same transaction. Arrows show execution/data flow,
 not a claim that every component directly calls its successor. All model calls
 use the private inference gateway (shown in the services view; repeated edges are
 omitted here). Yahoo is the default data vendor; Alpha Vantage adapters also exist.
 
-The active memory service still reads and writes a local Markdown log and market
-cache. The checked-in Cloud Run Job mounts no persistent volume, so that log does
-not survive instance shutdown. Commit `6e56f26` adds a PostgreSQL memory repository
-and migration, but `job_runner.py` still wires `TradingMemoryLog`; the new
-repository is not active in the runtime yet. Session history in PostgreSQL does
-not itself prove a successful business-result write.
+Trading memory is active in the job runner and uses the Momentum PostgreSQL
+database. Admission happens before model execution; the memory repository reads
+past context and pending outcomes before the graph runs. Result sections and
+memory reflections are committed atomically after successful execution. ADK
+session events remain a separate persistence path.
 
 ## Boundaries and documentation differences
 
@@ -83,7 +84,7 @@ not itself prove a successful business-result write.
 | Existing implementation diagrams focus on Scanner. | The new model also includes the Momentum job and its separate read-only API. |
 | `infra/README.md` lists infrastructure roots but omits `infra/momentum-api`. | That root exists and provisions the Momentum consultation service; it is included here. |
 | A Momentum tool can request the latest Scanner report. | `TA_MARKET_SCANNER_API_URL` is optional and not wired by the Momentum Terraform root; the tool does not attach a Cloud Run identity token. No active job-to-reader connection is asserted in these views. |
-| Momentum memory has both a PostgreSQL repository and a local Markdown log in source. | `job_runner.py` still wires `TradingMemoryLog`, and Terraform mounts no persistent memory volume. The PostgreSQL repository and table added in `6e56f26` are not active in the runtime yet; the diagram follows the wired code path. |
+| Momentum previously used a local Markdown memory log. | Commit `76ecf7c` wires `PostgresMemoryRepository` into `job_runner.py` and removes the local log. The diagram follows the current source path; deployment is not independently attested. |
 
 ## Source evidence
 
@@ -98,8 +99,8 @@ relationships in the model; it does not substitute for runtime validation.
 | Scanner public-data integrations | `apps/backend/market-scanner-adk/src/app/client/market_research_client.py`, `treasury_client.py`, `yahoo_finance_client.py` |
 | Momentum request and persistence | `apps/backend/momentum-adk/app/job_runner.py`, `services/runtime.py`, `services/execution.py`, `infrastructure/result_repository.py`; `infra/momentum/main.tf` |
 | Momentum graph | `apps/backend/momentum-adk/app/components/agents/momentum/workflow/factory.py`, `analysts.py`, `debates.py`, `nodes.py`, `results.py`; `components/agents/momentum/catalog.py` |
-| Scanner tool and active memory path | `apps/backend/momentum-adk/app/components/tools/market_data.py`, `app/job_runner.py`, `app/infrastructure/memory/log.py`, `app/config/storage.py` |
-| PostgreSQL memory code not yet wired into the runtime | `apps/backend/momentum-adk/app/infrastructure/memory/postgres.py`, `database/domains/momentum/migrations/001-trading-memory.sql` |
+| Scanner tool and Momentum memory path | `apps/backend/momentum-adk/app/components/tools/market_data.py`, `app/job_runner.py`, `app/services/memory.py`, `app/infrastructure/memory/postgres.py` |
+| Momentum admission and durable result/memory transaction | `apps/backend/momentum-adk/app/infrastructure/admission.py`, `app/infrastructure/result_repository.py`, `database/domains/momentum/migrations/001-trading-memory.sql` |
 | Reader services | `apps/backend/market-scanner-api/src/app/routes/market_scans.py`; `apps/backend/momentum-api/src/app/presentation/routes/analyses.py`; `infra/reader/main.tf`, `infra/momentum-api/main.tf` |
 | Inference routing and administration | Both applications' `config/llm.py`; `infra/litellm/gateway.tf`, `service.tf`, `foundation.tf`, `providers.tf`, `redis.tf` |
 | Domain databases and roles | `database/domains.json`, `database/domains/market_scanner/`, `database/domains/momentum/`, `database/domains/litellm/README.md` |

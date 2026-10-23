@@ -15,9 +15,9 @@ graph TB
       subgraph 22 ["Momentum job"]
         style 22 fill:#ffffff,stroke:#627d94,color:#627d94
 
-        23["<div style='font-weight: bold'>Execution + runner</div><div style='font-size: 70%; margin-top: 0px'>[Component: ADK Runner]</div><div style='font-size: 80%; margin-top:10px'>Validates request; starts or<br />resumes invocation.</div>"]
+        23["<div style='font-weight: bold'>Execution + runner</div><div style='font-size: 70%; margin-top: 0px'>[Component: ADK Runner]</div><div style='font-size: 80%; margin-top:10px'>Admits request; prepares<br />memory; starts or resumes<br />invocation.</div>"]
         style 23 fill:#e6f3ed,stroke:#627d94,color:#18344d
-        24["<div style='font-weight: bold'>Trading memory</div><div style='font-size: 70%; margin-top: 0px'>[Component: Filesystem]</div><div style='font-size: 80%; margin-top:10px'>Local Markdown log; ephemeral<br />in Cloud Run.</div>"]
+        24["<div style='font-weight: bold'>Trading memory</div><div style='font-size: 70%; margin-top: 0px'>[Component: Python / PostgreSQL]</div><div style='font-size: 80%; margin-top:10px'>Reads durable context and<br />resolves pending outcomes;<br />records reflections in<br />PostgreSQL.</div>"]
         style 24 fill:#e6f3ed,stroke:#627d94,color:#18344d
         25["<div style='font-weight: bold'>Selected analysts</div><div style='font-size: 70%; margin-top: 0px'>[Component: ADK sub-branches]</div><div style='font-size: 80%; margin-top:10px'>Parallel market, social, news<br />and fundamentals.</div>"]
         style 25 fill:#eee5fa,stroke:#627d94,color:#533474
@@ -31,7 +31,7 @@ graph TB
         style 29 fill:#eee5fa,stroke:#627d94,color:#533474
         30["<div style='font-weight: bold'>Result + next analysis</div><div style='font-size: 70%; margin-top: 0px'>[Component: Python / LlmAgent]</div><div style='font-size: 80%; margin-top:10px'>Typed reports, statistics and<br />next review date.</div>"]
         style 30 fill:#e6f3ed,stroke:#627d94,color:#18344d
-        31["<div style='font-weight: bold'>Result repository</div><div style='font-size: 70%; margin-top: 0px'>[Component: SQLAlchemy]</div><div style='font-size: 80%; margin-top:10px'>Atomic financial sections<br />with execution IDs.</div>"]
+        31["<div style='font-weight: bold'>Result repository</div><div style='font-size: 70%; margin-top: 0px'>[Component: SQLAlchemy]</div><div style='font-size: 80%; margin-top:10px'>Atomically reserves memory,<br />writes results and records<br />reflections.</div>"]
         style 31 fill:#e6f3ed,stroke:#627d94,color:#18344d
         32["<div style='font-weight: bold'>Market data tools</div><div style='font-size: 70%; margin-top: 0px'>[Component: Python / HTTP]</div><div style='font-size: 80%; margin-top:10px'>Yahoo default; alternate<br />vendor adapters.</div>"]
         style 32 fill:#e6f3ed,stroke:#627d94,color:#18344d
