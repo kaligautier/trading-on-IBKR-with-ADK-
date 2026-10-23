@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.config.settings import settings
 from app.models.market_regime import MarketRegime
-from app.services.database import get_engine
+from app.services.admission import result_bind
 from app.utils.wide_event import wide_event
 
 
@@ -31,7 +31,7 @@ class MarketScanPersistence:
         return regime
 
     async def _persist(self, regime: MarketRegime, session_id: str) -> None:
-        sessions = async_sessionmaker(get_engine(), expire_on_commit=False)
+        sessions = async_sessionmaker(result_bind(), expire_on_commit=False)
         async with sessions.begin() as session:
             await self._save_scan(session, regime, session_id)
 
