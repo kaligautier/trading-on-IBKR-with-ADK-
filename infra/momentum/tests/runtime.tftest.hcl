@@ -33,8 +33,11 @@ run "bounded_private_worker" {
     error_message = "Use the private gateway network."
   }
   assert {
-    condition     = length(google_cloud_run_v2_job.analysis[0].template[0].template[0].containers[0].env) == 6
-    error_message = "Only explicit gateway, models and three credentials belong in runtime."
+    condition = toset([for env in google_cloud_run_v2_job.analysis[0].template[0].template[0].containers[0].env : env.name]) == toset([
+      "DATABASE_CA_FILE", "LITELLM_API_BASE", "MOMENTUM_QUICK_MODEL", "MOMENTUM_DEEP_MODEL",
+      "LITELLM_API_KEY", "MOMENTUM_SESSION_DATABASE_URL", "MOMENTUM_RESULT_DATABASE_URL"
+    ])
+    error_message = "Only the CA path, explicit gateway, models and three credentials belong in runtime."
   }
 }
 
