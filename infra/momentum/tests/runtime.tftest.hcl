@@ -38,3 +38,94 @@ run "reject_secret_aliases" {
   }
   expect_failures = [var.llm_key_version, var.session_database_version, var.result_database_version]
 }
+
+run "database_credentials_are_recoverable" {
+  command = plan
+  assert {
+    condition = alltrue([for secret in google_secret_manager_secret.database :
+      secret.deletion_protection && secret.version_destroy_ttl == "2592000s"
+    ])
+    error_message = "Protect both database secrets and delay destruction of individual versions by 30 days."
+  }
+}
+run "accept_https_root_with_trailing_slash" {
+  command = plan
+  variables { gateway_url = "https://gateway.example/" }
+}
+
+run "reject_gateway_http" {
+  command = plan
+  variables { gateway_url = "http://gateway.example" }
+  expect_failures = [var.gateway_url]
+}
+
+run "reject_gateway_credentials" {
+  command = plan
+  variables { gateway_url = "https://user:pass@gateway.example" }
+  expect_failures = [var.gateway_url]
+}
+
+run "reject_gateway_path" {
+  command = plan
+  variables { gateway_url = "https://gateway.example/v1" }
+  expect_failures = [var.gateway_url]
+}
+
+run "reject_gateway_query" {
+  command = plan
+  variables { gateway_url = "https://gateway.example?key=test" }
+  expect_failures = [var.gateway_url]
+}
+
+run "reject_gateway_fragment" {
+  command = plan
+  variables { gateway_url = "https://gateway.example#test" }
+  expect_failures = [var.gateway_url]
+}
+
+run "reject_gateway_empty" {
+  command = plan
+  variables { gateway_url = "" }
+  expect_failures = [var.gateway_url]
+}
+
+run "reject_gateway_missing_host" {
+  command = plan
+  variables { gateway_url = "https://" }
+  expect_failures = [var.gateway_url]
+}
+
+run "reject_gateway_empty_label" {
+  command = plan
+  variables { gateway_url = "https://gateway..example" }
+  expect_failures = [var.gateway_url]
+}
+
+run "reject_gateway_leading_hyphen" {
+  command = plan
+  variables { gateway_url = "https://-gateway.example" }
+  expect_failures = [var.gateway_url]
+}
+
+run "reject_gateway_trailing_hyphen" {
+  command = plan
+  variables { gateway_url = "https://gateway-.example" }
+  expect_failures = [var.gateway_url]
+}
+
+run "reject_gateway_long_label" {
+  command = plan
+  variables { gateway_url = "https://${join("", [for j in range(64) : "a"])}.example" }
+  expect_failures = [var.gateway_url]
+}
+
+run "reject_gateway_long_hostname" {
+  command = plan
+  variables { gateway_url = "https://${join(".", [for i in range(4) : join("", [for j in range(63) : "a"])])}" }
+  expect_failures = [var.gateway_url]
+}
+
+run "accept_gateway_dns_boundaries" {
+  command = plan
+  variables { gateway_url = "https://${join(".", concat([for i in range(3) : join("", [for j in range(63) : "a"])], [join("", [for j in range(61) : "b"])]))}/" }
+}

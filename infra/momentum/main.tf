@@ -24,9 +24,11 @@ resource "google_service_account" "worker" {
   display_name = "Momentum private analysis worker"
 }
 resource "google_secret_manager_secret" "database" {
-  for_each  = toset(["momentum-session-database-url", "momentum-result-database-url"])
-  project   = var.project_id
-  secret_id = each.key
+  for_each            = toset(["momentum-session-database-url", "momentum-result-database-url"])
+  project             = var.project_id
+  secret_id           = each.key
+  deletion_protection = true
+  version_destroy_ttl = "2592000s"
   replication {
     auto {}
   }
