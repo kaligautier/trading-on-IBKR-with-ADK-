@@ -25,11 +25,11 @@ User authorized implementation after PR #178. Each slice has a focused check.
   - Files: memory repository, memory DTOs, focused integration tests.
   - Accept: user isolation, bounded retrieval, stable IDs, idempotence/conflicts.
   - Verify: real SQL sequential/concurrent writes and transaction rollback.
-- [ ] T07 Memory workflow integration (depends T06).
+- [x] T07 Memory workflow integration (depends T06).
   - Files: contracts, memory service, reflection integration, focused tests.
   - Accept: pending outcomes retain source identity; provider calls outside SQL transactions.
   - Verify: unit tests with deterministic outcomes/reflections.
-- [ ] T08 Atomic completion and restart behavior (depends T07).
+- [x] T08 Atomic completion and restart behavior (depends T07).
   - Files: result repository, runner, execution service, Dockerfile, integration tests.
   - Accept: result/memory atomic; fresh process reads retained memory; no production file fallback.
   - Verify: rollback/failure and independent-process integration tests.
@@ -58,5 +58,8 @@ User authorized implementation after PR #178. Each slice has a focused check.
 - Memory repository: six real PostgreSQL tests cover concurrent retry, conflicting
   content, rollback, user isolation, distinct same-day IDs and bounded pending reads;
   196 existing Momentum unit tests remain green.
+- Memory runtime: 227 unit/integration tests pass, including fresh-process recovery
+  with empty home/tmp, result and memory rollback, and identical completion replay.
+  Removed the file adapter and the Docker memory-path setting; no extra pool.
 - Capacity inventory: max_connections=15, superuser_reserved_connections=3,
   reserved_connections=0; application/admin/migration budget must fit 12 ordinary slots.
