@@ -104,27 +104,7 @@ def upload(name, value):
 
 
 async def main():
-    required = [
-        "LITELLM_GCP_ACCOUNT",
-        "GOOGLE_CLOUD_PROJECT",
-        "LITELLM_AIVEN_PROJECT",
-        "LITELLM_AIVEN_SERVICE",
-        "LITELLM_AIVEN_ACCOUNT",
-        "LITELLM_AIVEN_HOST",
-    ]
-    if any(not os.environ.get(name) for name in required):
-        raise ValueError("Set all deployment variables documented in README.md")
-    identity = json.loads(command(["avn", "user", "info", "--json"]))
-    identity = identity[0] if isinstance(identity, list) else identity
-    if identity.get("user") != os.environ["LITELLM_AIVEN_ACCOUNT"]:
-        raise RuntimeError("Unexpected Aiven identity")
-    metadata = service()
-    params = metadata["service_uri_params"]
-    if (
-        metadata["state"] != "RUNNING"
-        or params["host"] != os.environ["LITELLM_AIVEN_HOST"]
-    ):
-        raise RuntimeError("Unexpected Aiven service")
+    metadata, params = deployment_parameters()
 
     store = SecretStore(PROJECT, ACCOUNT)
     database_version = store.existing_version("database-url")
@@ -267,6 +247,32 @@ async def main():
         print(
             "Secret versions uploaded; release.local.tfvars contains only version references."
         )
+
+
+def deployment_parameters():
+    required = [
+        "LITELLM_GCP_ACCOUNT",
+        "GOOGLE_CLOUD_PROJECT",
+        "LITELLM_AIVEN_PROJECT",
+        "LITELLM_AIVEN_SERVICE",
+        "LITELLM_AIVEN_ACCOUNT",
+        "LITELLM_AIVEN_HOST",
+    ]
+    if any(not os.environ.get(name) for name in required):
+        raise ValueError("Set all deployment variables documented in README.md")
+    identity = json.loads(command(["avn", "user", "info", "--json"]))
+    identity = identity[0] if isinstance(identity, list) else identity
+    if identity.get("user") != os.environ["LITELLM_AIVEN_ACCOUNT"]:
+        raise RuntimeError("Unexpected Aiven identity")
+    metadata = service()
+    params = metadata["service_uri_params"]
+    if (
+        metadata["state"] != "RUNNING"
+        or params["host"] != os.environ["LITELLM_AIVEN_HOST"]
+    ):
+        raise RuntimeError("Unexpected Aiven service")
+
+    return metadata, params
 
 
 if __name__ == "__main__":
