@@ -1,5 +1,6 @@
 """Uvicorn factory; configuration and connection ownership begin at startup."""
 
+import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
@@ -8,12 +9,17 @@ from fastapi import FastAPI
 from app.application import create_app as application
 from app.config import Settings
 from app.database import create_engine
+from app.http.middleware import LOGGER
 from app.repository import AnalysisRepository
 from app.service import AnalysisService
 
 
 def create_app() -> FastAPI:
     settings = Settings()
+    LOGGER.setLevel(logging.INFO)
+    if not LOGGER.handlers:
+        LOGGER.addHandler(logging.StreamHandler())
+    LOGGER.propagate = False
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:

@@ -36,7 +36,7 @@ class AnalysisService:
     async def get(self, analysis_id: UUID) -> AnalysisDetail:
         stored = await self.repository.get(analysis_id)
         if stored is None:
-            raise APIError(404, "not-found")
+            raise APIError(404, "analysis-not-found")
         try:
             return detail(stored)
         except InvalidStoredAnalysisError:

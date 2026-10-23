@@ -13,7 +13,9 @@ def representation_tag(body: bytes) -> str:
 def tags(value: str) -> list[str]:
     if value.strip() == "*":
         return ["*"]
-    if not re.fullmatch(rf"\s*{ENTITY_TAG}(?:\s*,\s*{ENTITY_TAG})*\s*", value):
+    if not re.fullmatch(
+        rf"\s*(?:{ENTITY_TAG})?(?:\s*,\s*(?:{ENTITY_TAG})?)*\s*", value
+    ):
         raise ValueError("Malformed conditional header")
     return re.findall(ENTITY_TAG, value)
 
