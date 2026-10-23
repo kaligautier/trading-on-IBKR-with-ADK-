@@ -1,4 +1,4 @@
-workspace "Deepcopy" "Architecture from source and Terraform at 76ecf7c, 2026-10-23. Not a live deployment attestation." {
+workspace "Deepcopy" "Architecture from source and Terraform at 627a4ac, 2026-10-23. Not a live deployment attestation." {
     !impliedRelationships false
 
     model {
