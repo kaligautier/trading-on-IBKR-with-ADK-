@@ -391,7 +391,7 @@ async def should_expose_custom_error_over_adk_http_without_persisting(
     try:
         async with httpx.AsyncClient(
             transport=httpx.ASGITransport(app=create_app(), raise_app_exceptions=False),
-            base_url="http://scanner"
+            base_url="http://scanner",
         ) as client:
             session = await client.post(
                 "/apps/market_scanner/users/gateway-test/sessions", json={"state": {}}

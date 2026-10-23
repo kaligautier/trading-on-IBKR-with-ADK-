@@ -4,12 +4,20 @@ on:
   pull_request_target:
     types: [opened, synchronize, reopened, edited, ready_for_review]
 
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: Pull request number to validate at the selected head commit
+        required: true
+        type: string
+
 permissions:
   contents: read
   pull-requests: read
+  checks: write
 
 concurrency:
-  group: pr-size-${{ github.event.pull_request.number }}
+  group: pr-size-${{ github.event.pull_request.number || inputs.pr_number }}
   cancel-in-progress: true
 
 jobs:
@@ -17,7 +25,23 @@ jobs:
     name: PR size
     runs-on: ubuntu-24.04
     timeout-minutes: 2
+    env:
+      PR_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
     steps:
+      - name: Start required check on the PR head
+        id: head-check
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          CHECK_NAME: PR size
+        run: |
+          set -euo pipefail
+          check_id=$(gh api --method POST "repos/${GH_REPO}/check-runs" \
+            -f name="$CHECK_NAME" -f head_sha="$PR_HEAD_SHA" \
+            -f status=in_progress \
+            -f details_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" \
+            --jq '.id')
+          printf 'id=%s\n' "$check_id" >> "$GITHUB_OUTPUT"
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           # The proposed PR cannot change its own counting/exclusion policy.
@@ -29,14 +53,24 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_NUMBER: ${{ github.event.pull_request.number || inputs.pr_number }}
         run: |
           set -euo pipefail
+          [[ "$PR_NUMBER" =~ ^[0-9]+$ ]]
           gh api --paginate --slurp "repos/${GH_REPO}/pulls/${PR_NUMBER}/files?per_page=100" > "$RUNNER_TEMP/pr-files.json"
           gh api "repos/${GH_REPO}/pulls/${PR_NUMBER}" > "$RUNNER_TEMP/pr.json"
       - name: Enforce the 1,000-line limit excluding lockfiles
-        env:
-          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           python3 .github/scripts/check_pr_size.py \
             "$RUNNER_TEMP/pr.json" "$RUNNER_TEMP/pr-files.json" "$PR_HEAD_SHA"
+      - name: Complete required check on the validated PR head
+        if: always() && steps.head-check.outputs.id != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          CHECK_ID: ${{ steps.head-check.outputs.id }}
+          CONCLUSION: ${{ job.status }}
+        run: |
+          gh api --method PATCH "repos/${GH_REPO}/check-runs/${CHECK_ID}" \
+            -f status=completed -f conclusion="$CONCLUSION" \
+            --jq '.html_url'
