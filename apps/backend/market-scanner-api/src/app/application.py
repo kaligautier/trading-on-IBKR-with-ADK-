@@ -62,6 +62,27 @@ def create_app(
     )
     application.include_router(router)
 
+    _install_middleware(application, configuration)
+
+    _install_error_handlers(application)
+
+    @application.get("/health", tags=["operations"])
+    async def health() -> dict[str, str]:
+        return {"status": "ok", "service": "market-scanner-api"}
+
+    @application.get("/ready", tags=["operations"])
+    async def ready(request: Request) -> dict[str, str]:
+        await get_repository(request).latest()
+        return {"status": "ready"}
+
+    @application.get("/schemas/report-v3.json", tags=["contract"])
+    async def report_schema() -> JSONResponse:
+        return JSONResponse(REPORT_SCHEMA)
+
+    return application
+
+
+def _install_middleware(application: FastAPI, configuration: Settings) -> None:
     @application.middleware("http")
     async def observe_and_authorize(
         request: Request, call_next: Callable[[Request], Awaitable[Response]]
@@ -117,6 +138,8 @@ def create_app(
         )
         return response
 
+
+def _install_error_handlers(application: FastAPI) -> None:
     @application.exception_handler(HTTPException)
     async def http_error(_request: Request, error: HTTPException) -> JSONResponse:
         code, message = {
@@ -158,18 +181,3 @@ def create_app(
         _request: Request, _error: RequestValidationError | InvalidCursorError
     ) -> JSONResponse:
         return error_response(422, "INVALID_ARGUMENT", "Invalid request parameters")
-
-    @application.get("/health", tags=["operations"])
-    async def health() -> dict[str, str]:
-        return {"status": "ok", "service": "market-scanner-api"}
-
-    @application.get("/ready", tags=["operations"])
-    async def ready(request: Request) -> dict[str, str]:
-        await get_repository(request).latest()
-        return {"status": "ready"}
-
-    @application.get("/schemas/report-v3.json", tags=["contract"])
-    async def report_schema() -> JSONResponse:
-        return JSONResponse(REPORT_SCHEMA)
-
-    return application
