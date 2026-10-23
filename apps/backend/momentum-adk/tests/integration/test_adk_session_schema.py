@@ -9,7 +9,7 @@ from sqlalchemy.engine import Engine
 from app.infrastructure.session_database import create_session_service
 
 
-async def test_real_adk_session_events_resume_and_delete(unified_database):
+async def test_real_adk_session_events_resume_and_delete(domain_database):
     statements = []
 
     def record_statement(conn, cursor, statement, parameters, context, executemany):
@@ -18,7 +18,7 @@ async def test_real_adk_session_events_resume_and_delete(unified_database):
     event.listen(Engine, "before_cursor_execute", record_statement)
     service = None
     try:
-        service = await create_session_service(unified_database["sessions_runtime"])
+        service = await create_session_service(domain_database["sessions_runtime"])
         session = await service.create_session(
             app_name="momentum",
             user_id="test-operator",
@@ -73,8 +73,8 @@ async def test_real_adk_session_events_resume_and_delete(unified_database):
 
 
 @pytest.mark.parametrize("mutation", ["index", "version"])
-async def test_missing_migrations_fail_without_repair(unified_database, mutation):
-    admin = await asyncpg.connect(unified_database["admin"])
+async def test_missing_migrations_fail_without_repair(domain_database, mutation):
+    admin = await asyncpg.connect(domain_database["admin"])
     try:
         async with admin.transaction():
             if mutation == "index":
@@ -86,7 +86,7 @@ async def test_missing_migrations_fail_without_repair(unified_database, mutation
                     "UPDATE _sessions.adk_internal_metadata SET value='0'"
                 )
         with pytest.raises(RuntimeError, match="session migrations are required"):
-            await create_session_service(unified_database["sessions_runtime"])
+            await create_session_service(domain_database["sessions_runtime"])
     finally:
         if mutation == "index":
             await admin.execute(
@@ -99,8 +99,8 @@ async def test_missing_migrations_fail_without_repair(unified_database, mutation
 
 
 @pytest.mark.parametrize("cascade", [False, True])
-async def test_invalid_session_foreign_key_is_rejected(unified_database, cascade):
-    admin = await asyncpg.connect(unified_database["admin"])
+async def test_invalid_session_foreign_key_is_rejected(domain_database, cascade):
+    admin = await asyncpg.connect(domain_database["admin"])
     key = await admin.fetchrow(
         "SELECT conname, pg_get_constraintdef(oid) AS ddl FROM pg_constraint "
         "WHERE conrelid='_sessions.events'::regclass AND contype='f'"
@@ -114,7 +114,7 @@ async def test_invalid_session_foreign_key_is_rejected(unified_database, cascade
                 + key["ddl"].replace(" ON DELETE CASCADE", "")
             )
         with pytest.raises(RuntimeError, match="session migrations are required"):
-            await create_session_service(unified_database["sessions_runtime"])
+            await create_session_service(domain_database["sessions_runtime"])
     finally:
         await admin.execute(
             f"ALTER TABLE _sessions.events DROP CONSTRAINT IF EXISTS {name}"

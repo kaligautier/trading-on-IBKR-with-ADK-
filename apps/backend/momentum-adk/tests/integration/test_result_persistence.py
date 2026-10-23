@@ -119,9 +119,9 @@ def complete_execution():
 
 
 @pytest.fixture
-async def persistence(unified_database):
+async def persistence(domain_database):
     engine = create_async_engine(
-        unified_database["results_runtime"].replace(
+        domain_database["results_runtime"].replace(
             "postgresql://", "postgresql+asyncpg://"
         ),
         pool_size=1,
@@ -138,13 +138,13 @@ async def persistence(unified_database):
 
 @pytest.mark.parametrize("trader_reasoning", ["Synthetic", None])
 async def test_all_sections_commit_with_real_adk_correlation(
-    persistence, unified_database, trader_reasoning
+    persistence, domain_database, trader_reasoning
 ):
     factory, writer = persistence
     execution = complete_execution()
     execution.result.structured["Trader"]["reasoning"] = trader_reasoning
-    service = await create_session_service(unified_database["sessions_runtime"])
-    verifier = await asyncpg.connect(unified_database["admin"])
+    service = await create_session_service(domain_database["sessions_runtime"])
+    verifier = await asyncpg.connect(domain_database["admin"])
     try:
         session = await service.create_session(
             app_name="momentum",
@@ -223,7 +223,7 @@ async def test_all_sections_commit_with_real_adk_correlation(
 
 @pytest.mark.parametrize("failure", ["mapping", "constraint", "after_flush"])
 async def test_failed_section_rolls_back_entire_analysis(
-    persistence, unified_database, failure
+    persistence, domain_database, failure
 ):
     factory, writer = persistence
     execution = complete_execution()
@@ -238,7 +238,7 @@ async def test_failed_section_rolls_back_entire_analysis(
             await session.flush()
             raise RuntimeError("Injected section failure after database writes")
 
-    verifier = await asyncpg.connect(unified_database["admin"])
+    verifier = await asyncpg.connect(domain_database["admin"])
     try:
         before = {
             t.name: await verifier.fetchval(f"SELECT count(*) FROM {t.fullname}")

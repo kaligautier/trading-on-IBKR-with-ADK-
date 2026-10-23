@@ -32,7 +32,7 @@ def url(role):
 
 
 @pytest.fixture
-def unified_database():
+def domain_database():
     return {
         "admin": url("postgres"),
         "sessions_runtime": url("momentum_sessions_writer"),
@@ -40,9 +40,9 @@ def unified_database():
     }
 
 
-async def test_current_session_adapter_survives_restart(unified_database):
+async def test_current_session_adapter_survives_restart(domain_database):
     session_id = uuid4().hex
-    address = unified_database["sessions_runtime"]
+    address = domain_database["sessions_runtime"]
     first = await create_session_service(address)
     try:
         session = await first.create_session(

@@ -18,23 +18,23 @@ def harness(project_root):
 @pytest.mark.parametrize(
     "url",
     [
-        "postgresql://postgres:local@remote.example:55449/postgres",
+        "postgresql://postgres:local@remote.example:55467/postgres",
         "postgresql://postgres:local@127.0.0.1:5432/postgres",
-        "postgresql://other:local@127.0.0.1:55449/postgres",
-        "https://127.0.0.1:55449/postgres",
-        "postgresql://postgres:local@127.0.0.1:55449/postgres?host=remote.example",
-        "postgresql://postgres:local@127.0.0.1:55449/another_database",
-        "postgresql://postgres:local@127.0.0.1:55449/postgres#fragment",
+        "postgresql://other:local@127.0.0.1:55467/postgres",
+        "https://127.0.0.1:55467/postgres",
+        "postgresql://postgres:local@127.0.0.1:55467/postgres?host=remote.example",
+        "postgresql://postgres:local@127.0.0.1:55467/another_database",
+        "postgresql://postgres:local@127.0.0.1:55467/postgres#fragment",
         "",
     ],
 )
 def test_fixture_rejects_non_disposable_targets(harness, url):
     with pytest.raises(ValueError):
-        harness.local_target(url, "momentum-test-db")
+        harness.local_target(url, "momentum-current-test-db")
 
 
 def test_fixture_requires_its_named_container(harness):
-    url = "postgresql://postgres:local@127.0.0.1:55449/postgres"
+    url = "postgresql://postgres:local@127.0.0.1:55467/postgres"
     with pytest.raises(ValueError):
         harness.local_target(url, "another-container")
-    assert harness.local_target(url, "momentum-test-db").port == 55449
+    assert harness.local_target(url, "momentum-current-test-db").port == 55467

@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-name=momentum-test-db
-image=postgres:17@sha256:d74eeac9a635390a49bc21bd49fccd973de707e2a53a76ac49b552b8712ec46f
+name=momentum-current-test-db
+image=postgres:18@sha256:74935e72241653ca55e0414067e6d8763aceb8a810eb51b452253ec3dcfc4336
 root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../../../.." && pwd)
 label=org.deepcopy.momentum-test
 
@@ -12,13 +12,13 @@ case "${1:-}" in
       echo "Test container already exists; inspect/stop it explicitly." >&2
       exit 1
     fi
-    docker build --tag local/deep-copy-liquibase:5.0.4 "$root/database"
+    docker build --tag local/deepcopy-database:5.0.4 "$root/database"
     docker run --detach --rm --name "$name" --label "$label=true" \
-      --publish 127.0.0.1:55449:5432 \
+      --publish 127.0.0.1:55467:5432 \
       --env POSTGRES_PASSWORD=local-test-only "$image"
     for ((attempt=0; attempt<60; attempt++)); do
       if docker exec "$name" pg_isready --username postgres >/dev/null 2>&1; then
-        echo "Disposable PostgreSQL ready on 127.0.0.1:55449"
+        echo "Disposable PostgreSQL ready on 127.0.0.1:55467"
         exit 0
       fi
       sleep 1
