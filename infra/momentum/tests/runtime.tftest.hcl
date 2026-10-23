@@ -94,3 +94,38 @@ run "reject_gateway_missing_host" {
   variables { gateway_url = "https://" }
   expect_failures = [var.gateway_url]
 }
+
+run "reject_gateway_empty_label" {
+  command = plan
+  variables { gateway_url = "https://gateway..example" }
+  expect_failures = [var.gateway_url]
+}
+
+run "reject_gateway_leading_hyphen" {
+  command = plan
+  variables { gateway_url = "https://-gateway.example" }
+  expect_failures = [var.gateway_url]
+}
+
+run "reject_gateway_trailing_hyphen" {
+  command = plan
+  variables { gateway_url = "https://gateway-.example" }
+  expect_failures = [var.gateway_url]
+}
+
+run "reject_gateway_long_label" {
+  command = plan
+  variables { gateway_url = "https://${join("", [for j in range(64) : "a"])}.example" }
+  expect_failures = [var.gateway_url]
+}
+
+run "reject_gateway_long_hostname" {
+  command = plan
+  variables { gateway_url = "https://${join(".", [for i in range(4) : join("", [for j in range(63) : "a"])])}" }
+  expect_failures = [var.gateway_url]
+}
+
+run "accept_gateway_dns_boundaries" {
+  command = plan
+  variables { gateway_url = "https://${join(".", concat([for i in range(3) : join("", [for j in range(63) : "a"])], [join("", [for j in range(61) : "b"])]))}/" }
+}
