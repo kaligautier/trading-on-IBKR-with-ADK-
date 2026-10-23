@@ -3,9 +3,9 @@
 import ast
 from pathlib import Path
 
-from app.assembly import SECTION_MODELS
-from app.dto import AnalysisDetail
-from app.repository import HEADER_COLUMNS
+from app.adapters.postgresql.mapper import SECTION_MODELS
+from app.adapters.postgresql.repository import HEADER_COLUMNS
+from app.presentation.dto import AnalysisDetail
 
 ROOT = Path(__file__).resolve().parents[4]
 MODELS = ROOT / "apps/backend/momentum-adk/app/infrastructure/models.py"

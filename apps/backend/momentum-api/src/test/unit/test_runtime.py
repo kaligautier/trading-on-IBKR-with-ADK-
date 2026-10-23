@@ -2,8 +2,8 @@
 
 from fastapi.testclient import TestClient
 
-from app.http.middleware import LOGGER
 from app.main import create_app
+from app.presentation.http.middleware import LOGGER
 
 
 def test_runtime_factory_lifespan_and_safe_logging(monkeypatch, capsys):

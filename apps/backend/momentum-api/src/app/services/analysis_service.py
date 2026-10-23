@@ -3,14 +3,19 @@
 from typing import Protocol
 from uuid import UUID
 
-from app.assembly import InvalidStoredAnalysisError, StoredAnalysis, detail, summary
-from app.dto import AnalysisDetail, AnalysisPage
-from app.http.problems import APIError
-from app.query import Cursor, Query
+from app.adapters.postgresql.mapper import (
+    InvalidStoredAnalysisError,
+    StoredAnalysis,
+    detail,
+    summary,
+)
+from app.domain.analyses.search import AnalysisSearchParams, Cursor
+from app.presentation.dto import AnalysisDetail, AnalysisPage
+from app.presentation.http.problems import APIError
 
 
 class AnalysisReader(Protocol):
-    async def list(self, query: Query) -> list[StoredAnalysis]: ...
+    async def list(self, query: AnalysisSearchParams) -> list[StoredAnalysis]: ...
     async def get(self, analysis_id: UUID) -> StoredAnalysis | None: ...
     async def ready(self) -> None: ...
 
@@ -19,7 +24,7 @@ class AnalysisService:
     def __init__(self, repository: AnalysisReader) -> None:
         self.repository = repository
 
-    async def list(self, query: Query) -> AnalysisPage:
+    async def list(self, query: AnalysisSearchParams) -> AnalysisPage:
         rows = await self.repository.list(query)
         try:
             items = [summary(row) for row in rows[: query.page_size]]

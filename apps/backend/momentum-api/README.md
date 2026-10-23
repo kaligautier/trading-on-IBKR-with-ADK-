@@ -38,6 +38,16 @@ has no implicit date window. Optional financial sections remain null, collection
 remain empty, and unknown stored numbers are not replaced by zero.
 Execution/session/user correlation is excluded from responses.
 
+## Package organization
+
+- `domain/analyses`: financial values and normalized search criteria.
+- `services`: consultation use cases.
+- `ports`: interfaces required by those use cases.
+- `adapters/postgresql`: connection, SQL projections and stored-result mapping.
+- `presentation`: HTTP routes, response DTOs, mapping and protocol policy.
+- `config/settings.py`: validated runtime configuration.
+- `main.py`: runtime composition and resource lifecycle.
+
 ## Local development
 
 From this directory:

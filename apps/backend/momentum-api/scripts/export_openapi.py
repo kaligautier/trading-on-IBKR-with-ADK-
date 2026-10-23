@@ -4,8 +4,8 @@ import argparse
 import json
 from pathlib import Path
 
-from app.application import create_app
-from app.config import Settings
+from app.app_factory import create_app
+from app.config.settings import Settings
 
 TARGET = Path(__file__).resolve().parents[1] / "openapi.json"
 

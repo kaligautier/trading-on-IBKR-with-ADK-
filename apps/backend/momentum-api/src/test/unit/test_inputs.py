@@ -4,8 +4,8 @@ from uuid import UUID
 import pytest
 from pydantic import SecretStr, ValidationError
 
-from app.config import Settings
-from app.query import Cursor, Query
+from app.config.settings import Settings
+from app.domain.analyses.search import AnalysisSearchParams, Cursor
 
 URL = "postgresql://momentum_results_reader:fixture-only@localhost:55451/momentum"
 TOKEN = "disposable-token-for-tests"
@@ -18,7 +18,9 @@ def settings(**overrides):
 
 
 def test_canonical_query_and_bound_cursor():
-    query = Query.from_parameters("latest", " aapl ", "sell, BUY,Buy", 20, "")
+    query = AnalysisSearchParams.from_parameters(
+        "latest", " aapl ", "sell, BUY,Buy", 20, ""
+    )
     assert query.ticker == "AAPL"
     assert query.ratings == ("Buy", "Sell")
     cursor = Cursor(
@@ -27,7 +29,10 @@ def test_canonical_query_and_bound_cursor():
     token = cursor.encode()
     assert len(token) <= 512
     assert (
-        Query.from_parameters("latest", "AAPL", "Buy,Sell", 100, token).cursor == cursor
+        AnalysisSearchParams.from_parameters(
+            "latest", "AAPL", "Buy,Sell", 100, token
+        ).cursor
+        == cursor
     )
     for view, ticker, ratings in [
         ("history", "AAPL", "Buy,Sell"),
@@ -35,45 +40,56 @@ def test_canonical_query_and_bound_cursor():
         ("latest", "AAPL", None),
     ]:
         with pytest.raises(ValueError):
-            Query.from_parameters(view, ticker, ratings, 20, token)
+            AnalysisSearchParams.from_parameters(view, ticker, ratings, 20, token)
 
 
 @pytest.mark.parametrize("ticker", ["", "../AAPL", "A" * 33, "AAPL;DROP", "a b", "é"])
 def test_invalid_ticker(ticker):
     with pytest.raises(ValueError):
-        Query.from_parameters("history", ticker, None, 20, "")
+        AnalysisSearchParams.from_parameters("history", ticker, None, 20, "")
 
 
 @pytest.mark.parametrize("ticker", ["^GSPC", "BRK.B", "EURUSD=X", "BTC-USD"])
 def test_writer_ticker_vocabulary(ticker):
-    assert Query.from_parameters("history", ticker, None, 20, "").ticker == ticker
+    assert (
+        AnalysisSearchParams.from_parameters("history", ticker, None, 20, "").ticker
+        == ticker
+    )
 
 
 @pytest.mark.parametrize("rating", ["", ",", "Buy,", "Buy,unknown", "Strong Buy"])
 def test_invalid_rating(rating):
     with pytest.raises(ValueError):
-        Query.from_parameters("latest", None, rating, 20, "")
+        AnalysisSearchParams.from_parameters("latest", None, rating, 20, "")
 
 
 @pytest.mark.parametrize("size", [0, -1, 101])
 def test_page_bounds(size):
     with pytest.raises(ValueError):
-        Query.from_parameters("history", None, None, size, "")
+        AnalysisSearchParams.from_parameters("history", None, None, size, "")
 
 
 def test_view_defaults():
-    assert Query.from_parameters("history", None, None, 20, "").ratings is None
-    assert Query.from_parameters("recommendations", None, None, 10, "").ratings == (
+    assert (
+        AnalysisSearchParams.from_parameters("history", None, None, 20, "").ratings
+        is None
+    )
+    assert AnalysisSearchParams.from_parameters(
+        "recommendations", None, None, 10, ""
+    ).ratings == (
         "Buy",
         "Overweight",
     )
-    assert Query.from_parameters("latest", None, None, 20, "").cursor is None
+    assert (
+        AnalysisSearchParams.from_parameters("latest", None, None, 20, "").cursor
+        is None
+    )
 
 
 @pytest.mark.parametrize("token", ["bad", "a" * 513, "e30=", "====", "💰"])
 def test_invalid_cursor(token):
     with pytest.raises(ValueError):
-        Query.from_parameters("history", None, None, 20, token)
+        AnalysisSearchParams.from_parameters("history", None, None, 20, token)
 
 
 def test_cursor_rejects_naive_dates_and_unknown_versions():

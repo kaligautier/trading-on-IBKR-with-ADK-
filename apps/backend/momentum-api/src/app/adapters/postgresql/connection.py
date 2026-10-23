@@ -5,7 +5,7 @@ import ssl
 from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 
-from app.config import Settings
+from app.config.settings import Settings
 
 
 def create_engine(settings: Settings) -> AsyncEngine:

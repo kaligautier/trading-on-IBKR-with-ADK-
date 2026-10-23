@@ -5,15 +5,15 @@ from uuid import UUID
 
 import httpx
 
-from app.application import create_app
-from app.config import Settings
-from app.query import Query
+from app.app_factory import create_app
+from app.config.settings import Settings
+from app.domain.analyses.search import AnalysisSearchParams
 
 from .conftest import BASE, seed
 
 
 def latest(token="", size=17, view="latest", rating=None):
-    return Query.from_parameters(view, None, rating, size, token)
+    return AnalysisSearchParams.from_parameters(view, None, rating, size, token)
 
 
 async def rate(admin, result_id, rating="Buy"):
@@ -64,7 +64,9 @@ async def test_latest_ties_filter_after_winner_and_all_pages(admin, service):
     assert "T000" not in {item.ticker for item in recommended}
     assert (await reader.list(latest(rating="Sell"))).items[0].id == UUID(int=1000)
     assert (
-        await reader.list(Query.from_parameters("history", "T000", None, 20, ""))
+        await reader.list(
+            AnalysisSearchParams.from_parameters("history", "T000", None, 20, "")
+        )
     ).items[1].id == UUID(int=1)
 
 

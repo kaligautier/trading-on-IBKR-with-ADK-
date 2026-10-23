@@ -9,11 +9,11 @@ from starlette.responses import Response
 from starlette.routing import Match
 from starlette.types import Scope
 
-from app.config import Settings
-from app.http.middleware import HTTPPolicy
-from app.http.problems import APIError, problem_bytes
-from app.http.schema import install_schema
-from app.routes import router
+from app.config.settings import Settings
+from app.presentation.http.middleware import HTTPPolicy
+from app.presentation.http.problems import APIError, problem_bytes
+from app.presentation.http.schema import install_schema
+from app.presentation.routes.analyses import router
 
 Lifespan = Callable[[FastAPI], AbstractAsyncContextManager[None]]
 

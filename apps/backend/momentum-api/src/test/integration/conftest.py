@@ -9,10 +9,10 @@ from uuid import UUID
 import asyncpg
 import pytest
 
-from app.config import Settings
-from app.database import create_engine
-from app.repository import AnalysisRepository
-from app.service import AnalysisService
+from app.adapters.postgresql.connection import create_engine
+from app.adapters.postgresql.repository import AnalysisRepository
+from app.config.settings import Settings
+from app.services.analysis_service import AnalysisService
 
 BASE = "postgresql://{}:local-only@127.0.0.1:55451/momentum"
 

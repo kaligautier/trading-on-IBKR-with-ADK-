@@ -36,7 +36,7 @@ class Cursor(BaseModel):
             raise ValueError("Invalid pagination token") from None
 
 
-class Query(BaseModel):
+class AnalysisSearchParams(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
     view: View
     ticker: str | None

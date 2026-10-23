@@ -7,7 +7,7 @@ import asyncpg
 import pytest
 from sqlalchemy import event
 
-from app.query import Query
+from app.domain.analyses.search import AnalysisSearchParams
 
 from .conftest import seed
 
@@ -30,7 +30,9 @@ async def test_summary_loading_is_batched(admin, service):
         counts = []
         for size in (1, 100):
             statements.clear()
-            await reader.list(Query.from_parameters("history", None, None, size, ""))
+            await reader.list(
+                AnalysisSearchParams.from_parameters("history", None, None, size, "")
+            )
             counts.append(len(statements))
         assert counts == [5, 5]  # One bounded header query plus four financial batches.
     finally:

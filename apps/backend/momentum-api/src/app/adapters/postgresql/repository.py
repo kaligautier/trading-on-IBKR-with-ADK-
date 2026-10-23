@@ -9,9 +9,9 @@ from sqlalchemy import bindparam, text
 from sqlalchemy.exc import ProgrammingError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine
 
-from app.assembly import SECTION_MODELS, Row, StoredAnalysis
-from app.http.problems import APIError
-from app.query import Query
+from app.adapters.postgresql.mapper import SECTION_MODELS, Row, StoredAnalysis
+from app.domain.analyses.search import AnalysisSearchParams
+from app.presentation.http.problems import APIError
 
 HEADER_COLUMNS = (
     "id, ticker, analysis_date, created_at, llm_provider, deep_think_llm, "
@@ -91,7 +91,7 @@ class AnalysisRepository:
                     )
         return [StoredAnalysis(row, sections[cast(UUID, row["id"])]) for row in headers]
 
-    async def list(self, query: Query) -> list[StoredAnalysis]:
+    async def list(self, query: AnalysisSearchParams) -> list[StoredAnalysis]:
         clauses, params = [], {"limit": query.page_size + 1}
         parameters: dict[str, object] = dict(params)
         if query.ticker is not None:

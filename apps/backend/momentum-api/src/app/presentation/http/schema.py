@@ -6,7 +6,7 @@ from typing import Any
 
 from fastapi import FastAPI
 
-from app.http.problems import DETAILS, PROBLEM_BASE
+from app.presentation.http.problems import DETAILS, PROBLEM_BASE
 
 ERRORS = {400, 401, 404, 405, 406, 412, 500, 503}
 
