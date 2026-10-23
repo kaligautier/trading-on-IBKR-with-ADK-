@@ -98,6 +98,12 @@ def domain_database(local_transport):
         {"HostIp": "127.0.0.1", "HostPort": str(PORT)}
     ]:
         pytest.fail("Refusing an unexpected PostgreSQL binding")
+    if not metadata.get("State", {}).get("Running") or metadata.get(
+        "NetworkSettings", {}
+    ).get("Ports", {}).get("5432/tcp") != [
+        {"HostIp": "127.0.0.1", "HostPort": str(PORT)}
+    ]:
+        pytest.fail("Refusing a stopped or inactive PostgreSQL container")
     urls = {"admin": urlunsplit(address._replace(path="/momentum"))}
     for key, role in [
         ("migrator", ROLES[0]),
