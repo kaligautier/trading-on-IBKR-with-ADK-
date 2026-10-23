@@ -22,6 +22,7 @@ from test.unit.components.agents.test_regime_workflow import conclusion, market_
 @pytest.fixture
 def scheduled_workflow(monkeypatch):
     data = market_data()
+
     async def respond(_self, llm_request, stream=False):
         if llm_request.config.response_schema is ResearchCritique:
             text = json.dumps(research_critique_payload())
