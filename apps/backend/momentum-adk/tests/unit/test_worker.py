@@ -30,7 +30,7 @@ def test_worker_fails_without_echoing_invalid_request(monkeypatch, capsys):
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("save_fails", [True, False])
-async def test_worker_updates_memory_only_after_result_commit(monkeypatch, save_fails):
+async def test_worker_uses_one_completion_transaction(monkeypatch, save_fails):
     from types import SimpleNamespace
     from unittest.mock import AsyncMock, Mock
 
@@ -59,8 +59,7 @@ async def test_worker_updates_memory_only_after_result_commit(monkeypatch, save_
     )
     order = []
     memory = Mock()
-    memory.prepare.return_value = request
-    memory.complete.side_effect = lambda *args: order.append("memory")
+    memory.prepare = AsyncMock(return_value=request)
     runtime = SimpleNamespace(
         engine=SimpleNamespace(execute=AsyncMock(return_value=execution)),
         session_service=SimpleNamespace(close=AsyncMock()),
@@ -86,7 +85,7 @@ async def test_worker_updates_memory_only_after_result_commit(monkeypatch, save_
         "MomentumRuntimeFactory",
         lambda *args: SimpleNamespace(create=AsyncMock(return_value=runtime)),
     )
-    monkeypatch.setattr(job_runner, "TradingMemoryLog", Mock())
+    monkeypatch.setattr(job_runner, "PostgresMemoryRepository", Mock())
     monkeypatch.setattr(job_runner, "TradingMemoryService", Mock(return_value=memory))
 
     async def save(value):
@@ -105,4 +104,5 @@ async def test_worker_updates_memory_only_after_result_commit(monkeypatch, save_
         memory.complete.assert_not_called()
     else:
         await job_runner.execute(request)
-        assert order == ["commit", "memory"]
+        assert order == ["commit"]
+        memory.complete.assert_not_called()

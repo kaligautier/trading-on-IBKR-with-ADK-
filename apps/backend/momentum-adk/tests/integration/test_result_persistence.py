@@ -201,7 +201,7 @@ async def test_all_sections_commit_with_real_adk_correlation(
             for role in ("bull", "bear", "aggressive", "conservative", "neutral")
             for number, target in ((1, 8.0), (2, 0.0))
         }
-        # Repeating the ticker/date and correlation is allowed, without deduplication.
+        # Replaying an identical completion must not duplicate memory or results.
         await PostgresResultRepository(factory, writer).save(execution)
         await service.delete_session(
             app_name="momentum",
@@ -214,7 +214,7 @@ async def test_all_sections_commit_with_real_adk_correlation(
                 "WHERE invocation_id=$1",
                 execution.invocation_id,
             )
-            == 2
+            == 1
         )
     finally:
         await service.close()
@@ -265,6 +265,13 @@ async def test_failed_section_rolls_back_entire_analysis(
             )
             == 0
         )
+        assert (
+            await verifier.fetchval(
+                "SELECT count(*) FROM _analysis.trading_memory WHERE invocation_id=$1",
+                execution.invocation_id,
+            )
+            == 0
+        )
         # A new transaction still succeeds after the failure.
         await PostgresResultRepository(factory, writer).save(complete_execution())
     finally:
@@ -308,3 +315,36 @@ async def test_optional_contract_fields_flush_without_fabricated_scores(persiste
             assert score is None
         finally:
             await session.rollback()
+
+
+async def test_invalid_reflection_rolls_back_result_and_current_memory(persistence):
+    from app.domain.contracts import MemoryReflection
+
+    factory, writer = persistence
+    execution = complete_execution()
+    execution.result.memory_reflections = [
+        MemoryReflection(
+            memory_id=uuid4(),
+            ticker="NVDA",
+            trade_date=date(2025, 12, 1),
+            decision="Unknown",
+            raw_return=0.1,
+            alpha_return=0.05,
+            holding_days=5,
+            reflection="Synthetic",
+        )
+    ]
+    with pytest.raises(ValueError, match="memory"):
+        await PostgresResultRepository(factory, writer).save(execution)
+    async with factory() as session:
+        for table in ("analysis_results", "trading_memory"):
+            assert (
+                await session.scalar(
+                    text(
+                        f"SELECT count(*) FROM _analysis.{table} "
+                        "WHERE invocation_id=:invocation"
+                    ),
+                    {"invocation": execution.invocation_id},
+                )
+                == 0
+            )

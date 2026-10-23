@@ -11,7 +11,6 @@ WORKDIR /app
 RUN useradd --uid 10001 --create-home momentum
 COPY --from=build --chown=10001:10001 /app /app
 ENV PATH="/app/.venv/bin:$PATH" PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 \
-    MOMENTUM_RESULTS_DIR=/tmp/momentum/logs MOMENTUM_CACHE_DIR=/tmp/momentum/cache \
-    MOMENTUM_MEMORY_LOG_PATH=/tmp/momentum/memory.md
+    MOMENTUM_RESULTS_DIR=/tmp/momentum/logs MOMENTUM_CACHE_DIR=/tmp/momentum/cache
 USER 10001
 CMD ["python", "-m", "app.job_runner"]

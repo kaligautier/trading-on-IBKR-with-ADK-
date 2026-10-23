@@ -147,3 +147,56 @@ async def test_resolutions_use_record_identity_and_reject_foreign_users(memory):
                 {"user": item.user_id},
             )
         ).scalar_one() == 1
+
+
+async def test_new_process_recovers_memory_without_local_files(
+    memory, domain_database, tmp_path
+):
+    import json
+    import os
+    import sys
+    from pathlib import Path
+
+    item = execution()
+    await persist(memory, item)
+    environment = os.environ.copy()
+    environment.update(
+        {
+            "MEMORY_TEST_URL": domain_database["results_runtime"],
+            "MEMORY_TEST_USER": item.user_id,
+            "PYTHONPATH": str(Path(__file__).resolve().parents[2]),
+            "HOME": str(tmp_path),
+            "TMPDIR": str(tmp_path),
+        }
+    )
+    program = """
+import asyncio, json, os
+from datetime import date
+from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
+from app.infrastructure.memory.postgres import PostgresMemoryRepository
+async def main():
+    engine = create_async_engine(os.environ["MEMORY_TEST_URL"].replace(
+        "postgresql://", "postgresql+asyncpg://"), pool_size=1, max_overflow=0,
+        connect_args={"ssl": False})
+    try:
+        repository = PostgresMemoryRepository(async_sessionmaker(engine))
+        snapshot = await repository.snapshot(os.environ["MEMORY_TEST_USER"],
+            "AAPL", date(2026, 2, 1))
+        print(json.dumps([entry.decision for entry in snapshot.pending]))
+    finally:
+        await engine.dispose()
+asyncio.run(main())
+"""
+    process = await asyncio.create_subprocess_exec(
+        sys.executable,
+        "-c",
+        program,
+        cwd=tmp_path,
+        env=environment,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+    )
+    stdout, _ = await asyncio.wait_for(process.communicate(), timeout=30)
+    assert process.returncode == 0
+    assert json.loads(stdout) == ["Synthetic decision"]
+    assert not list(tmp_path.glob("**/trading_memory*"))
