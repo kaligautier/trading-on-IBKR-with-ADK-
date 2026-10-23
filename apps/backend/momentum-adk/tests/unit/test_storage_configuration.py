@@ -18,7 +18,7 @@ def test_existing_legacy_workspace_is_reused(tmp_path, monkeypatch):
 
     storage = MomentumStorage.from_environment(tmp_path)
 
-    assert storage.memory_log_path == legacy_directory / "memory" / "trading_memory.md"
+    assert storage.cache_directory == legacy_directory / "cache"
 
 
 def test_momentum_environment_name_has_priority_over_legacy_alias(
