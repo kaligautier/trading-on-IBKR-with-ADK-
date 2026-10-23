@@ -1,7 +1,8 @@
 # Shared PostgreSQL capacity: 15 total connections
 
 The observed server has 15 connections, 3 superuser-reserved slots and no other
-reserved slots. Ordinary consumers therefore share **12** slots. The executable
+reserved slots. Ordinary consumers therefore share **12** slots. Live administrator inspection also found one provider client
+connection. Runtime and migrations therefore use separate phases. The executable
 contract is `database/connection-budget.json`; validate with
 `python3 database/capacity.py`. The application allocation includes idle pools and
 admission attempts, not just active SQL statements.
@@ -14,10 +15,12 @@ admission attempts, not just active SQL statements.
 | Momentum sessions writer | 1 | One admitted workflow's ADK sessions |
 | Momentum reader | 1 | One reader pool |
 | LiteLLM | 2 | Admin and inference gateway, one connection each |
-| database_migrator | 1 | Serial domain migration |
+| Aiven internal client | 1 | Counted conservatively in ordinary capacity |
+| database_migrator | 1 offline only | All application connections must first drain |
 | Operator | 1 | Inventory/diagnostic connection |
 | PostgreSQL superuser reserve | 3 | Unavailable to application logins |
-| **Total** | **15** | No additional ordinary provider client fits |
+| **Runtime total** | **15** | 10 application + 1 provider + 1 operator + 3 reserve |
+| **Migration total** | **6** | 1 migrator + 1 provider + 1 operator + 3 reserve |
 
 The Scanner HTTP and scheduled entry points share one database advisory lock.
 Momentum has its own lock. Admission holds the existing result connection outside
@@ -35,15 +38,17 @@ sessions. It is insufficient to establish provider headroom. A full-visibility
 operator must run `database/operations/capacity_snapshot.sql`, save only its JSON
 row, and run `python3 database/capacity.py --inventory snapshot.json`. This rejects
 hidden statistics, different server settings, elevated/wrong-limit runtime roles,
-or any unallocated ordinary client. If provider clients consume ordinary slots,
-stop: revise the allocation; do not consume the operator slot or increase the tier.
+or more than the one allocated provider client. Do not consume the operator slot
+or increase the tier. Runtime snapshots reject any active migration connection.
 
 Use a maintenance replacement, not an overlapping rolling release:
 
 1. Pause scheduled/manual dispatch and ingress to the affected service. Let active
    work finish, then stop its old revisions and connection pools. Keep the operator
    connection available. Do not terminate in-flight writes to force this gate.
-2. Apply the reviewed role bootstrap and the one-connection LiteLLM secret/config
+2. Drain every application, including both readers and LiteLLM, before a migration.
+   Validate a fresh inventory with `--phase migration`; it requires all application
+   connections to be zero and the pause attestation. Apply the reviewed role bootstrap and the one-connection LiteLLM secret/config
    changes only after their old pools drain. Existing sessions are not evicted by
    lowering role limits. Apply the memory migration before the new Momentum worker.
 3. Export a fresh full-visibility snapshot. Set `ingress_and_dispatch_paused=true`
@@ -54,7 +59,7 @@ Use a maintenance replacement, not an overlapping rolling release:
 4. Run migrations serially. LiteLLM's own Prisma migration uses its existing role
    allocation **while both LiteLLM services are stopped**; never overlap it with
    their two live pools. Domain Liquibase uses the separate migrator allowance.
-5. Start one replacement per service, verify pools/roles and runtime behavior,
+5. Close the migrator connection, validate `--phase runtime`, then start one replacement per service, verify pools/roles and runtime behavior,
    then restore ingress/dispatch. Re-run the inventory gate. Roll back application
    images without removing retained memory or rewriting Liquibase history.
 

@@ -108,6 +108,15 @@ async def _seed_upgrade(url):
             "INSERT INTO _sessions.sessions VALUES "
             "('upgrade','test','preserved','{}',NOW(),NOW())"
         )
+        # Retain the identity and checksum recorded by the historical live entrypoint.
+        await connection.execute("""
+            INSERT INTO liquibase.databasechangelog
+              (id, author, filename, dateexecuted, orderexecuted, exectype, md5sum)
+            SELECT 'momentum-trader-ratio-text-001', 'deep-copy',
+              'momentum-unified/trader-ratio-text.sql', NOW(), max(orderexecuted)+1,
+              'EXECUTED', '9:fa13583c3763e355f0d9eeb912bca762'
+            FROM liquibase.databasechangelog
+        """)
         return await connection.fetch(
             "SELECT id, md5sum FROM liquibase.databasechangelog ORDER BY id"
         )
@@ -121,6 +130,13 @@ async def _verify_upgrade(url, baseline_history):
         assert (
             await connection.fetchval(
                 "SELECT count(*) FROM _sessions.sessions WHERE app_name='upgrade'"
+            )
+            == 1
+        )
+        assert (
+            await connection.fetchval(
+                "SELECT count(*) FROM liquibase.databasechangelog "
+                "WHERE id='momentum-trader-ratio-text-001'"
             )
             == 1
         )

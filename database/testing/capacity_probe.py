@@ -16,7 +16,7 @@ async def main():
         ("momentum_results_reader", "momentum"),
         ("litellm", "postgres"),  # admin
         ("litellm", "postgres"),  # gateway
-        ("database_migrator", "postgres"),
+        ("capacity_provider", "postgres"),
         ("market_scanner_writer", "market_scanner"),  # admission probe
         ("momentum_results_writer", "momentum"),  # admission probe
         ("capacity_operator", "postgres"),  # must remain usable at peak
@@ -47,15 +47,33 @@ async def main():
             "SELECT count(*) FROM pg_stat_activity WHERE backend_type='client backend'"
         )
         assert count == 12, count
-        # Both administrative allowances remain useful while every application slot is occupied.
+        # Provider and operator fit; migration must wait for the offline phase.
         assert await connections[6].fetchval("SELECT 1") == 1
         assert await operator.fetchval("SELECT 1") == 1
+        try:
+            extra = await asyncpg.connect(
+                host="127.0.0.1",
+                port=55474,
+                user="database_migrator",
+                password="domain-test-only",
+                database="postgres",
+                ssl=False,
+                timeout=5,
+            )
+        except asyncpg.TooManyConnectionsError:
+            pass
+        else:
+            await extra.close()
+            raise AssertionError(
+                "Migration unexpectedly fitted during the full runtime peak"
+            )
         print(
             json.dumps(
                 {
                     "ordinary_connections": count,
                     "operator": "usable",
-                    "migration": "usable",
+                    "provider": "counted",
+                    "migration": "requires offline phase",
                 }
             )
         )

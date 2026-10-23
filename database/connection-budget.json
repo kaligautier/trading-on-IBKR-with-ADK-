@@ -1,5 +1,9 @@
 {
-  "server": {"max_connections": 15, "superuser_reserved_connections": 3, "reserved_connections": 0},
+  "server": {
+    "max_connections": 15,
+    "superuser_reserved_connections": 3,
+    "reserved_connections": 0
+  },
   "operator_allowance": 1,
   "migration_allowance": 1,
   "roles": {
@@ -11,11 +15,44 @@
     "litellm": 2
   },
   "consumers": {
-    "scanner": {"roles": ["market_scanner_writer"], "active": 2, "admission": 1},
-    "scanner_reader": {"roles": ["market_scanner_reader"], "active": 1, "admission": 0},
-    "momentum": {"roles": ["momentum_sessions_writer", "momentum_results_writer"], "active": 2, "admission": 1},
-    "momentum_reader": {"roles": ["momentum_results_reader"], "active": 1, "admission": 0},
-    "litellm_admin_and_gateway": {"roles": ["litellm"], "active": 2, "admission": 0}
+    "scanner": {
+      "roles": [
+        "market_scanner_writer"
+      ],
+      "active": 2,
+      "admission": 1
+    },
+    "scanner_reader": {
+      "roles": [
+        "market_scanner_reader"
+      ],
+      "active": 1,
+      "admission": 0
+    },
+    "momentum": {
+      "roles": [
+        "momentum_sessions_writer",
+        "momentum_results_writer"
+      ],
+      "active": 2,
+      "admission": 1
+    },
+    "momentum_reader": {
+      "roles": [
+        "momentum_results_reader"
+      ],
+      "active": 1,
+      "admission": 0
+    },
+    "litellm_admin_and_gateway": {
+      "roles": [
+        "litellm"
+      ],
+      "active": 2,
+      "admission": 0
+    }
   },
-  "release_mode": "drain-before-replace"
+  "release_mode": "drain-before-replace",
+  "provider_allowance": 1,
+  "migration_mode": "offline"
 }

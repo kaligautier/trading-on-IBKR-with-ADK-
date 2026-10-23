@@ -20,7 +20,7 @@ databaseChangeLog:
   - include:
       file: ../../changelog/momentum-unified/trader-ratio-text.sql
       relativeToChangelogFile: true
-      logicalFilePath: changelog/momentum-unified/trader-ratio-text.sql
+      logicalFilePath: momentum-unified/trader-ratio-text.sql
   - include:
       file: migrations/001-trading-memory.sql
       relativeToChangelogFile: true
