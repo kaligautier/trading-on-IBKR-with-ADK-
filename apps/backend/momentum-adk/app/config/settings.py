@@ -9,10 +9,26 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(extra="ignore", hide_input_in_errors=True)
 
-    LITELLM_API_BASE: str
-    LITELLM_API_KEY: SecretStr = Field(repr=False)
-    MOMENTUM_QUICK_MODEL: str = "gemini-3.8-flash"
-    MOMENTUM_DEEP_MODEL: str = "gemini-3.8-flash"
+    # Gateway configuration
+    LITELLM_API_BASE: str = Field(
+        default=...,
+        description="Root HTTP URL of the LiteLLM gateway",
+    )
+    LITELLM_API_KEY: SecretStr = Field(
+        default=...,
+        repr=False,
+        description="Virtual API key used to authenticate with the LiteLLM gateway",
+    )
+
+    # Model configuration
+    MOMENTUM_QUICK_MODEL: str = Field(
+        default="gemini-3.8-flash",
+        description="Gateway model used for quick financial analysis",
+    )
+    MOMENTUM_DEEP_MODEL: str = Field(
+        default="gemini-3.8-flash",
+        description="Gateway model used for deep financial analysis",
+    )
 
     @model_validator(mode="after")
     def validate_gateway(self):
