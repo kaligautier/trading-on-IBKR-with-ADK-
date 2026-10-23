@@ -10,9 +10,8 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from app.config.llm import create_model
 from app.config.rate_limit import ModelRequestGate
 from app.config.settings import Settings
-from app.config.storage import MomentumStorage
 from app.domain.contracts import AnalysisRequest
-from app.infrastructure.memory.log import MemoryLogConfiguration, TradingMemoryLog
+from app.infrastructure.memory.postgres import PostgresMemoryRepository
 from app.infrastructure.postgres_tls import connection_options
 from app.infrastructure.result_repository import PostgresResultRepository
 from app.infrastructure.result_writer import ModelMetadata, PostgresResultWriter
@@ -55,9 +54,9 @@ async def execute(request: AnalysisRequest):
     database = create_result_engine(os.environ["MOMENTUM_RESULT_DATABASE_URL"])
     try:
         runtime = await MomentumRuntimeFactory(*models, session_url).create()
-        storage = MomentumStorage.from_environment()
+        factory = async_sessionmaker(database, expire_on_commit=False)
         memory = TradingMemoryService(
-            TradingMemoryLog(MemoryLogConfiguration(storage.memory_log_path)),
+            PostgresMemoryRepository(factory),
             MarketOutcomeResolver(),
         )
         execution = await MomentumExecutionService(runtime.engine, memory).execute(
@@ -71,10 +70,9 @@ async def execute(request: AnalysisRequest):
             )
         )
         await PostgresResultRepository(
-            async_sessionmaker(database, expire_on_commit=False),
+            factory,
             writer,
         ).save(execution)
-        memory.complete(request, execution.result)
         print(
             json.dumps(
                 {
