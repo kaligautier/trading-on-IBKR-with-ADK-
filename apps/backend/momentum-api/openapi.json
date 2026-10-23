@@ -218,6 +218,341 @@
       }
     },
     "schemas": {
+      "AnalysisPage": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AnalysisSummary"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "next_page_token": {
+            "title": "Next Page Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "items",
+          "next_page_token"
+        ],
+        "title": "AnalysisPage",
+        "type": "object"
+      },
+      "AnalysisSummary": {
+        "additionalProperties": false,
+        "properties": {
+          "analysis_date": {
+            "format": "date",
+            "title": "Analysis Date",
+            "type": "string"
+          },
+          "beta": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Beta"
+          },
+          "close_price": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Close Price"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "entry_price": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entry Price"
+          },
+          "executive_summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Executive Summary"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "key_resistance": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Key Resistance"
+          },
+          "key_support": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Key Support"
+          },
+          "llm_provider": {
+            "title": "Llm Provider",
+            "type": "string"
+          },
+          "next_analysis_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Analysis Date"
+          },
+          "pe_ratio": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pe Ratio"
+          },
+          "peg_ratio": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Peg Ratio"
+          },
+          "position_size": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Position Size"
+          },
+          "position_size_description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Position Size Description"
+          },
+          "price_target": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price Target"
+          },
+          "rating": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rating"
+          },
+          "risk_reward_description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Risk Reward Description"
+          },
+          "risk_reward_ratio": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Risk Reward Ratio"
+          },
+          "rsi": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rsi"
+          },
+          "rsi_signal": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rsi Signal"
+          },
+          "stop_loss": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stop Loss"
+          },
+          "ticker": {
+            "title": "Ticker",
+            "type": "string"
+          },
+          "time_horizon_description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Time Horizon Description"
+          },
+          "time_horizon_months": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Time Horizon Months"
+          },
+          "trader_action": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trader Action"
+          },
+          "trader_entry": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trader Entry"
+          },
+          "trader_stop": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trader Stop"
+          },
+          "trader_take_profit": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trader Take Profit"
+          },
+          "trend_direction": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trend Direction"
+          }
+        },
+        "required": [
+          "id",
+          "ticker",
+          "analysis_date",
+          "created_at",
+          "llm_provider"
+        ],
+        "title": "AnalysisSummary",
+        "type": "object"
+      },
       "Fundamentals": {
         "additionalProperties": false,
         "properties": {
@@ -478,6 +813,129 @@
         "title": "Fundamentals",
         "type": "object"
       },
+      "PortfolioDecision": {
+        "additionalProperties": false,
+        "properties": {
+          "entry_price": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entry Price"
+          },
+          "executive_summary": {
+            "title": "Executive Summary",
+            "type": "string"
+          },
+          "investment_thesis": {
+            "title": "Investment Thesis",
+            "type": "string"
+          },
+          "position_size": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Position Size"
+          },
+          "position_size_description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Position Size Description"
+          },
+          "price_target": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price Target"
+          },
+          "rating": {
+            "title": "Rating",
+            "type": "string"
+          },
+          "risk_reward_description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Risk Reward Description"
+          },
+          "risk_reward_ratio": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Risk Reward Ratio"
+          },
+          "stop_loss": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stop Loss"
+          },
+          "time_horizon_description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Time Horizon Description"
+          },
+          "time_horizon_months": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Time Horizon Months"
+          }
+        },
+        "required": [
+          "rating",
+          "executive_summary",
+          "investment_thesis"
+        ],
+        "title": "PortfolioDecision",
+        "type": "object"
+      },
       "Problem": {
         "description": "RFC 9457; absent when the error format is unacceptable. Missing credentials produce a bodyless Bearer challenge.",
         "properties": {
@@ -507,6 +965,84 @@
           "detail",
           "code"
         ],
+        "type": "object"
+      },
+      "ResearchPlan": {
+        "additionalProperties": false,
+        "properties": {
+          "rationale": {
+            "title": "Rationale",
+            "type": "string"
+          },
+          "recommendation": {
+            "title": "Recommendation",
+            "type": "string"
+          },
+          "strategic_actions": {
+            "title": "Strategic Actions",
+            "type": "string"
+          }
+        },
+        "required": [
+          "recommendation",
+          "rationale",
+          "strategic_actions"
+        ],
+        "title": "ResearchPlan",
+        "type": "object"
+      },
+      "RunStats": {
+        "additionalProperties": false,
+        "properties": {
+          "agents_completed": {
+            "title": "Agents Completed",
+            "type": "integer"
+          },
+          "agents_total": {
+            "title": "Agents Total",
+            "type": "integer"
+          },
+          "duration_seconds": {
+            "title": "Duration Seconds",
+            "type": "number"
+          },
+          "llm_calls": {
+            "title": "Llm Calls",
+            "type": "integer"
+          },
+          "reports_completed": {
+            "title": "Reports Completed",
+            "type": "integer"
+          },
+          "reports_total": {
+            "title": "Reports Total",
+            "type": "integer"
+          },
+          "tokens_in": {
+            "title": "Tokens In",
+            "type": "integer"
+          },
+          "tokens_out": {
+            "title": "Tokens Out",
+            "type": "integer"
+          },
+          "tool_calls": {
+            "title": "Tool Calls",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "agents_total",
+          "agents_completed",
+          "llm_calls",
+          "tool_calls",
+          "tokens_in",
+          "tokens_out",
+          "reports_total",
+          "reports_completed",
+          "duration_seconds"
+        ],
+        "title": "RunStats",
         "type": "object"
       },
       "TechnicalIndicators": {
@@ -976,6 +1512,80 @@
           }
         },
         "title": "TechnicalIndicators",
+        "type": "object"
+      },
+      "TraderProposal": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "title": "Action",
+            "type": "string"
+          },
+          "entry_price": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entry Price"
+          },
+          "position_sizing": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Position Sizing"
+          },
+          "reasoning": {
+            "title": "Reasoning",
+            "type": "string"
+          },
+          "risk_reward_ratio": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Risk Reward Ratio"
+          },
+          "stop_loss": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stop Loss"
+          },
+          "take_profit": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Take Profit"
+          }
+        },
+        "required": [
+          "action",
+          "reasoning"
+        ],
+        "title": "TraderProposal",
         "type": "object"
       }
     },
