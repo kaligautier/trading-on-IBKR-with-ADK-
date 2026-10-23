@@ -12,11 +12,11 @@ from app.models.market_regime import (
 )
 from app.models.structured_output.market_analysis import MarketAnalysis
 from app.services import market_scan_persistence
-from app.services.database import async_database_url
 from app.services.market_scan_assembler import MarketScanAssembler
 from app.services.market_scan_persistence import (
     MarketScanPersistence,
 )
+from app.services.postgres_tls import connection_options
 from app.utils.wide_event import wide_event
 from test.report_fixtures import analysis_payload, arbitration_payload, explanation
 from test.unit.services.test_market_scan_assembler import data_for
@@ -69,17 +69,11 @@ async def should_store_metadata_as_json_without_losing_debt_cents():
     assert regime.model_dump(mode="json")["assets"][0]["value"] == "40047726949770.15"
 
 
-def should_convert_aiven_sslmode_for_asyncpg():
-    database_url = (
-        "postgresql://user:password@db.example:5432/defaultdb?sslmode=require"
-    )
-
-    result = async_database_url(database_url)
-
-    assert (
-        result
-        == "postgresql+asyncpg://user:password@db.example:5432/defaultdb?ssl=require"
-    )
+def should_reject_unverified_aiven_sslmode():
+    with pytest.raises(ValueError, match="PostgreSQL"):
+        connection_options(
+            "postgresql://user:password@db.example/defaultdb?sslmode=require"
+        )
 
 
 @pytest.mark.parametrize("trend", ["rising", None])
@@ -116,12 +110,12 @@ async def should_forward_ytd_and_missing_overall_trends_to_persistence(trend):
         assert len(session.calls) == 2
 
 
-def should_preserve_an_asyncpg_url_without_sslmode():
-    database_url = "postgresql+asyncpg://user:password@db.example/defaultdb"
-
-    result = async_database_url(database_url)
-
-    assert result == database_url
+def should_preserve_local_asyncpg_address_without_driver_options():
+    address, tls = connection_options(
+        "postgresql+asyncpg://user:password@localhost/defaultdb"
+    )
+    assert address.host == "localhost"
+    assert tls is False
 
 
 def _regime() -> MarketRegime:

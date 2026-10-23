@@ -11,6 +11,7 @@ locals {
     MARKET_SCANNER_GOOGLE_CLOUD_LOCATION = var.vertex_location
     MARKET_SCANNER_MODEL                 = var.model
     ADK_ALLOW_ORIGINS                    = jsonencode(["http://127.0.0.1:8080"])
+    DATABASE_CA_FILE                     = "/etc/database/ca.pem"
     DATABASE_SCHEMA                      = var.database_schema
     DATABASE_POOL_SIZE                   = "1"
     DATABASE_POOL_TIMEOUT                = "30"
@@ -52,7 +53,21 @@ resource "google_cloud_run_v2_service" "scanner" {
       max_instance_count = 1
     }
 
+    volumes {
+      name = "database-ca"
+      secret {
+        secret = var.database_ca_secret_id
+        items {
+          version = var.database_ca_version
+          path    = "ca.pem"
+        }
+      }
+    }
     containers {
+      volume_mounts {
+        name       = "database-ca"
+        mount_path = "/etc/database"
+      }
       image = var.image
       # start_server.sh currently binds to 8000 regardless of PORT.
       ports {
@@ -112,6 +127,7 @@ resource "google_cloud_run_v2_service" "scanner" {
   }
   depends_on = [
     google_secret_manager_secret_iam_member.database,
+    google_secret_manager_secret_iam_member.database_ca,
     google_cloud_run_v2_job_iam_member.dispatcher,
   ]
 }

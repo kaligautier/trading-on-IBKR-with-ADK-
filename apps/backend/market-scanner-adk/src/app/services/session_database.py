@@ -1,11 +1,12 @@
 """Bounded ADK sessions in a Liquibase-owned PostgreSQL schema."""
 
+import os
+
 from google.adk.sessions import DatabaseSessionService
 from google.adk.sessions.database_session_service import BaseV1
 from sqlalchemy import inspect, text
-from sqlalchemy.engine import make_url
 
-from app.services.database import async_database_url
+from app.services.postgres_tls import connection_options
 
 
 def _check_schema(connection):
@@ -37,22 +38,17 @@ class ScannerSessionService(DatabaseSessionService):
 
     def __init__(self, database_url: str):
         try:
-            address = make_url(database_url)
-            if address.drivername not in {
-                "postgres",
-                "postgresql",
-                "postgresql+asyncpg",
-            }:
-                raise ValueError
-            if not address.host or not address.database:
-                raise ValueError
+            address, tls = connection_options(
+                database_url, os.getenv("DATABASE_CA_FILE")
+            )
             super().__init__(
-                async_database_url(database_url),
+                address.render_as_string(hide_password=False),
                 pool_size=1,
                 max_overflow=0,
                 pool_timeout=5,
                 hide_parameters=True,
                 connect_args={
+                    "ssl": tls,
                     "timeout": 10,
                     "server_settings": {
                         "search_path": "_sessions, pg_catalog",
