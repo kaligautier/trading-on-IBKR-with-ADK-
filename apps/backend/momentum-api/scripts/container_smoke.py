@@ -10,8 +10,8 @@ from urllib.request import Request, urlopen
 from uuid import uuid4
 
 ROOT = Path(__file__).resolve().parents[4]
-DB = "momentum-api-test-db"
-BASE = "http://127.0.0.1:55452"
+DB = "momentum-current-api-test-db"
+BASE = "http://127.0.0.1:55474"
 IMAGE = sys.argv[1] if len(sys.argv) > 1 else "local/momentum-api:verify"
 
 
@@ -29,7 +29,7 @@ def call(path: str, method: str = "GET", **headers: str):
 def main() -> None:
     fixture = json.loads(docker("inspect", DB))[0]
     assert fixture["Config"]["Labels"]["org.deepcopy.momentum-api-test"] == "true"
-    assert docker("port", DB, "8080/tcp") == "127.0.0.1:55452"
+    assert docker("port", DB, "8080/tcp") == "127.0.0.1:55474"
     name, analysis_id, credential = (
         "momentum-smoke-" + uuid4().hex[:12],
         str(uuid4()),
