@@ -5,7 +5,6 @@ import json
 import logging
 import os
 
-from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from app.config.llm import create_model
@@ -14,6 +13,7 @@ from app.config.settings import Settings
 from app.config.storage import MomentumStorage
 from app.domain.contracts import AnalysisRequest
 from app.infrastructure.memory.log import MemoryLogConfiguration, TradingMemoryLog
+from app.infrastructure.postgres_tls import connection_options
 from app.infrastructure.result_repository import PostgresResultRepository
 from app.infrastructure.result_writer import ModelMetadata, PostgresResultWriter
 from app.services.execution import MomentumExecutionService
@@ -21,39 +21,17 @@ from app.services.memory import MarketOutcomeResolver, TradingMemoryService
 from app.services.runtime import MomentumRuntimeFactory
 
 
-def database_address(value: str):
-    address = make_url(value)
-    if address.drivername not in {"postgres", "postgresql", "postgresql+asyncpg"}:
-        raise ValueError("PostgreSQL is required")
-    if address.database != "momentum":
-        raise ValueError("The dedicated momentum database is required")
-    address = address.set(drivername="postgresql+asyncpg")
-    if "sslmode" in address.query:
-        mode = address.query["sslmode"]
-        address = address.difference_update_query(["sslmode"])
-        address = address.update_query_dict({"ssl": mode})
-    return address
-
-
-async def execute(request: AnalysisRequest):
-    config = Settings()
-    session_url = os.environ["MOMENTUM_SESSION_DATABASE_URL"]
-    database_address(session_url)
-    result_url = database_address(os.environ["MOMENTUM_RESULT_DATABASE_URL"])
-    gate = ModelRequestGate()
-    models = [
-        create_model(config, config.MOMENTUM_QUICK_MODEL, gate),
-        create_model(config, config.MOMENTUM_DEEP_MODEL, gate),
-    ]
-    runtime = None
-    database = create_async_engine(
-        result_url,
+def create_result_engine(value: str):
+    address, tls = connection_options(value, os.getenv("DATABASE_CA_FILE"))
+    return create_async_engine(
+        address,
         pool_size=1,
         max_overflow=0,
         pool_timeout=5,
         pool_pre_ping=True,
         hide_parameters=True,
         connect_args={
+            "ssl": tls,
             "timeout": 10,
             "server_settings": {
                 "search_path": "_analysis, pg_catalog",
@@ -62,6 +40,19 @@ async def execute(request: AnalysisRequest):
             },
         },
     )
+
+
+async def execute(request: AnalysisRequest):
+    config = Settings()
+    session_url = os.environ["MOMENTUM_SESSION_DATABASE_URL"]
+    connection_options(session_url, os.getenv("DATABASE_CA_FILE"))
+    gate = ModelRequestGate()
+    models = [
+        create_model(config, config.MOMENTUM_QUICK_MODEL, gate),
+        create_model(config, config.MOMENTUM_DEEP_MODEL, gate),
+    ]
+    runtime = None
+    database = create_result_engine(os.environ["MOMENTUM_RESULT_DATABASE_URL"])
     try:
         runtime = await MomentumRuntimeFactory(*models, session_url).create()
         storage = MomentumStorage.from_environment()

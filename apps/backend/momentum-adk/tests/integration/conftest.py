@@ -101,6 +101,44 @@ def _validate_container():
         pytest.fail("Refusing a stopped or inactive PostgreSQL container")
 
 
+async def _seed_upgrade(url):
+    connection = await asyncpg.connect(url)
+    try:
+        await connection.execute(
+            "INSERT INTO _sessions.sessions VALUES "
+            "('upgrade','test','preserved','{}',NOW(),NOW())"
+        )
+        return await connection.fetch(
+            "SELECT id, md5sum FROM liquibase.databasechangelog ORDER BY id"
+        )
+    finally:
+        await connection.close()
+
+
+async def _verify_upgrade(url, baseline_history):
+    connection = await asyncpg.connect(url)
+    try:
+        assert (
+            await connection.fetchval(
+                "SELECT count(*) FROM _sessions.sessions WHERE app_name='upgrade'"
+            )
+            == 1
+        )
+        for row in baseline_history:
+            assert (
+                await connection.fetchval(
+                    "SELECT md5sum FROM liquibase.databasechangelog WHERE id=$1",
+                    row["id"],
+                )
+                == row["md5sum"]
+            )
+        await connection.execute(
+            "DELETE FROM _sessions.sessions WHERE app_name='upgrade'"
+        )
+    finally:
+        await connection.close()
+
+
 @pytest.fixture(scope="session")
 def domain_database(local_transport):
     address = local_target(
@@ -163,8 +201,13 @@ def domain_database(local_transport):
     try:
         asyncio.run(setup())
         run_liquibase(urls["migrator"], "validate")
+        run_liquibase(urls["migrator"], "update-to-tag", "--tag=aiven-20261023")
+
+        baseline_history = asyncio.run(_seed_upgrade(urls["admin"]))
         run_liquibase(urls["migrator"], "update")
         run_liquibase(urls["migrator"], "update")
+
+        asyncio.run(_verify_upgrade(urls["admin"], baseline_history))
         yield urls
     finally:
         asyncio.run(cleanup())

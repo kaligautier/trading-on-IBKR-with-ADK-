@@ -128,8 +128,14 @@ Do not clear checksums to hide a mismatch.
 
 The current Momentum snapshot includes nullable sentiment scores and the consultation
 reader's allowlisted grants and indexes, verified on Aiven during the final inspection.
-There are no pending migrations at this baseline. Create a domain's `migrations/`
-directory only when introducing its next schema change.
+The baseline remains immutable. Momentum now has an additive migration for private
+trading memory in `_analysis.trading_memory`; consultation readers receive no grant
+on that table. Adopt the baseline before applying subsequent migrations to an
+existing installation. `verify` compares the captured baseline only: run it before
+adoption/upgrades, then use `status` and the migration-specific tests to verify the
+advanced schema. Do not update the baseline fingerprint to conceal a migration.
+Memory migration is forward-only once populated; rolling back application images
+must preserve retained decisions/reflections.
 
 ## Local verification
 
