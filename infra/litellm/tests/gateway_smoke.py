@@ -71,13 +71,7 @@ def main():
         docker("start", gateway)
         base = "http://" + docker("port", upstream, "4000/tcp")
 
-        def request(route, method="GET", auth=None):
-            headers = {"Authorization": "Bearer " + auth} if auth else {}
-            req = urllib.request.Request(base + route, method=method, headers=headers)
-            try:
-                return urllib.request.urlopen(req, timeout=5)
-            except urllib.error.HTTPError as error:
-                return error
+        request = requester(base)
 
         for _ in range(30):
             try:
@@ -143,6 +137,18 @@ def main():
         )
     finally:
         docker("rm", "-f", gateway, upstream, check=False)
+
+
+def requester(base):
+    def request(route, method="GET", auth=None):
+        headers = {"Authorization": "Bearer " + auth} if auth else {}
+        req = urllib.request.Request(base + route, method=method, headers=headers)
+        try:
+            return urllib.request.urlopen(req, timeout=5)
+        except urllib.error.HTTPError as error:
+            return error
+
+    return request
 
 
 if __name__ == "__main__":

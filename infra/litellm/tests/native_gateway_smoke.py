@@ -221,14 +221,7 @@ def main():
                 provider + ":/tmp/native_provider_stub.py",
             )
             docker("start", provider)
-            for _ in range(60):
-                if "accepting connections" in docker(
-                    "exec", database, "pg_isready", "-U", "litellm", check=False
-                ):
-                    break
-                time.sleep(1)
-            else:
-                raise RuntimeError("Native test PostgreSQL did not become ready")
+            wait_for_postgres(database)
             docker(
                 "run",
                 "--rm",
@@ -366,85 +359,8 @@ def main():
             )
 
             native_key = key(20)
-            for credential in [None, "sk-invalid-offline-key"]:
-                with request(bases[0], GENERATE, PAYLOAD, credential) as result:
-                    assert result.status in (401, 403), (
-                        "Native route accepted anonymous/invalid key"
-                    )
-            for route in ["/ui", "/v1/chat/completions"]:
-                with request(bases[0], route, PAYLOAD, master) as result:
-                    assert result.status == 404, "NGINX allowlist bypassed"
-            with request(bases[0], "/key/generate", {}, native_key) as result:
-                assert result.status in (401, 403), (
-                    "Inference key can provision admin keys"
-                )
-            for route, body in [
-                ("/key/info", None),
-                ("/team/info", None),
-                ("/key/update", {}),
-                ("/team/new", {}),
-                ("/team/update", {}),
-                ("/team/delete", {}),
-            ]:
-                with request(bases[0], route, body, native_key) as result:
-                    assert result.status in (401, 403), (
-                        "Inference key reached administration"
-                    )
-            with request(
-                bases[0],
-                "/v1beta/models/forbidden-model:generateContent",
-                PAYLOAD,
-                native_key,
-            ) as result:
-                assert result.status in (401, 403), "Native model allowlist bypassed"
-            print(
-                "PASS: native auth, model restrictions and deployed NGINX allowlist",
-                flush=True,
-            )
-            with request(bases[0], GENERATE, PAYLOAD, native_key) as result:
-                assert result.status == 200, (
-                    "Native generation failed: " + result.read().decode()
-                )
-                content = json.load(result)
-                assert (
-                    content["candidates"][0]["content"]["parts"][0]["text"]
-                    == "NATIVE_OK"
-                )
-                assert content["usageMetadata"]["totalTokenCount"] == 30
-            started = time.monotonic()
-            with request(bases[0], STREAM, PAYLOAD, native_key) as result:
-                assert result.status == 200, (
-                    "Native streaming failed: " + result.read().decode()
-                )
-                assert "text/event-stream" in result.headers["Content-Type"]
-                frames, arrived = [], []
-                while line := result.readline():
-                    if line.startswith(b"data: "):
-                        arrived.append(time.monotonic())
-                        frames.append(json.loads(line[6:]))
-                assert len(frames) == 2, "Native stream lost Gemini SSE frames"
-                # Measure data frames, not EOF: the provider only pauses BETWEEN
-                # frames. Buffering headers and the entire body collapses this gap.
-                assert arrived[1] - arrived[0] >= 0.8, (
-                    "Native SSE frames were buffered until completion"
-                )
-                print(
-                    f"Native SSE timing: first frame {arrived[0] - started:.2f}s "
-                    f"after request; frame gap {arrived[1] - arrived[0]:.2f}s",
-                    flush=True,
-                )
-                text = "".join(
-                    frame["candidates"][0]["content"]["parts"][0].get("text", "")
-                    for frame in frames
-                )
-                assert (
-                    text == "NATIVE_STREAM_OK"
-                    and frames[-1]["usageMetadata"]["totalTokenCount"] == 30
-                )
-            print(
-                "PASS: native generateContent and incremental Gemini SSE with usage",
-                flush=True,
-            )
+            verify_access_controls(bases, native_key, master)
+            verify_native_responses(bases, native_key)
             limited_key = key(2)
             statuses = []
             for base in [bases[0], bases[1], bases[0]]:
@@ -455,46 +371,7 @@ def main():
                 "PASS: native Gemini RPM quota shared across two proxy instances",
                 flush=True,
             )
-            deadline = time.monotonic() + 90
-            while time.monotonic() < deadline:
-                rows = json.loads(
-                    sql(
-                        "SELECT COALESCE(json_agg(t),'[]'::json) FROM \"LiteLLM_SpendLogs\" t;"
-                    )
-                )
-                global_spend = float(
-                    sql(
-                        'SELECT COALESCE(MAX(spend), 0) FROM "LiteLLM_UserTable" '
-                        "WHERE user_id = 'litellm-proxy-budget';"
-                    )
-                )
-                if (
-                    len([row for row in rows if row.get("total_tokens") == 30]) >= 4
-                    and global_spend > 0
-                ):
-                    break
-                time.sleep(1)
-            else:
-                raise AssertionError(
-                    "Native usage or global budget spend did not persist to PostgreSQL"
-                )
-            assert PROMPT_MARKER not in json.dumps(rows), (
-                "Native prompt persisted in spend logs"
-            )
-            assert any(
-                row.get("call_type") == "agenerate_content_stream" for row in rows
-            ), "Native streaming usage was not persisted"
-            assert any(row.get("spend", 0) > 0 for row in rows), (
-                "Native usage has no cost accounting"
-            )
-            print(
-                "PASS: native usage and spend persist without prompt payloads",
-                flush=True,
-            )
-            print(
-                "PASS: native requests increment persisted global budget spend",
-                flush=True,
-            )
+            rows = verify_persisted_usage(sql)
             budget_key, other_agent = legacy_key, weekly_key
             token = hashlib.sha256(budget_key.encode()).hexdigest()
             assert "UPDATE 1" in sql(
@@ -532,22 +409,7 @@ def main():
                 "UPDATE \"LiteLLM_VerificationToken\" SET budget_reset_at = NOW() - INTERVAL '1 minute' "
                 f"WHERE token = '{token}';"
             )
-            deadline = time.monotonic() + 45
-            while time.monotonic() < deadline:
-                if (
-                    float(
-                        sql(
-                            f"""SELECT spend FROM "LiteLLM_VerificationToken" WHERE token = '{token}';"""
-                        )
-                    )
-                    < 3
-                ):
-                    break
-                time.sleep(1)
-            else:
-                raise AssertionError(
-                    "Daily budget scheduler did not reset an elapsed window"
-                )
+            wait_for_budget_reset(sql, token)
             # Flush process-local auth caches, then verify the persisted renewal.
             for proxy, gateway in zip(proxies, gateways):
                 docker("stop", gateway)
@@ -592,6 +454,154 @@ def main():
         finally:
             docker("rm", "-f", *containers, check=False)
             docker("network", "rm", prefix, check=False)
+
+
+def verify_access_controls(bases, native_key, master):
+    for credential in [None, "sk-invalid-offline-key"]:
+        with request(bases[0], GENERATE, PAYLOAD, credential) as result:
+            assert result.status in (401, 403), (
+                "Native route accepted anonymous/invalid key"
+            )
+    for route in ["/ui", "/v1/chat/completions"]:
+        with request(bases[0], route, PAYLOAD, master) as result:
+            assert result.status == 404, "NGINX allowlist bypassed"
+    with request(bases[0], "/key/generate", {}, native_key) as result:
+        assert result.status in (401, 403), "Inference key can provision admin keys"
+    for route, body in [
+        ("/key/info", None),
+        ("/team/info", None),
+        ("/key/update", {}),
+        ("/team/new", {}),
+        ("/team/update", {}),
+        ("/team/delete", {}),
+    ]:
+        with request(bases[0], route, body, native_key) as result:
+            assert result.status in (401, 403), "Inference key reached administration"
+    with request(
+        bases[0],
+        "/v1beta/models/forbidden-model:generateContent",
+        PAYLOAD,
+        native_key,
+    ) as result:
+        assert result.status in (401, 403), "Native model allowlist bypassed"
+    print(
+        "PASS: native auth, model restrictions and deployed NGINX allowlist",
+        flush=True,
+    )
+
+
+def verify_native_responses(bases, native_key):
+    with request(bases[0], GENERATE, PAYLOAD, native_key) as result:
+        assert result.status == 200, (
+            "Native generation failed: " + result.read().decode()
+        )
+        content = json.load(result)
+        assert content["candidates"][0]["content"]["parts"][0]["text"] == "NATIVE_OK"
+        assert content["usageMetadata"]["totalTokenCount"] == 30
+    started = time.monotonic()
+    with request(bases[0], STREAM, PAYLOAD, native_key) as result:
+        assert result.status == 200, (
+            "Native streaming failed: " + result.read().decode()
+        )
+        assert "text/event-stream" in result.headers["Content-Type"]
+        frames, arrived = [], []
+        while line := result.readline():
+            if line.startswith(b"data: "):
+                arrived.append(time.monotonic())
+                frames.append(json.loads(line[6:]))
+        assert len(frames) == 2, "Native stream lost Gemini SSE frames"
+        # Measure data frames, not EOF: the provider only pauses BETWEEN
+        # frames. Buffering headers and the entire body collapses this gap.
+        assert arrived[1] - arrived[0] >= 0.8, (
+            "Native SSE frames were buffered until completion"
+        )
+        print(
+            f"Native SSE timing: first frame {arrived[0] - started:.2f}s "
+            f"after request; frame gap {arrived[1] - arrived[0]:.2f}s",
+            flush=True,
+        )
+        text = "".join(
+            frame["candidates"][0]["content"]["parts"][0].get("text", "")
+            for frame in frames
+        )
+        assert (
+            text == "NATIVE_STREAM_OK"
+            and frames[-1]["usageMetadata"]["totalTokenCount"] == 30
+        )
+    print(
+        "PASS: native generateContent and incremental Gemini SSE with usage",
+        flush=True,
+    )
+
+
+def verify_persisted_usage(sql):
+    deadline = time.monotonic() + 90
+    while time.monotonic() < deadline:
+        rows = json.loads(
+            sql("SELECT COALESCE(json_agg(t),'[]'::json) FROM \"LiteLLM_SpendLogs\" t;")
+        )
+        global_spend = float(
+            sql(
+                'SELECT COALESCE(MAX(spend), 0) FROM "LiteLLM_UserTable" '
+                "WHERE user_id = 'litellm-proxy-budget';"
+            )
+        )
+        if (
+            len([row for row in rows if row.get("total_tokens") == 30]) >= 4
+            and global_spend > 0
+        ):
+            break
+        time.sleep(1)
+    else:
+        raise AssertionError(
+            "Native usage or global budget spend did not persist to PostgreSQL"
+        )
+    assert PROMPT_MARKER not in json.dumps(rows), (
+        "Native prompt persisted in spend logs"
+    )
+    assert any(row.get("call_type") == "agenerate_content_stream" for row in rows), (
+        "Native streaming usage was not persisted"
+    )
+    assert any(row.get("spend", 0) > 0 for row in rows), (
+        "Native usage has no cost accounting"
+    )
+    print(
+        "PASS: native usage and spend persist without prompt payloads",
+        flush=True,
+    )
+    print(
+        "PASS: native requests increment persisted global budget spend",
+        flush=True,
+    )
+    return rows
+
+
+def wait_for_budget_reset(sql, token):
+    deadline = time.monotonic() + 45
+    while time.monotonic() < deadline:
+        if (
+            float(
+                sql(
+                    f"""SELECT spend FROM "LiteLLM_VerificationToken" WHERE token = '{token}';"""
+                )
+            )
+            < 3
+        ):
+            break
+        time.sleep(1)
+    else:
+        raise AssertionError("Daily budget scheduler did not reset an elapsed window")
+
+
+def wait_for_postgres(database):
+    for _ in range(60):
+        if "accepting connections" in docker(
+            "exec", database, "pg_isready", "-U", "litellm", check=False
+        ):
+            break
+        time.sleep(1)
+    else:
+        raise RuntimeError("Native test PostgreSQL did not become ready")
 
 
 if __name__ == "__main__":

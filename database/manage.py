@@ -118,6 +118,10 @@ def liquibase(domain, parameters, command, ca_file=None):
         ) from None
     if result.returncode:
         raise RuntimeError("Liquibase failed; connection details suppressed")
+    _report_liquibase(domain, command, result)
+
+
+def _report_liquibase(domain, command, result):
     # JDBC diagnostics may contain credentials. Only expose output for SQL previews,
     # whose generated SQL must be reviewed before a migration.
     if command[0] == "update-sql":

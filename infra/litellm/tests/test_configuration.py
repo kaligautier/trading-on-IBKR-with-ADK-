@@ -300,7 +300,7 @@ async def test_aiven_preserves_salt_for_encrypted_records(
         return_value=[{"tablename": "LiteLLM_CredentialsTable"}]
     )
     connection.fetchval = AsyncMock(
-        side_effect=lambda query: (encrypted_rows if "count(*)" in query else True)
+        side_effect=lambda query: encrypted_rows if "count(*)" in query else True
     )
     connection.execute = AsyncMock()
     connection.close = AsyncMock()

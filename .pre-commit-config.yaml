@@ -5,8 +5,6 @@ repos:
     hooks:
       - id: ruff-check
         args: [--fix, --extend-select, C90, --config, 'lint.mccabe.max-complexity=10']
-        files: ^apps/backend/market-scanner-adk/
         types_or: [python, pyi]
       - id: ruff-format
-        files: ^apps/backend/market-scanner-adk/
         types_or: [python, pyi]
