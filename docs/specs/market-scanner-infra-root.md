@@ -145,13 +145,21 @@ In a separate clean checkout with the required ignored release inputs provisione
 ```sh
 terraform -chdir=infra/market-scanner init -input=false -lockfile=readonly -backend-config=config/preprod.backend.hcl
 terraform -chdir=infra/market-scanner workspace show
+```
+
+Stop after `workspace show`. Compare it with the privately recorded workspace;
+if it differs, replace `<recorded-workspace>` below with that exact name and
+select it before reading state or planning. Do not continue if the recorded
+workspace is unknown or absent.
+
+```sh
+terraform -chdir=infra/market-scanner workspace select "<recorded-workspace>"
 terraform -chdir=infra/market-scanner state list
 terraform -chdir=infra/market-scanner plan -input=false -detailed-exitcode -var-file=config/preprod.tfvars -var-file=config/release.local.tfvars
 ```
 
-Select the previously recorded workspace if it differs before reading state or
-planning. Compare the address inventory and state lineage to the original root;
-keep raw state private. Never create a workspace to resolve an unexpected absence.
+Compare the address inventory and state lineage to the original root; keep raw
+state private. Never create a workspace to resolve an unexpected absence.
 The full refreshed plan must report no changes (exit 0). Exit 1 is a failure;
 exit 2 requires investigating drift or input differences against the original root,
 not applying them as part of this refactor. Do not use `-target` or `-refresh=false`
