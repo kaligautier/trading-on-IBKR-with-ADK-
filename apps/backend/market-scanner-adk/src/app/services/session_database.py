@@ -5,6 +5,7 @@ import os
 from google.adk.sessions import DatabaseSessionService
 from google.adk.sessions.database_session_service import BaseV1
 from sqlalchemy import inspect, text
+from sqlalchemy.pool import NullPool
 
 from app.services.postgres_tls import connection_options
 
@@ -43,9 +44,7 @@ class ScannerSessionService(DatabaseSessionService):
             )
             super().__init__(
                 address.render_as_string(hide_password=False),
-                pool_size=1,
-                max_overflow=0,
-                pool_timeout=5,
+                poolclass=NullPool,
                 hide_parameters=True,
                 connect_args={
                     "ssl": tls,

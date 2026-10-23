@@ -115,9 +115,7 @@ async def should_round_trip_the_25_asset_graph(local_schema, monkeypatch, missin
     monkeypatch.setattr(
         settings, "DATABASE_URL", engine.url.render_as_string(hide_password=False)
     )
-    monkeypatch.setattr(
-        "app.services.market_scan_persistence.get_engine", lambda: engine
-    )
+    monkeypatch.setattr("app.services.admission.get_engine", lambda: engine)
     monkeypatch.setattr(settings, "DATABASE_SCHEMA", schema)
     _, final = await run_graph()
     expected = MarketRegime.model_validate(final.state["market_data"]["market_regime"])
@@ -177,9 +175,7 @@ async def should_roll_back_the_whole_report_when_an_asset_write_fails(
     monkeypatch.setattr(
         settings, "DATABASE_URL", engine.url.render_as_string(hide_password=False)
     )
-    monkeypatch.setattr(
-        "app.services.market_scan_persistence.get_engine", lambda: engine
-    )
+    monkeypatch.setattr("app.services.admission.get_engine", lambda: engine)
     monkeypatch.setattr(settings, "DATABASE_SCHEMA", schema)
     await connection.execute(
         "ALTER TABLE market_scan_assets ADD CONSTRAINT test_failure CHECK (value < 0)"
@@ -232,9 +228,7 @@ async def should_persist_a_report_through_the_job_runner(
     )
     monkeypatch.setattr(settings, "DATABASE_SCHEMA", schema)
     monkeypatch.setattr(settings, "MARKET_SCANNER_TOKEN", "test-token")
-    monkeypatch.setattr(
-        "app.services.market_scan_persistence.get_engine", lambda: engine
-    )
+    monkeypatch.setattr("app.services.admission.get_engine", lambda: engine)
     execution = f"local-scan-{uuid4().hex}"
     monkeypatch.setenv("CLOUD_RUN_EXECUTION", execution)
     if save_fails:
@@ -305,9 +299,7 @@ async def should_persist_macro_with_real_adk_tools_even_when_data_is_unavailable
         settings, "DATABASE_URL", engine.url.render_as_string(hide_password=False)
     )
     monkeypatch.setattr(settings, "DATABASE_SCHEMA", schema)
-    monkeypatch.setattr(
-        "app.services.market_scan_persistence.get_engine", lambda: engine
-    )
+    monkeypatch.setattr("app.services.admission.get_engine", lambda: engine)
     calls = []
     overview = {
         "context": "Equities rose while macro data remained unavailable.",

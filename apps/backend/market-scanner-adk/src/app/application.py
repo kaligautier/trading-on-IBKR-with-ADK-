@@ -14,6 +14,7 @@ from starlette.datastructures import Headers
 from starlette.types import ASGIApp, Receive, Scope, Send
 
 from app.config.settings import settings
+from app.middleware.admission import ScannerAdmissionMiddleware
 from app.middleware.wide_event import WideEventMiddleware
 from app.services.database import close_database
 from app.services.scan_dispatch import dispatch_scan
@@ -77,7 +78,6 @@ def create_app() -> FastAPI:
     @asynccontextmanager
     async def lifespan(_app: FastAPI):
         try:
-            await sessions.prepare_tables()
             yield
         finally:
             await sessions.close()
@@ -112,6 +112,7 @@ def create_app() -> FastAPI:
             status_code=error.status_code, content={"error": error.message}
         )
 
+    app.add_middleware(ScannerAdmissionMiddleware)
     app.add_middleware(ScannerAuthMiddleware, authorizer=authorizer)
     app.add_middleware(WideEventMiddleware)
 

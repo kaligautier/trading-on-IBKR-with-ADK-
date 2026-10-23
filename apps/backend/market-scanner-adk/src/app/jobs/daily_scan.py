@@ -14,6 +14,7 @@ from app.components.agents.market_scanner import root_agent
 from app.config.constants import MARKET_SCANNER, PERSIST_MARKET_SCAN
 from app.config.settings import settings
 from app.models.step_04_market_data import MarketData
+from app.services.admission import ScannerBusyError, admit_scan
 from app.services.database import close_database
 from app.services.session_database import ScannerSessionService
 from app.utils.error import AppError, LiteLLMError
@@ -30,6 +31,7 @@ async def run_scan() -> dict[str, str | int]:
     marker = f"scheduled:{session_id}"
     report = None
     async with (
+        admit_scan(),
         ScannerSessionService(settings.DATABASE_URL) as sessions,
         Runner(
             app=App(name=MARKET_SCANNER, root_agent=root_agent),
@@ -76,6 +78,11 @@ async def main() -> int:
             extra={"event": "scheduled_scan.completed", **result},
         )
         return 0
+    except ScannerBusyError:
+        logger.warning(
+            "scheduled scan deferred", extra={"event": "scheduled_scan.busy"}
+        )
+        return 75
     except Exception as error:
         error_details = (
             {"error_code": error.error_code.name, "error_details": error.details}

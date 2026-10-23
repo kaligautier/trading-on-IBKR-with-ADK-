@@ -146,7 +146,7 @@ async def should_record_a_safe_persistence_failure(monkeypatch):
 
     monkeypatch.setattr(
         market_scan_persistence,
-        "get_engine",
+        "result_bind",
         fail_to_create_engine,
     )
     scope = wide_event.start({"event": "http.request"})
