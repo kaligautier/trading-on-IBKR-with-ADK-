@@ -30,10 +30,9 @@ database/
   manage.py                    # The operator interface
 ```
 
-Only the domain entry points above are supported. Legacy shared-database,
-split-Momentum-database, and cutover files remain temporarily while PRs #163–#165
-remove them; do not use those files for installation or migration. Git preserves
-the removed files. No supported changelog spans multiple application databases.
+Only the domain entry points above are supported. The superseded shared-database,
+split-Momentum-database, and cutover files have been removed; Git preserves their
+history. No supported changelog spans multiple application databases.
 
 ## Existing Aiven databases
 
