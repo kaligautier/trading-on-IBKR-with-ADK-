@@ -157,3 +157,29 @@ lb_reader run --rm liquibase status --verbose
 
 The reader root includes the existing writer changesets plus its additive grants
 and indexes. A successful worker-only update does not provision reader access.
+
+### Managed template database admission
+
+Some managed PostgreSQL services retain PUBLIC CONNECT on their `postgres`-owned
+`template1` while denying actual connections through `pg_hba.conf`. Do not revoke
+provider-owned privileges or exempt application databases. The bootstrap stays
+strict by default. For this specific template only, first grant the new reader
+CONNECT on `momentum` so its credentials can be positively verified, then run:
+
+```sh
+umask 077
+uv run --project ../apps/backend/momentum-api --frozen python \
+  ../apps/backend/momentum-api/scripts/verify_reader_network.py \
+  --reader-url-file "$READER_URL_FILE" > "$ADMISSION_SQL"
+```
+
+The private URL file must use verified TLS and a local readable CA path. The
+verifier first connects successfully to Momentum, then attempts every other
+connectable database with that same reader identity. Unexpected errors, bad
+credentials, timeouts or any successful cross-database connection stop it. Only
+an explicit `pg_hba.conf` refusal on the system-owned template emits a session
+attestation. Immediately execute that generated SQL and
+`momentum-reader-bootstrap.sql` on the same administrator connection. Do not
+store the attestation in database/role defaults or set it manually. Repeat this
+verification on deployment and after any managed network/access-policy change.
+The attestation never exempts another database or changes network permissions.
