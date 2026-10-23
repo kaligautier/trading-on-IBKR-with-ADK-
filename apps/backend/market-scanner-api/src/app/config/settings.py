@@ -14,14 +14,38 @@ class Settings(BaseSettings):
         env_file=".env", case_sensitive=True, extra="ignore", hide_input_in_errors=True
     )
 
-    DATABASE_URL: SecretStr
-    DATABASE_SCHEMA: str = Field(
-        default="_analysis", pattern=r"^[a-z_][a-z0-9_]{0,62}$"
+    # Database configuration
+    DATABASE_URL: SecretStr = Field(
+        default=...,
+        description="PostgreSQL connection URL using the market_scanner_reader role",
     )
-    DATABASE_POOL_SIZE: int = Field(default=1, ge=1, le=2)
-    DATABASE_POOL_TIMEOUT: float = Field(default=5, gt=0, le=30)
-    AUTH_MODE: Literal["token", "cloud_run"] = "token"
-    API_TOKEN: SecretStr = SecretStr("")
+    DATABASE_SCHEMA: str = Field(
+        default="_analysis",
+        pattern=r"^[a-z_][a-z0-9_]{0,62}$",
+        description="PostgreSQL schema containing market scanner tables",
+    )
+    DATABASE_POOL_SIZE: int = Field(
+        default=1,
+        ge=1,
+        le=2,
+        description="Maximum number of database connections in the pool",
+    )
+    DATABASE_POOL_TIMEOUT: float = Field(
+        default=5,
+        gt=0,
+        le=30,
+        description="Timeout in seconds when acquiring a database connection",
+    )
+
+    # Authentication configuration
+    AUTH_MODE: Literal["token", "cloud_run"] = Field(
+        default="token",
+        description="Authentication mode: API token or Cloud Run IAM",
+    )
+    API_TOKEN: SecretStr = Field(
+        default=SecretStr(""),
+        description="API authentication token; at least 16 characters in token mode",
+    )
 
     @field_validator("DATABASE_URL")
     @classmethod
