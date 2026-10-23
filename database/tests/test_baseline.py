@@ -128,7 +128,9 @@ async def test_drift_prevents_adoption_without_changing_history(monkeypatch):
         await admin.close()
 
 
-@pytest.mark.parametrize("mutation", ["limit", "cross_domain"])
+@pytest.mark.parametrize(
+    "mutation", ["limit", "cross_domain", "nologin", "postgres", "new_database"]
+)
 async def test_runtime_privilege_drift_prevents_adoption(monkeypatch, mutation):
     module = management()
     admin = await asyncpg.connect(url("market_scanner", "postgres"))
@@ -136,9 +138,14 @@ async def test_runtime_privilege_drift_prevents_adoption(monkeypatch, mutation):
     try:
         if mutation == "limit":
             await admin.execute("ALTER ROLE market_scanner_writer CONNECTION LIMIT 9")
+        elif mutation == "nologin":
+            await admin.execute("ALTER ROLE market_scanner_writer NOLOGIN")
+        elif mutation == "new_database":
+            await admin.execute("CREATE DATABASE isolation_probe")
         else:
+            target = "postgres" if mutation == "postgres" else "momentum"
             await admin.execute(
-                "GRANT CONNECT ON DATABASE momentum TO market_scanner_writer"
+                f"GRANT CONNECT ON DATABASE {target} TO market_scanner_writer"
             )
         monkeypatch.setenv("DATABASE_URL", url("market_scanner"))
         with pytest.raises(ValueError, match="access policy"):
@@ -155,8 +162,10 @@ async def test_runtime_privilege_drift_prevents_adoption(monkeypatch, mutation):
             == before
         )
     finally:
-        await admin.execute("ALTER ROLE market_scanner_writer CONNECTION LIMIT 4")
+        await admin.execute("ALTER ROLE market_scanner_writer LOGIN CONNECTION LIMIT 4")
+        if mutation == "new_database":
+            await admin.execute("DROP DATABASE IF EXISTS isolation_probe")
         await admin.execute(
-            "REVOKE CONNECT ON DATABASE momentum FROM market_scanner_writer"
+            "REVOKE CONNECT ON DATABASE momentum, postgres FROM market_scanner_writer"
         )
         await admin.close()

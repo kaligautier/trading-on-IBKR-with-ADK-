@@ -85,3 +85,32 @@ def test_status_reports_pending_changes_without_connection_details(
         capsys.readouterr().out
         == "1 changeset has not been applied\ndomains/momentum/changelog.yaml::next-change::deepcopy\n"
     )
+
+
+def test_timeout_removes_the_exact_migration_container(management, monkeypatch):
+    from types import SimpleNamespace
+
+    calls = []
+
+    def run(args, **kwargs):
+        calls.append(args)
+        if args[1] == "run":
+            raise management.subprocess.TimeoutExpired(args, 120)
+        return SimpleNamespace(returncode=0, stderr="")
+
+    monkeypatch.setattr(management.subprocess, "run", run)
+    with pytest.raises(RuntimeError, match="container removed"):
+        management.liquibase(
+            "momentum",
+            dict(
+                host="localhost",
+                port=5432,
+                user="database_migrator",
+                password="fixture",
+                ssl=False,
+            ),
+            ["update"],
+        )
+    name = calls[0][calls[0].index("--name") + 1]
+    assert name.startswith("deepcopy-liquibase-")
+    assert calls[1] == ["docker", "rm", "--force", name]
