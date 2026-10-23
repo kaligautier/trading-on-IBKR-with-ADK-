@@ -1,9 +1,13 @@
 """Migrated, bounded PostgreSQL sessions for the pinned ADK JSON schema."""
 
+import asyncio
+import os
+
 from google.adk.sessions import DatabaseSessionService
 from google.adk.sessions.database_session_service import BaseV1
 from sqlalchemy import inspect, text
-from sqlalchemy.engine import make_url
+
+from app.infrastructure.postgres_tls import connection_options
 
 
 def _check_schema(connection):
@@ -55,14 +59,7 @@ async def create_session_service(database_url: str) -> DatabaseSessionService:
     """Fail before SDK preparation if Liquibase objects are missing or outdated."""
     service = None
     try:
-        address = make_url(database_url)
-        if address.drivername not in {"postgresql", "postgres", "postgresql+asyncpg"}:
-            raise ValueError("PostgreSQL is required")
-        address = address.set(drivername="postgresql+asyncpg")
-        if "sslmode" in address.query:
-            mode = address.query["sslmode"]
-            address = address.difference_update_query(["sslmode"])
-            address = address.update_query_dict({"ssl": mode})
+        address, tls = connection_options(database_url, os.getenv("DATABASE_CA_FILE"))
         service = DatabaseSessionService(
             db_url=address.render_as_string(hide_password=False),
             pool_size=1,
@@ -70,6 +67,7 @@ async def create_session_service(database_url: str) -> DatabaseSessionService:
             pool_timeout=5,
             hide_parameters=True,
             connect_args={
+                "ssl": tls,
                 "timeout": 10,
                 "server_settings": {
                     "search_path": "_sessions, pg_catalog",
@@ -83,6 +81,10 @@ async def create_session_service(database_url: str) -> DatabaseSessionService:
         # All tables/indexes/version already exist; stock SDK checks need no DDL.
         await service.prepare_tables()
         return service
+    except asyncio.CancelledError:
+        if service is not None:
+            await service.close()
+        raise
     except Exception:
         if service is not None:
             await service.close()

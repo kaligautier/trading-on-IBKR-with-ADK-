@@ -97,6 +97,7 @@ class RunStatistics(BaseModel):
 
 
 class PendingOutcome(BaseModel):
+    memory_id: UUID | None = None
     ticker: str
     trade_date: date
     decision: str

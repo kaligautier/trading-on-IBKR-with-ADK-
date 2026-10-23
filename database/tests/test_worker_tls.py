@@ -93,7 +93,7 @@ def tls_server(tmp_path_factory):
         run("docker", "rm", "--force", domains.NAME)
 
 
-@pytest.mark.parametrize("component", ["scanner"])
+@pytest.mark.parametrize("component", ["scanner", "momentum"])
 @pytest.mark.parametrize("kind", ["result", "session"])
 @pytest.mark.parametrize("case", ["trusted", "wrong_ca", "wrong_hostname"])
 def test_worker_verifies_tls(tls_server, component, case, kind):
