@@ -1,0 +1,26 @@
+graph LR
+  linkStyle default fill:none,stroke:#627d94,stroke-width:1.5px
+
+  subgraph diagram ["01 | Deepcopy - system context"]
+    style diagram fill:#ffffff,stroke:#ffffff
+
+    1["<div style='font-weight: bold'>Website visitor</div><div style='font-size: 70%; margin-top: 0px'>[Person]</div><div style='font-size: 80%; margin-top:10px'>Reads the daily market<br />report.</div>"]
+    style 1 fill:#16324f,stroke:#627d94,color:#ffffff
+    2["<div style='font-weight: bold'>Authorized operator</div><div style='font-size: 70%; margin-top: 0px'>[Person]</div><div style='font-size: 80%; margin-top:10px'>Runs jobs, queries private<br />readers and administers<br />inference.</div>"]
+    style 2 fill:#16324f,stroke:#627d94,color:#ffffff
+    3["<div style='font-weight: bold'>Market data providers</div><div style='font-size: 70%; margin-top: 0px'>[Software System]</div><div style='font-size: 80%; margin-top:10px'>Yahoo Finance, US Treasury;<br />optional FRED, Polymarket and<br />Alpha Vantage.</div>"]
+    style 3 fill:#eef1f5,stroke:#627d94,color:#31475d
+    4["<div style='font-weight: bold'>Model providers</div><div style='font-size: 70%; margin-top: 0px'>[Software System]</div><div style='font-size: 80%; margin-top:10px'>Vertex AI Gemini; additional<br />API-key providers are<br />configurable.</div>"]
+    style 4 fill:#eef1f5,stroke:#627d94,color:#31475d
+    5[("<div style='font-weight: bold'>Managed PostgreSQL</div><div style='font-size: 70%; margin-top: 0px'>[Software System]</div><div style='font-size: 80%; margin-top:10px'>Separate market_scanner,<br />momentum and litellm<br />databases.</div>")]
+    style 5 fill:#fff0cc,stroke:#627d94,color:#674c16
+    7["<div style='font-weight: bold'>Deepcopy</div><div style='font-size: 70%; margin-top: 0px'>[Software System]</div><div style='font-size: 80%; margin-top:10px'>Market research, daily<br />reports and stock analysis.</div>"]
+    style 7 fill:#146b87,stroke:#627d94,color:#ffffff
+
+    1-. "<div>Reads reports</div><div style='font-size: 70%'>[HTTPS]</div>" .->7
+    2-. "<div>Operates private services</div><div style='font-size: 70%'>[IAM / IAP]</div>" .->7
+    7-. "<div>Retrieves market evidence</div><div style='font-size: 70%'>[HTTPS]</div>" .->3
+    7-. "<div>Requests model inference</div><div style='font-size: 70%'>[HTTPS via LiteLLM]</div>" .->4
+    7-. "<div>Persists and reads domain<br />data</div><div style='font-size: 70%'>[SQL / TLS]</div>" .->5
+
+  end

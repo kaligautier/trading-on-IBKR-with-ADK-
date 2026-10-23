@@ -1,0 +1,56 @@
+graph TB
+  linkStyle default fill:none,stroke:#627d94,stroke-width:1.5px
+
+  subgraph diagram ["03 | Market Scanner - analysis pipeline"]
+    style diagram fill:#ffffff,stroke:#ffffff
+
+    3["<div style='font-weight: bold'>Market data providers</div><div style='font-size: 70%; margin-top: 0px'>[Software System]</div><div style='font-size: 80%; margin-top:10px'>Yahoo Finance, US Treasury;<br />optional FRED, Polymarket and<br />Alpha Vantage.</div>"]
+    style 3 fill:#eef1f5,stroke:#627d94,color:#31475d
+    5[("<div style='font-weight: bold'>Managed PostgreSQL</div><div style='font-size: 70%; margin-top: 0px'>[Software System]</div><div style='font-size: 80%; margin-top:10px'>Separate market_scanner,<br />momentum and litellm<br />databases.</div>")]
+    style 5 fill:#fff0cc,stroke:#627d94,color:#674c16
+
+    subgraph 7 ["Deepcopy"]
+      style 7 fill:#ffffff,stroke:#627d94,color:#627d94
+
+      subgraph 12 ["Scanner job"]
+        style 12 fill:#ffffff,stroke:#627d94,color:#627d94
+
+        13["<div style='font-weight: bold'>Job runner</div><div style='font-size: 70%; margin-top: 0px'>[Component: ADK Runner]</div><div style='font-size: 80%; margin-top:10px'>Creates session; runs the<br />complete graph.</div>"]
+        style 13 fill:#e6f3ed,stroke:#627d94,color:#18344d
+        14["<div style='font-weight: bold'>Collect + trends</div><div style='font-size: 70%; margin-top: 0px'>[Component: Python]</div><div style='font-size: 80%; margin-top:10px'>Yahoo / Treasury data;<br />deterministic indicators.</div>"]
+        style 14 fill:#e6f3ed,stroke:#627d94,color:#18344d
+        15["<div style='font-weight: bold'>Researcher</div><div style='font-size: 70%; margin-top: 0px'>[Component: LlmAgent]</div><div style='font-size: 80%; margin-top:10px'>Explains movements with<br />research tools.</div>"]
+        style 15 fill:#eee5fa,stroke:#627d94,color:#533474
+        16["<div style='font-weight: bold'>Critic</div><div style='font-size: 70%; margin-top: 0px'>[Component: LlmAgent]</div><div style='font-size: 80%; margin-top:10px'>Checks gaps and research<br />quality.</div>"]
+        style 16 fill:#eee5fa,stroke:#627d94,color:#533474
+        17["<div style='font-weight: bold'>Synthesizer</div><div style='font-size: 70%; margin-top: 0px'>[Component: LlmAgent]</div><div style='font-size: 80%; margin-top:10px'>Produces typed market<br />analysis.</div>"]
+        style 17 fill:#eee5fa,stroke:#627d94,color:#533474
+        18["<div style='font-weight: bold'>Enrich + assemble</div><div style='font-size: 70%; margin-top: 0px'>[Component: Pydantic / Python]</div><div style='font-size: 80%; margin-top:10px'>Validates analysis; joins<br />asset observations.</div>"]
+        style 18 fill:#e6f3ed,stroke:#627d94,color:#18344d
+        19["<div style='font-weight: bold'>Persist report</div><div style='font-size: 70%; margin-top: 0px'>[Component: SQLAlchemy]</div><div style='font-size: 80%; margin-top:10px'>Commits report, assets and<br />horizons together.</div>"]
+        style 19 fill:#e6f3ed,stroke:#627d94,color:#18344d
+        20["<div style='font-weight: bold'>Research tools</div><div style='font-size: 70%; margin-top: 0px'>[Component: Python / HTTP]</div><div style='font-size: 80%; margin-top:10px'>News, macro indicators and<br />prediction markets.</div>"]
+        style 20 fill:#e6f3ed,stroke:#627d94,color:#18344d
+      end
+
+      33["<div style='font-weight: bold'>Private inference</div><div style='font-size: 70%; margin-top: 0px'>[Container: Cloud Run / internal ingress]</div><div style='font-size: 80%; margin-top:10px'>Nginx route filter + LiteLLM<br />sidecar; virtual keys.</div>"]
+      style 33 fill:#eee5fa,stroke:#627d94,color:#533474
+    end
+
+    33-. "<div>Keys, budgets and spend</div><div style='font-size: 70%'>[SQL / TLS]</div>" .->5
+    13-. "<div>Starts workflow</div><div style='font-size: 70%'></div>" .->14
+    13-. "<div>Stores session events</div><div style='font-size: 70%'>[market_scanner / _sessions]</div>" .->5
+    14-. "<div>Fetches prices / public debt</div><div style='font-size: 70%'>[HTTPS]</div>" .->3
+    14-. "<div>Trend snapshot</div><div style='font-size: 70%'></div>" .->15
+    15-. "<div>Research findings</div><div style='font-size: 70%'></div>" .->16
+    16-. "<div>Critique + findings</div><div style='font-size: 70%'></div>" .->17
+    17-. "<div>Typed analysis</div><div style='font-size: 70%'></div>" .->18
+    18-. "<div>Complete report</div><div style='font-size: 70%'></div>" .->19
+    19-. "<div>Commits normalized report</div><div style='font-size: 70%'>[market_scanner / _analysis]</div>" .->5
+    15-. "<div>Calls tools</div><div style='font-size: 70%'></div>" .->20
+    20-. "<div>News / macro / probabilities</div><div style='font-size: 70%'>[HTTPS]</div>" .->3
+    15-. "<div>Inference + Google Search<br />tool</div><div style='font-size: 70%'>[Gemini API]</div>" .->33
+    16-. "<div>Inference</div><div style='font-size: 70%'>[Gemini API]</div>" .->33
+    17-. "<div>Inference</div><div style='font-size: 70%'>[Gemini API]</div>" .->33
+
+  end

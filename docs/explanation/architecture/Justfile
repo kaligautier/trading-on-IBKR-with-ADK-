@@ -1,0 +1,68 @@
+#!/usr/bin/env -S just --justfile
+# ^ A shebang isn't required, but allows a justfile to be executed
+#   like a script, with `./justfile test`, for example.
+# Disable display of commands, only the output is display; use @ to force print the command
+
+set quiet := true
+
+# The legacy structurizr/cli:latest image only prints a retirement notice.
+image := "structurizr/structurizr@sha256:447b34c11296b88a98975ae496cdf1395ebc3099ef8339e0e1e3a5254c5138e7"
+architecture_directory := `pwd`
+
+# Choose your recipe to run
+default:
+    just --choose
+
+# Display the standard just help menu
+help:
+    just --list
+
+# Launch Structurizr Lite web interface on port 8080 to visualize and edit the architecture
+[group('Documentation')]
+explore:
+    docker run -it --rm -p 8080:8080 -v "{{architecture_directory}}":/usr/local/structurizr {{image}} local
+
+# Run all development checks: validation, listing, and inspections (warnings and errors)
+[group('Development')]
+feedback: validate list inspect-nonblocking inspect-blocking
+
+# Validate the workspace.dsl syntax and structure
+[group('Development')]
+validate:
+    docker run --rm -v "{{architecture_directory}}":/usr/local/structurizr {{image}} validate -w /usr/local/structurizr/workspace.dsl
+
+# Run all inspections: both blocking (errors) and non-blocking (warnings/info)
+[group('Development')]
+inspect: inspect-blocking inspect-nonblocking
+
+# Inspect workspace for errors (fails build if errors found)
+[group('Development')]
+inspect-blocking:
+    docker run --rm -v "{{architecture_directory}}":/usr/local/structurizr {{image}} inspect -w /usr/local/structurizr/workspace.dsl -severity error
+
+# Inspect workspace for warnings and info (doesn't fail build)
+[group('Development')]
+inspect-nonblocking:
+    docker run --rm -v "{{architecture_directory}}":/usr/local/structurizr {{image}} inspect -w /usr/local/structurizr/workspace.dsl -severity warning,info || true
+
+# List all views defined in the workspace
+[group('Development')]
+list:
+    docker run --rm -v "{{architecture_directory}}":/usr/local/structurizr {{image}} list -w /usr/local/structurizr/workspace.dsl
+
+# Export all views to Mermaid format and generate SVG diagrams
+[group('Delivery')]
+export-mermaid:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    mkdir -p diagrams
+    docker run --rm -v "{{architecture_directory}}":/usr/local/structurizr {{image}} export -w /usr/local/structurizr/workspace.dsl -f mermaid -o /usr/local/structurizr/diagrams
+    python3 prepare-mermaid.py
+    for source in diagrams/*.mmd; do
+        mmdc -i "$source" -o "$source.svg" -w 2400 -b white -c mermaid-config.json
+    done
+    test "$(find diagrams -name '*.mmd.svg' | wc -l | tr -d ' ')" = 4
+
+# Pre-commit hook: export diagrams to ensure they're up-to-date
+[group('Delivery')]
+docs-pre-commit: export-mermaid

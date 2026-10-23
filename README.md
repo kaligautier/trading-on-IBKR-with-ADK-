@@ -104,110 +104,28 @@ curl https://mcp.deepcopy.fr \
 
 ## Architecture
 
-The project has three main flows:
+The editable project vision remains in the
+[Excalidraw architecture](docs/global-architecture/architecture-v0.excalidraw).
+The diagrams below describe the architecture implemented in this repository and
+its Terraform configuration. See the [architecture notes](docs/explanation/architecture.md)
+for source references, system boundaries and regeneration instructions. They
+show a code snapshot, not a live deployment.
 
+### System context
 
-```mermaid
----
-config:
-  look: classic
-  layout: elk
-  theme: base
-  themeVariables:
-    fontFamily: "Arial"
-    fontSize: "15px"
-    primaryTextColor: "#1e293b"
-    lineColor: "#64748b"
-    clusterBkg: "#ffffff"
-    clusterBorder: "#94a3b8"
-    edgeLabelBackground: "#ffffff"
-  flowchart:
-    curve: rounded
-    nodeSpacing: 35
-    rankSpacing: 45
----
-flowchart TB
-    USER("User") --> INTERNET("Internet")
-    INTERNET --> FRONT("Next.js frontend<br/>UI and server proxy")
-    INTERNET -->|MCP client| PUBLIC
-    ADMIN("Administrator<br/>Authenticated MCP client") --> INTERNAL
+![Implemented system context](docs/explanation/architecture/diagrams/structurizr-01-SystemContext.mmd.svg)
 
-    subgraph PLATFORM["Deep Copy · application components"]
-        direction TB
+### Services and storage
 
-        API_DC("API<br/>Deep Copy")
-        ADK_DC("ADK2 workflow<br/>Deep Copy")
-        MCP_IBKR("Internal MCP<br/>IBKR")
-        GATEWAY("IBKR gateways<br/>ibkr-gw-*")
+![Implemented services and storage](docs/explanation/architecture/diagrams/structurizr-02-Containers.mmd.svg)
 
-        PUBLIC("Public MCP<br/>Momentum")
-        INTERNAL("Internal MCP<br/>Momentum")
-        API_M("API<br/>Momentum")
-        ADK_M("Momentum ADK2<br/>Cloud Run Job")
+### Market Scanner workflow
 
-        API_S("API<br/>Market Scanner")
-        SCHEDULER("Market Scanner scheduler<br/>and Cloud Workflows")
-        ADK_S("ADK2<br/>Market Scanner")
-        DB("PostgreSQL<br/>Application data")
+![Market Scanner components](docs/explanation/architecture/diagrams/structurizr-03-ScannerComponents.mmd.svg)
 
-        API_DC -->|Run worker| ADK_DC
-        API_DC -->|Deploys and manages| GATEWAY
-        ADK_DC --> MCP_IBKR --> GATEWAY
-        PUBLIC --> API_M
-        PUBLIC --> API_S
-        INTERNAL -->|Administration| API_M
-        API_M -->|Starts an analysis| ADK_M
-        SCHEDULER -->|Session, then execution| ADK_S
+### Momentum workflow
 
-        API_DC --> DB
-        API_M -->|Reads analyses| DB
-        ADK_M -->|Saves| DB
-        API_S -->|Reads scans| DB
-        ADK_S -->|Saves| DB
-    end
-
-    FRONT --> API_DC
-    FRONT --> API_S
-    GATEWAY --> IBKR("Interactive Brokers")
-
-    classDef neutral fill:#e9ecef,stroke:#475569,color:#1e293b;
-    classDef front fill:#a5d8ff,stroke:#475569,color:#1e293b;
-    classDef api fill:#b2f2bb,stroke:#475569,color:#1e293b;
-    classDef mcp fill:#d0bfff,stroke:#475569,color:#1e293b;
-    classDef agent fill:#eebefa,stroke:#475569,color:#1e293b;
-    classDef storage fill:#ffec99,stroke:#475569,color:#1e293b;
-    classDef external fill:#ffc9c9,stroke:#475569,color:#1e293b;
-
-    class USER,INTERNET,ADMIN neutral;
-    class FRONT front;
-    class API_DC,API_M,API_S api;
-    class PUBLIC,INTERNAL,MCP_IBKR mcp;
-    class ADK_DC,ADK_M,ADK_S,SCHEDULER agent;
-    class GATEWAY,DB storage;
-    class IBKR external;
-    style PLATFORM rx:16,ry:16;
-```
-
-- **Market Scanner** uses a graph-based execution engine to retrieve public market data from several providers. Agents research news related to market movements and produce the daily summary.
-- **MCP Momentum** exposes analyses produced with a fork of the [Tauric Research project](https://tauric.ai/research/trading-r1). The public MCP server provides access to these reports and the latest market scan, and accepts ticker suggestions for moderation.
-- **Deepcopy agentic workflow** connects an agentic trading workflow to IBKR and uses the investor's risk profile to guide buy and sell decisions.
-
-
-### Market Scanner implementation diagrams
-
-The views below describe the Market Scanner code and Terraform definitions in this repository. The platform vision above remains the broader project direction. These diagrams document the implementation; they do not verify a live deployment.
-
-#### Applications and data flows
-
-The public Next.js server reads reports through the consultation API using a Cloud Run identity token. The ADK service and daily job run the scanner workflow and persist reports in PostgreSQL. Model requests pass through the private Nginx gateway and its LiteLLM sidecar.
-
-![Market Scanner applications and data flows](assets/architecture/containers.svg)
-
-#### Scanner workflow
-
-The workflow collects data and computes trends, then runs the researcher, critic and synthesizer before enriching, assembling and saving the report. The same workflow is used by the ADK service and the daily job.
-
-![Market Scanner workflow components](assets/architecture/scan-workflow.svg)
+![Momentum components](docs/explanation/architecture/diagrams/structurizr-04-MomentumComponents.mmd.svg)
 
 ## MCP reference
 
