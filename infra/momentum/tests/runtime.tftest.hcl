@@ -16,6 +16,15 @@ run "bounded_private_worker" {
     image = "europe-west1-docker.pkg.dev/preprod-deep-copy/momentum/worker@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
   }
   assert {
+    condition = (
+      google_cloud_run_v2_job.analysis[0].template[0].template[0].volumes[0].secret[0].items[0].version == var.database_ca_version &&
+      google_cloud_run_v2_job.analysis[0].template[0].template[0].containers[0].volume_mounts[0].mount_path == "/etc/database" &&
+      [for env in google_cloud_run_v2_job.analysis[0].template[0].template[0].containers[0].env : env.value if env.name == "DATABASE_CA_FILE"] == ["/etc/database/ca.pem"]
+    )
+    error_message = "Momentum must use the pinned database CA for both pools."
+  }
+
+  assert {
     condition     = google_cloud_run_v2_job.analysis[0].template[0].parallelism == 1 && google_cloud_run_v2_job.analysis[0].template[0].template[0].max_retries == 0
     error_message = "Bound concurrency and disable automatic paid retries."
   }
@@ -24,8 +33,11 @@ run "bounded_private_worker" {
     error_message = "Use the private gateway network."
   }
   assert {
-    condition     = length(google_cloud_run_v2_job.analysis[0].template[0].template[0].containers[0].env) == 6
-    error_message = "Only explicit gateway, models and three credentials belong in runtime."
+    condition = toset([for env in google_cloud_run_v2_job.analysis[0].template[0].template[0].containers[0].env : env.name]) == toset([
+      "DATABASE_CA_FILE", "LITELLM_API_BASE", "MOMENTUM_QUICK_MODEL", "MOMENTUM_DEEP_MODEL",
+      "LITELLM_API_KEY", "MOMENTUM_SESSION_DATABASE_URL", "MOMENTUM_RESULT_DATABASE_URL"
+    ])
+    error_message = "Only the CA path, explicit gateway, models and three credentials belong in runtime."
   }
 }
 

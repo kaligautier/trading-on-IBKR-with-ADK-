@@ -58,3 +58,13 @@ results/session history. It does not establish financial accuracy or complete
 provider coverage. Earlier failed runs remain in session history and have no
 partial result rows. Momentum CI passes; the separately triggered Scanner audit
 still reports inherited aiohttp/certifi dependency findings.
+
+## Verified PostgreSQL transport
+
+Before deploying this worker, publish session/result URL secret versions using
+`sslmode=verify-full`. Older `sslmode=require` URLs are intentionally rejected.
+The worker mounts the existing `database_ca_secret_id` at `/etc/database/ca.pem`
+using pinned `database_ca_version`; both pools consume `DATABASE_CA_FILE`. Any
+`sslrootcert` in a URL must match that mount. Never put credential values in state.
+Verify both session and result connections with the deployed CA/URL versions
+before claiming rollout success. Local loopback fixtures may disable TLS.
