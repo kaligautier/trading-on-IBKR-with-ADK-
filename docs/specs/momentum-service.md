@@ -46,7 +46,7 @@ Paths below are relative to the DeepCopy source repository unless marked target.
 | `apps/backend/momentum-api/src/app/adapters/cloud_run.py` | Dispatch uses per-execution `TA_ANALYSIS_REQUEST` environment overrides. |
 | `app/components/tools/market_data.py` | Optional Scanner read currently has no Cloud Run IAM authentication. Leave disabled unless adapted and verified. |
 | `infrastructure/cloud_run.tf` | Source worker uses a six-hour timeout, mutable secret versions and image drift exclusion. Do not copy these deployment choices blindly. |
-| Target `database/README.md`, `database/changelog/db.changelog-master.yaml` | Current Liquibase ownership covers Scanner, not Momentum. No runtime schema creation for business results. |
+| Target `database/README.md`, `database/domains/momentum/changelog.yaml` | Liquibase owns the domain schemas; runtime identities do not create business tables. |
 | Target `apps/backend/market-scanner-adk/src/app/config/llm.py` | Existing native Gemini gateway transport is a reference; do not import the sibling application at runtime. |
 
 The source contains approximately 5,944 application and 976 test Python lines.
@@ -125,7 +125,7 @@ apps/backend/momentum-adk/
   Dockerfile, .dockerignore     Independent build context
   justfile, README.md           Repeatable commands and operator guide
 infra/momentum/                Dedicated runtime/state root and mock-provider tests
-database/changelog/momentum/   Reviewed result schema and role grants
+database/domains/momentum/    Current baseline, bootstrap and future migrations
 .github/workflows/momentum.yml Application, dependency, image and Terraform gates
 docs/specs/momentum-service.md This specification
 ```

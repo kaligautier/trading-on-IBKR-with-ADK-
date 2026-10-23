@@ -25,7 +25,7 @@ recorded in the delivery report and PR descriptions.
   - Accept: HEAD/OPTIONS/auth/challenges, no secret logs, engine lifecycle hook.
   - Verify: in-process full request matrix; storage not called for unauthorized input.
 - [x] T06 Database permission foundation.
-  - Files: database/momentum-reader-bootstrap.sql, database/changelog/momentum-reader.yaml, database/changelog/momentum-reader/001-reader.sql, scripts/test_database.sh.
+  - Files: database/domains/momentum/bootstrap.sql, database/domains/momentum/changelog.yaml, database/domains/momentum/baseline.sql, scripts/test_database.sh.
   - Accept: isolated reader role/grants and safe disposable Liquibase harness.
   - Verify: migration validation/update/repeat on labelled local PostgreSQL.
 - [x] T07 Storage connection and bounded history queries.

@@ -47,7 +47,7 @@ These are source observations, not a claim about current deployed services.
 | DeepCopy latest joins on `MAX(created_at)` per ticker | Resolve timestamp ties by UUID so exactly one result wins per ticker. |
 | DeepCopy detail uses generic JSON objects | Define explicit nested response models and documented nullability. |
 | Target `momentum-adk/app/infrastructure/models.py` and result repository | Read committed results in database `momentum`, schema `_analysis`; all sections are written transactionally. |
-| Target `database/momentum-unified-bootstrap.sql` | Existing runtime grants cover writers; add a separate reader through reviewed database changes. |
+| Target `database/domains/momentum/bootstrap.sql` | Existing runtime grants cover writers; add a separate reader through reviewed database changes. |
 | Target `market-scanner-api/README.md` | Reuse structure, connection limits and response assembly; the RFC profile supersedes its custom errors and validation statuses for this new API. |
 | DeepCopy public MCP tools | Four consultation use cases inform this API; Scanner and suggestion tools remain excluded. |
 
@@ -224,7 +224,7 @@ apps/backend/momentum-api/
   pyproject.toml, uv.lock    Independent dependency ownership
   Dockerfile, README.md      Runtime image and operational instructions
 infra/momentum-api/         Dedicated Terraform root and tests
-database/changelog/         Additive reader grants/index migrations
+database/domains/momentum/  Baseline and additive reader migrations
 .github/workflows/          Dedicated application/infrastructure verification
 docs/postman/               Reusable local requests/examples; preserve old collection
 ```
