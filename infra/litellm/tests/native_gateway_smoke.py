@@ -386,8 +386,7 @@ def main():
                 with request(proxy, GENERATE, PAYLOAD, budget_key) as result:
                     error = json.loads(result.read()).get("error", {})
                     assert (
-                        result.status == 422
-                        and error.get("type") == "budget_exceeded"
+                        result.status == 422 and error.get("type") == "budget_exceeded"
                     ), "Daily agent budget did not deny inference"
                 with request(proxy, GENERATE, PAYLOAD, other_agent) as result:
                     assert result.status == 200, (
@@ -436,8 +435,7 @@ def main():
                 with request(bases[index], GENERATE, PAYLOAD, native_key) as result:
                     error = json.loads(result.read()).get("error", {})
                     assert (
-                        result.status == 422
-                        and error.get("type") == "budget_exceeded"
+                        result.status == 422 and error.get("type") == "budget_exceeded"
                     ), (
                         "Persisted global budget did not deny native requests after restart"
                     )
