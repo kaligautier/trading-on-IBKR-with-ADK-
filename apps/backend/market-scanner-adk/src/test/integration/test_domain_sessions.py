@@ -19,8 +19,9 @@ pytestmark = pytest.mark.skipif(
     os.getenv("RUN_DOMAIN_TESTS") != "1", reason="Run the local domain rehearsal"
 )
 
+PORT = os.getenv("SCANNER_DOMAIN_TEST_PORT", "55471")
 WRITER = (
-    "postgresql://market_scanner_writer:domain-test-only@127.0.0.1:55461/market_scanner"
+    f"postgresql://market_scanner_writer:domain-test-only@127.0.0.1:{PORT}/market_scanner"
 )
 READER = WRITER.replace("market_scanner_writer:", "market_scanner_reader:")
 

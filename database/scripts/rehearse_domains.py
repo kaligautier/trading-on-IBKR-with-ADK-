@@ -101,6 +101,7 @@ def main():
             scanner,
             {
                 "RUN_DOMAIN_TESTS": "1",
+                "SCANNER_DOMAIN_TEST_PORT": "55461",
                 "MARKET_SHARED_TEST_DATABASE_URL": "postgresql://postgres:local-test-only@127.0.0.1:55462/postgres",
                 "MARKET_SHARED_TEST_CONTAINER": name,
             },
@@ -113,6 +114,7 @@ def main():
             reader,
             {
                 "RUN_DOMAIN_TESTS": "1",
+                "SCANNER_DOMAIN_TEST_PORT": "55461",
                 "TEST_DATABASE_URL": "postgresql://postgres:local-test-only@127.0.0.1:55462/scanner_reader_test",
             },
             "src/test",
