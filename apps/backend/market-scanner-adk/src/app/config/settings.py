@@ -81,15 +81,8 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices("MARKET_SCANNER_MODEL", "MODEL"),
         description="AI model to use for the agent",
     )
-    LITELLM_API_BASE: str = Field(
-        default=...,
-        description="Root HTTP URL of the LiteLLM gateway",
-    )
-    LITELLM_API_KEY: SecretStr = Field(
-        default=...,
-        repr=False,
-        description="Virtual API key used to authenticate with the LiteLLM gateway",
-    )
+    LITELLM_API_BASE: str
+    LITELLM_API_KEY: SecretStr = Field(repr=False)
 
     @model_validator(mode="after")
     def validate_litellm(self) -> "Settings":
@@ -138,15 +131,10 @@ class Settings(BaseSettings):
     )
 
     MARKET_SCANNER_ASSET_KEYS: tuple[str, ...] | None = Field(
-        default=None,
-        description="Optional subset of catalog keys to collect.",
+        default=None, description="Optional subset of catalog keys to collect."
     )
 
-    FRED_API_KEY: str = Field(
-        default="",
-        repr=False,
-        description="Optional FRED API key for economic data research",
-    )
+    FRED_API_KEY: str = Field(default="", repr=False)
     MARKET_SCANNER_RESEARCH_TOOLS_ENABLED: bool = Field(
         default=True,
         description="Enable optional Yahoo news, FRED and Polymarket research.",
@@ -175,7 +163,6 @@ class Settings(BaseSettings):
         description="Legacy setting; scanner inference always uses LiteLLM.",
     )
     GOOGLE_CLOUD_PROJECT: str = Field(
-        default=...,
         description="GCP project ID (required)",
     )
     GOOGLE_CLOUD_LOCATION: str = Field(
@@ -202,32 +189,14 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices(
             "MARKET_SCANNER_DATABASE_URL", "TA_DATABASE_URL", "DATABASE_URL"
         ),
-        description="PostgreSQL connection URL for scanner sessions and results",
     )
     DATABASE_SCHEMA: str = Field(
-        default="_analysis",
-        pattern=r"^[a-z_][a-z0-9_]{0,62}$",
-        description="PostgreSQL schema containing market scanner tables",
+        default="_analysis", pattern=r"^[a-z_][a-z0-9_]{0,62}$"
     )
-    DATABASE_POOL_SIZE: int = Field(
-        default=1,
-        ge=1,
-        le=10,
-        description="Maximum number of database connections in the pool",
-    )
-    DATABASE_POOL_TIMEOUT: float = Field(
-        default=30,
-        gt=0,
-        description="Timeout in seconds when acquiring a database connection",
-    )
-    MARKET_SCANNER_APP_NAME: str = Field(
-        default="market_scanner",
-        description="ADK application name used for scanner sessions",
-    )
-    MARKET_SCANNER_TOKEN: str = Field(
-        default="",
-        description="Bearer token used to authenticate scanner requests",
-    )
+    DATABASE_POOL_SIZE: int = Field(default=1, ge=1, le=10)
+    DATABASE_POOL_TIMEOUT: float = Field(default=30, gt=0)
+    MARKET_SCANNER_APP_NAME: str = "market_scanner"
+    MARKET_SCANNER_TOKEN: str = ""
     MARKET_SCANNER_JOB: str = Field(
         default="",
         pattern=r"^$|^projects/[a-z0-9-]+/locations/[a-z0-9-]+/jobs/[a-z0-9-]+$",
