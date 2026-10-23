@@ -41,3 +41,14 @@ run "governance_can_read_and_persist_only_configured_client_keys" {
     error_message = "Governance needs scoped read, metadata and version-add access for every configured client."
   }
 }
+
+run "retain_existing_governance_identity" {
+  command = plan
+  variables {
+    governance_service_account_id = "litellm-agent-governance"
+  }
+  assert {
+    condition     = google_service_account.governance.account_id == "litellm-agent-governance"
+    error_message = "A runtime release must be able to preserve its existing governance identity."
+  }
+}

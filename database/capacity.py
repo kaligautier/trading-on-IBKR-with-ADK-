@@ -9,14 +9,16 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent
 
 
-def validate(budget, inventory=None, release_roles=()):
+def validate(budget, inventory=None, release_roles=(), phase="runtime"):
     if budget["release_mode"] != "drain-before-replace":
         raise ValueError("Overlapping release mode is outside the reviewed capacity")
+    validate_phase_config(budget, phase)
     server = budget["server"]
     values = [
         *server.values(),
         budget["operator_allowance"],
         budget["migration_allowance"],
+        budget["provider_allowance"],
         *budget["roles"].values(),
         *(
             consumer[key]
@@ -34,7 +36,8 @@ def validate(budget, inventory=None, release_roles=()):
         - server["reserved_connections"]
     )
     application = sum(budget["roles"].values())
-    total = application + budget["operator_allowance"] + budget["migration_allowance"]
+    workload = max(application, budget["migration_allowance"])
+    total = workload + budget["operator_allowance"] + budget["provider_allowance"]
     if total > available:
         raise ValueError("Global connection budget exceeds ordinary server capacity")
     allocated = []
@@ -48,23 +51,32 @@ def validate(budget, inventory=None, release_roles=()):
     if sorted(allocated) != sorted(budget["roles"]):
         raise ValueError("Every runtime role must be counted exactly once")
     if inventory is not None:
-        validate_inventory(budget, inventory, available - total, release_roles)
-    elif release_roles:
+        validate_inventory(budget, inventory, available - total, release_roles, phase)
+    elif release_roles or phase == "migration":
         raise ValueError("A release requires a current full-visibility inventory")
     return {
         "application_peak": application,
         "ordinary_slots": available,
         "operator": budget["operator_allowance"],
         "migration": budget["migration_allowance"],
+        "provider": budget["provider_allowance"],
+        "migration_mode": budget["migration_mode"],
     }
 
 
-def validate_inventory(budget, inventory, spare, release_roles):
+def validate_phase_config(budget, phase):
+    if phase not in {"runtime", "migration"} or budget["migration_mode"] != "offline":
+        raise ValueError("Migrations require an offline maintenance phase")
+
+
+def validate_inventory(budget, inventory, spare, release_roles, phase):
     if inventory.get("full_visibility") is not True:
         raise ValueError("Provider/client visibility is incomplete; rollout blocked")
     if inventory["server"] != budget["server"]:
         raise ValueError("Observed server settings differ from the reviewed budget")
-    if inventory.get("unallocated_client_connections", -1) not in range(spare + 1):
+    if inventory.get("unallocated_client_connections", -1) not in range(
+        spare + budget["provider_allowance"] + 1
+    ):
         raise ValueError("Unallocated provider/client connections consume headroom")
     expected = {**budget["roles"], "database_migrator": budget["migration_allowance"]}
     for role, limit in expected.items():
@@ -73,11 +85,22 @@ def validate_inventory(budget, inventory, spare, release_roles):
             raise ValueError("Runtime role protection differs from the reviewed budget")
         if observed["connections"] > limit:
             raise ValueError("Existing sessions exceed the new limit; drain first")
+    validate_phase_inventory(budget, inventory, phase)
     for role in release_roles:
         if role not in expected or inventory["roles"][role]["connections"] != 0:
             raise ValueError("Release target has not drained")
     if release_roles and inventory.get("ingress_and_dispatch_paused") is not True:
         raise ValueError("Pause ingress and dispatch before the release gate")
+
+
+def validate_phase_inventory(budget, inventory, phase):
+    if phase == "runtime" and inventory["roles"]["database_migrator"]["connections"]:
+        raise ValueError("Migration connections must drain before runtime")
+    if phase == "migration":
+        if inventory.get("ingress_and_dispatch_paused") is not True:
+            raise ValueError("Pause every application before offline migration")
+        if any(inventory["roles"][role]["connections"] for role in budget["roles"]):
+            raise ValueError("All application connections must drain before migration")
 
 
 def validate_sources(budget, root=ROOT.parent):
@@ -120,6 +143,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--inventory", type=Path)
     parser.add_argument("--release-role", action="append", default=[])
+    parser.add_argument("--phase", choices=("runtime", "migration"), default="runtime")
     arguments = parser.parse_args()
     try:
         budget = json.loads((ROOT / "connection-budget.json").read_text())
@@ -130,6 +154,7 @@ def main():
             if arguments.inventory
             else None,
             arguments.release_role,
+            arguments.phase,
         )
     except (ValueError, KeyError, TypeError) as error:
         parser.exit(1, f"Capacity validation failed: {error}\n")

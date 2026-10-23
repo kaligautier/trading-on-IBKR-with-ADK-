@@ -22,7 +22,7 @@ def inventory(budget):
     return {
         "full_visibility": True,
         "server": copy.deepcopy(budget["server"]),
-        "unallocated_client_connections": 0,
+        "unallocated_client_connections": 1,
         "ingress_and_dispatch_paused": True,
         "roles": {
             role: {"connection_limit": limit, "superuser": False, "connections": 0}
@@ -37,6 +37,8 @@ def test_budget_retains_operator_and_migration_slots(budget):
         "ordinary_slots": 12,
         "operator": 1,
         "migration": 1,
+        "provider": 1,
+        "migration_mode": "offline",
     }
 
 
@@ -57,7 +59,7 @@ def test_live_inventory_must_prove_capacity(budget, mutation):
     if mutation == "hidden":
         observed["full_visibility"] = False
     elif mutation == "provider":
-        observed["unallocated_client_connections"] = 1
+        observed["unallocated_client_connections"] = 2
     elif mutation == "superuser":
         observed["roles"]["litellm"]["superuser"] = True
     elif mutation == "role_limit":
@@ -122,3 +124,18 @@ def test_negative_consumer_allocation_cannot_hide_capacity(budget):
     budget["consumers"]["scanner"]["admission"] = -1
     with pytest.raises(ValueError, match="nonnegative"):
         capacity.validate(budget)
+
+
+def test_offline_migration_rejects_live_application(budget):
+    observed = inventory(budget)
+    observed["roles"]["litellm"]["connections"] = 1
+    with pytest.raises(ValueError, match="All application"):
+        capacity.validate(budget, observed, phase="migration")
+    observed["roles"]["litellm"]["connections"] = 0
+    observed["roles"]["database_migrator"]["connections"] = 1
+    capacity.validate(budget, observed, phase="migration")
+    with pytest.raises(ValueError, match="Migration connections"):
+        capacity.validate(budget, observed)
+    observed["ingress_and_dispatch_paused"] = False
+    with pytest.raises(ValueError, match="Pause every"):
+        capacity.validate(budget, observed, phase="migration")

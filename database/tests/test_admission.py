@@ -148,7 +148,9 @@ def test_competing_process_is_busy_then_recovers(admission_server, component, en
         owner.communicate(timeout=20)
 
 
-def test_fleet_peak_preserves_operator_and_migration_on_15_slots(admission_server):
+def test_fleet_peak_counts_provider_and_preserves_operator_on_15_slots(
+    admission_server,
+):
     import json
 
     domains = admission_server
@@ -157,6 +159,7 @@ def test_fleet_peak_preserves_operator_and_migration_on_15_slots(admission_serve
         **budget["roles"],
         "database_migrator": 1,
         "capacity_operator": 1,
+        "capacity_provider": 1,
     }.items():
         domains.sql(
             "postgres",
@@ -187,7 +190,8 @@ def test_fleet_peak_preserves_operator_and_migration_on_15_slots(admission_serve
         assert json.loads(result.stdout) == {
             "ordinary_connections": 12,
             "operator": "usable",
-            "migration": "usable",
+            "provider": "counted",
+            "migration": "requires offline phase",
         }
     finally:
         for owner in owners:
