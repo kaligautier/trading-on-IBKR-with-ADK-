@@ -23,7 +23,7 @@ dependencies = [
 ]
 
 [dependency-groups]
-dev = ["pytest>=9.0.3,<10", "pytest-asyncio>=1.0,<2", "ruff==0.14.7"]
+dev = ["pytest>=9.0.3,<10", "pytest-asyncio>=1.0,<2", "ruff==0.17.2"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["app"]
@@ -33,11 +33,15 @@ target-version = "py312"
 line-length = 88
 
 [tool.ruff.lint]
+extend-select = ["C90"]
 select = ["E", "W", "F", "I", "B", "C4", "N"]
 
 # Preserve vendor report templates from the source implementation.
 [tool.ruff.lint.per-file-ignores]
 "app/infrastructure/market_data/**/*.py" = ["E501"]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 10
 
 [tool.ruff.lint.isort]
 known-first-party = ["app"]
