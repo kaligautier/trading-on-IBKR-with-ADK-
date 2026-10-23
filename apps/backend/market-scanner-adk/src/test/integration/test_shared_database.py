@@ -74,7 +74,7 @@ async def shared_database(monkeypatch):
         monkeypatch.setattr(settings, "DATABASE_URL", urls[ROLES[0]])
         monkeypatch.setattr(settings, "DATABASE_SCHEMA", "_analysis")
         monkeypatch.setattr(settings, "DATABASE_POOL_SIZE", 1)
-        monkeypatch.setattr(settings, "DATABASE_POOL_TIMEOUT", 0.1)
+        monkeypatch.setattr(settings, "DATABASE_POOL_TIMEOUT", 5.0)
         await database.close_database()
         yield owner, owner, reader, urls
     finally:
@@ -123,20 +123,34 @@ async def should_migrate_once_and_enforce_writer_reader_permissions(shared_datab
         await writer.close()
 
 
-async def should_serialize_concurrent_saves_and_timeout_without_overflow(
+async def should_timeout_without_overflow_when_the_pool_is_full(
     shared_database,
+    monkeypatch,
 ):
     _, _, reader, urls = shared_database
     await run_liquibase(urls[ROLES[2]])
+    monkeypatch.setattr(settings, "DATABASE_POOL_TIMEOUT", 0.1)
     engine = database.get_engine()
-    async with engine.connect() as held:
-        pid = await held.scalar(text("SELECT pg_backend_pid()"))
+    async with engine.connect():
         with pytest.raises(TimeoutError):
             await MarketScanPersistence().save(_regime(), "pool-full")
     assert await reader.fetchval("SELECT count(*) FROM market_scans") == 0
-    await asyncio.gather(
-        *(MarketScanPersistence().save(_regime(), f"parallel-{i}") for i in range(5))
+    assert engine.pool.size() == 1
+    assert engine.pool.overflow() == 0
+
+
+async def should_serialize_concurrent_saves_without_overflow(shared_database):
+    _, _, reader, urls = shared_database
+    await run_liquibase(urls[ROLES[2]])
+    engine = database.get_engine()
+    async with engine.connect() as connection:
+        pid = await connection.scalar(text("SELECT pg_backend_pid()"))
+    # Drain all tasks even on failure so teardown cannot race an outstanding save.
+    results = await asyncio.gather(
+        *(MarketScanPersistence().save(_regime(), f"parallel-{i}") for i in range(5)),
+        return_exceptions=True,
     )
+    assert not any(isinstance(result, BaseException) for result in results), results
     assert await reader.fetchval("SELECT count(*) FROM market_scans") == 5
     async with engine.connect() as connection:
         assert await connection.scalar(text("SELECT pg_backend_pid()")) == pid
