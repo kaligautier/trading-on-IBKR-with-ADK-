@@ -38,3 +38,59 @@ run "reject_secret_aliases" {
   }
   expect_failures = [var.llm_key_version, var.session_database_version, var.result_database_version]
 }
+
+run "database_credentials_are_recoverable" {
+  command = plan
+  assert {
+    condition = alltrue([for secret in google_secret_manager_secret.database :
+      secret.deletion_protection && secret.version_destroy_ttl == "2592000s"
+    ])
+    error_message = "Protect both database secrets and delay destruction of individual versions by 30 days."
+  }
+}
+run "accept_https_root_with_trailing_slash" {
+  command = plan
+  variables { gateway_url = "https://gateway.example/" }
+}
+
+run "reject_gateway_http" {
+  command = plan
+  variables { gateway_url = "http://gateway.example" }
+  expect_failures = [var.gateway_url]
+}
+
+run "reject_gateway_credentials" {
+  command = plan
+  variables { gateway_url = "https://user:pass@gateway.example" }
+  expect_failures = [var.gateway_url]
+}
+
+run "reject_gateway_path" {
+  command = plan
+  variables { gateway_url = "https://gateway.example/v1" }
+  expect_failures = [var.gateway_url]
+}
+
+run "reject_gateway_query" {
+  command = plan
+  variables { gateway_url = "https://gateway.example?key=test" }
+  expect_failures = [var.gateway_url]
+}
+
+run "reject_gateway_fragment" {
+  command = plan
+  variables { gateway_url = "https://gateway.example#test" }
+  expect_failures = [var.gateway_url]
+}
+
+run "reject_gateway_empty" {
+  command = plan
+  variables { gateway_url = "" }
+  expect_failures = [var.gateway_url]
+}
+
+run "reject_gateway_missing_host" {
+  command = plan
+  variables { gateway_url = "https://" }
+  expect_failures = [var.gateway_url]
+}

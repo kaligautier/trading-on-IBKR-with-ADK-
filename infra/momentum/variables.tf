@@ -17,7 +17,15 @@ variable "image" {
     error_message = "Pin the deployed image by immutable sha256 digest."
   }
 }
-variable "gateway_url" { type = string }
+variable "gateway_url" {
+  description = "Root HTTPS origin of the private LiteLLM gateway."
+  type        = string
+  nullable    = false
+  validation {
+    condition     = can(regex("^https://[a-zA-Z0-9.-]+/?$", var.gateway_url))
+    error_message = "Use a root HTTPS gateway URL without credentials, path, query or fragment."
+  }
+}
 variable "model" {
   type    = string
   default = "gemini-3.8-flash"

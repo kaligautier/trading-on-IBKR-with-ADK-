@@ -14,6 +14,11 @@ terraform apply foundation.tfplan
 Upload the two runtime URLs as Secret Manager versions using a protected local
 file or stdin; never pass secret values to Terraform. Both URLs must target
 `momentum`, with separate `_sessions` and `_analysis` runtime logins.
+The secret containers have Terraform deletion protection. Retiring them requires
+an explicit reviewed change to disable that protection and an apply before deletion.
+Individual version destruction is delayed by 30 days; this does not delay deletion
+of the whole secret container. Use a root HTTPS URL for `gateway_url`.
+
 Build `apps/backend/momentum-adk/Dockerfile` for linux/amd64 and push to the
 `momentum/worker` Artifact Registry repository. Set `image` to its immutable
 sha256 digest in a release variable file. The verified preprod image is recorded
