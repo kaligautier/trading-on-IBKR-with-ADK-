@@ -160,3 +160,29 @@ async def test_bootstrap_rejects_effective_cross_database_connect(admin):
             )
     finally:
         await admin.execute("DROP DATABASE reader_isolation_probe")
+
+
+async def test_managed_template_exception_requires_attestation_and_never_skips_apps(
+    admin,
+):
+    await admin.execute("GRANT CONNECT ON DATABASE template1 TO PUBLIC")
+    try:
+        with pytest.raises(asyncpg.RaiseError):
+            await admin.execute(BOOTSTRAP)
+        await admin.execute("ROLLBACK")
+        await admin.execute("SET momentum_reader.template1_pg_hba_denied = 'on'")
+        await admin.execute(BOOTSTRAP)
+        await admin.execute("CREATE DATABASE reader_isolation_probe")
+        try:
+            await admin.execute(
+                "GRANT CONNECT ON DATABASE reader_isolation_probe TO PUBLIC"
+            )
+            with pytest.raises(asyncpg.RaiseError):
+                await admin.execute(BOOTSTRAP)
+            await admin.execute("ROLLBACK")
+        finally:
+            await admin.execute("DROP DATABASE reader_isolation_probe")
+    finally:
+        await admin.execute("ROLLBACK")
+        await admin.execute("RESET momentum_reader.template1_pg_hba_denied")
+        await admin.execute("REVOKE CONNECT ON DATABASE template1 FROM PUBLIC")

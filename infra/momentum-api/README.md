@@ -28,6 +28,17 @@ The service sets AUTH_MODE=cloud_run and relies on Google's audience-bound IAM
 verification at ingress. Never disable the invoker IAM check or expose its
 container outside that boundary. A future MCP gets invocation rights only.
 
+The existing preproduction target is checked in under `config/preprod.tfvars`
+and `config/preprod.backend.hcl`. Keep release values in ignored
+`config/release.local.tfvars`; use those same files for plan and apply:
+
+```sh
+terraform init -backend-config=config/preprod.backend.hcl -lockfile=readonly
+terraform plan -var-file=config/preprod.tfvars \
+  -var-file=config/release.local.tfvars -out=release.tfplan
+terraform apply release.tfplan
+```
+
 ```sh
 terraform fmt -check -recursive
 terraform init -backend=false -input=false -lockfile=readonly

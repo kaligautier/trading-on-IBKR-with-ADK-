@@ -16,6 +16,9 @@ DO $$ BEGIN
     END IF;
     IF EXISTS (SELECT FROM pg_database
                WHERE datallowconn AND datname <> 'momentum'
+               AND NOT (datname = 'template1' AND datistemplate
+                        AND pg_get_userbyid(datdba) = 'postgres'
+                        AND coalesce(current_setting('momentum_reader.template1_pg_hba_denied', true), '') = 'on')
                AND has_database_privilege('momentum_results_reader', oid, 'CONNECT')) THEN
         RAISE EXCEPTION 'Remove effective reader CONNECT on non-Momentum databases before bootstrap';
     END IF;
