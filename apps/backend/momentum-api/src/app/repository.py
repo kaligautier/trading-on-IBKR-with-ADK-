@@ -9,7 +9,7 @@ from sqlalchemy import bindparam, text
 from sqlalchemy.exc import ProgrammingError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine
 
-from app.assembly import Row, StoredAnalysis
+from app.assembly import SECTION_MODELS, Row, StoredAnalysis
 from app.http.problems import APIError
 from app.query import Query
 
@@ -62,7 +62,7 @@ class AnalysisRepository:
         sections: dict[UUID, dict[str, list[Row]]] = {key: {} for key in ids}
         if ids:
             for table in tables:
-                if table not in SUMMARY_TABLES:
+                if table not in SECTION_MODELS:
                     raise ValueError("Unsupported section")
                 statement = text(
                     f"SELECT * FROM _analysis.{table} WHERE result_id IN :ids"
@@ -83,21 +83,55 @@ class AnalysisRepository:
         if query.cursor is not None:
             clauses.append("(created_at, id) < (:created_at, :id)")
             parameters.update(created_at=query.cursor.created_at, id=query.cursor.id)
+        if query.ratings is not None:
+            clauses.append(
+                "EXISTS (SELECT 1 FROM _analysis.portfolio_decisions p "
+                "WHERE p.result_id=a.id AND p.rating IN :ratings)"
+            )
+            parameters["ratings"] = query.ratings
         where = "WHERE " + " AND ".join(clauses) if clauses else ""
+        source = "_analysis.analysis_results"
+        prefix = ""
+        if query.view != "history":
+            prefix = (
+                f"WITH winners AS (SELECT DISTINCT ON (ticker) {HEADER_COLUMNS} "
+                "FROM _analysis.analysis_results "
+                "ORDER BY ticker, created_at DESC, id DESC) "
+            )
+            source = "winners"
+        statement = text(
+            prefix + f"SELECT {HEADER_COLUMNS} FROM {source} a {where} "
+            "ORDER BY created_at DESC, id DESC LIMIT :limit"
+        )
+        if query.ratings is not None:
+            statement = statement.bindparams(bindparam("ratings", expanding=True))
+        async with self.read() as connection:
+            rows = (await connection.execute(statement, parameters)).mappings().all()
+            headers = [cast(Mapping[str, object], dict(row)) for row in rows]
+            return await self.load(connection, headers, SUMMARY_TABLES)
+
+    async def get(self, analysis_id: UUID) -> StoredAnalysis | None:
         async with self.read() as connection:
             rows = (
                 (
                     await connection.execute(
                         text(
                             f"SELECT {HEADER_COLUMNS} FROM _analysis.analysis_results "
-                            f"{where} "
-                            "ORDER BY created_at DESC, id DESC LIMIT :limit"
+                            "WHERE id=:id"
                         ),
-                        parameters,
+                        {"id": analysis_id},
                     )
                 )
                 .mappings()
                 .all()
             )
             headers = [cast(Mapping[str, object], dict(row)) for row in rows]
-            return await self.load(connection, headers, SUMMARY_TABLES)
+            loaded = await self.load(connection, headers, tuple(SECTION_MODELS))
+            return loaded[0] if loaded else None
+
+    async def ready(self) -> None:
+        async with self.read() as connection:
+            for table in ("analysis_results", *SECTION_MODELS):
+                await connection.execute(
+                    text(f"SELECT * FROM _analysis.{table} LIMIT 0")
+                )
