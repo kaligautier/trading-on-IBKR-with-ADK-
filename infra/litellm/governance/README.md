@@ -12,6 +12,13 @@ it, and the chosen backend identity needs access to its GCS state prefix.
 The identity can read the admin key and client secrets and create client versions;
 application identities can still read only their own secret.
 
+Apply the infrastructure root first to create `litellm-governance` and its scoped
+secret grants, then refresh `output agent_governance` and update the runner's
+impersonation target. This identity exists without `client_tools_image`; the
+optional `litellm-key-bootstrap` job retains its separate, narrower permissions.
+Backend access and caller impersonation grants remain operator prerequisites;
+this change does not grant project-wide secret access or state-bucket access.
+
 ## Configure and apply
 
 Add the application SA to `client_service_accounts` in the infrastructure root and

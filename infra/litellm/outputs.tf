@@ -32,7 +32,7 @@ output "agent_governance" {
   value = {
     gateway_url     = local.runtime_enabled ? local.gateway_url : null
     models          = [for model in yamldecode(local.proxy_config).model_list : model.model_name]
-    service_account = try(google_service_account.key_bootstrap[0].email, null)
+    service_account = google_service_account.governance.email
     agents          = keys(var.client_service_accounts)
   }
 }
