@@ -48,10 +48,18 @@ async def database():
                     f"CREATE ROLE {role} LOGIN PASSWORD 'integration-only'"
                 )
         await admin.execute("DROP SCHEMA IF EXISTS _analysis CASCADE")
+        await admin.execute("DROP SCHEMA IF EXISTS _sessions CASCADE")
+        grant = await admin.fetchval(
+            "SELECT format('GRANT CREATE ON DATABASE %I TO database_migrator', "
+            "current_database())"
+        )
+        await admin.execute(grant)
+        await admin.execute("SET ROLE database_migrator")
         # Apply the same checked-in DDL and grants as the Liquibase changeset.
         await admin.execute(
-            (ROOT / "database/changelog/market-scanner/001-analysis.sql").read_text()
+            (ROOT / "database/domains/market_scanner/baseline.sql").read_text()
         )
+        await admin.execute("RESET ROLE")
         reader = url.set(username="market_scanner_reader", password="integration-only")
         settings = Settings(
             DATABASE_URL=reader.render_as_string(hide_password=False),
