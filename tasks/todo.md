@@ -21,7 +21,7 @@ User authorized implementation after PR #178. Each slice has a focused check.
   - Files: migration SQL, changelog, migration tests, fixture migration selection.
   - Accept: upgrade/fresh/repeat behavior; baseline unchanged; reader denied.
   - Verify: disposable Liquibase upgrade and privilege tests.
-- [ ] T06 Memory repository (depends T05).
+- [x] T06 Memory repository (depends T05).
   - Files: memory repository, memory DTOs, focused integration tests.
   - Accept: user isolation, bounded retrieval, stable IDs, idempotence/conflicts.
   - Verify: real SQL sequential/concurrent writes and transaction rollback.
@@ -55,5 +55,8 @@ User authorized implementation after PR #178. Each slice has a focused check.
 - Momentum TLS: 196 unit tests, combined 12 real TLS cases, three Terraform tests; PR #180.
 - Memory schema: real additive upgrade retains session sentinel and prior Liquibase
   checksums; repeat update; seven private-memory privilege tests plus existing integrations.
+- Memory repository: six real PostgreSQL tests cover concurrent retry, conflicting
+  content, rollback, user isolation, distinct same-day IDs and bounded pending reads;
+  196 existing Momentum unit tests remain green.
 - Capacity inventory: max_connections=15, superuser_reserved_connections=3,
   reserved_connections=0; application/admin/migration budget must fit 12 ordinary slots.
