@@ -18,14 +18,24 @@ os.environ.update(
 )
 
 
-async def main():
-    assert component == "scanner"
-    sys.path.insert(0, str(ROOT / "apps/backend/market-scanner-adk/src"))
-    from app.services.database import get_engine
-    from app.services.session_database import ScannerSessionService
+async def worker_engine():
+    if component == "scanner":
+        sys.path.insert(0, str(ROOT / "apps/backend/market-scanner-adk/src"))
+        from app.services.database import get_engine
+        from app.services.session_database import ScannerSessionService
 
-    sessions = ScannerSessionService(address) if kind == "session" else None
-    engine = sessions.db_engine if sessions else get_engine()
+        sessions = ScannerSessionService(address) if kind == "session" else None
+        return (sessions.db_engine if sessions else get_engine()), sessions
+    sys.path.insert(0, str(ROOT / "apps/backend/momentum-adk"))
+    from app.job_runner import create_result_engine
+    from app.infrastructure.session_database import create_session_service
+
+    sessions = await create_session_service(address) if kind == "session" else None
+    return (sessions.db_engine if sessions else create_result_engine(address)), sessions
+
+
+async def main():
+    engine, sessions = await worker_engine()
     try:
         async with engine.connect() as connection:
             assert (

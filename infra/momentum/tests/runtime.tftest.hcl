@@ -16,6 +16,15 @@ run "bounded_private_worker" {
     image = "europe-west1-docker.pkg.dev/preprod-deep-copy/momentum/worker@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
   }
   assert {
+    condition = (
+      google_cloud_run_v2_job.analysis[0].template[0].template[0].volumes[0].secret[0].items[0].version == var.database_ca_version &&
+      google_cloud_run_v2_job.analysis[0].template[0].template[0].containers[0].volume_mounts[0].mount_path == "/etc/database" &&
+      [for env in google_cloud_run_v2_job.analysis[0].template[0].template[0].containers[0].env : env.value if env.name == "DATABASE_CA_FILE"] == ["/etc/database/ca.pem"]
+    )
+    error_message = "Momentum must use the pinned database CA for both pools."
+  }
+
+  assert {
     condition     = google_cloud_run_v2_job.analysis[0].template[0].parallelism == 1 && google_cloud_run_v2_job.analysis[0].template[0].template[0].max_retries == 0
     error_message = "Bound concurrency and disable automatic paid retries."
   }

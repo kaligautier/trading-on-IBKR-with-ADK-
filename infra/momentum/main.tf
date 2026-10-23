@@ -64,11 +64,26 @@ resource "google_cloud_run_v2_job" "analysis" {
           subnetwork = "cloud-run-egress"
         }
       }
+      volumes {
+        name = "database-ca"
+        secret {
+          secret = var.database_ca_secret_id
+          items {
+            version = var.database_ca_version
+            path    = "ca.pem"
+          }
+        }
+      }
       containers {
+        volume_mounts {
+          name       = "database-ca"
+          mount_path = "/etc/database"
+        }
         image = var.image
         resources { limits = { cpu = "1", memory = "2Gi" } }
         dynamic "env" {
           for_each = {
+            DATABASE_CA_FILE     = "/etc/database/ca.pem"
             LITELLM_API_BASE     = var.gateway_url
             MOMENTUM_QUICK_MODEL = var.model
             MOMENTUM_DEEP_MODEL  = var.model
@@ -97,7 +112,7 @@ resource "google_cloud_run_v2_job" "analysis" {
       }
     }
   }
-  depends_on = [google_secret_manager_secret_iam_member.database, google_secret_manager_secret_iam_member.llm]
+  depends_on = [google_secret_manager_secret_iam_member.database, google_secret_manager_secret_iam_member.llm, google_secret_manager_secret_iam_member.database_ca]
 }
 output "job_name" { value = try(google_cloud_run_v2_job.analysis[0].name, null) }
 output "worker_identity" { value = google_service_account.worker.email }
