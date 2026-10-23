@@ -9,8 +9,7 @@ from urllib.parse import parse_qs, unquote, urlsplit
 import asyncpg
 
 
-async def verify(url: str) -> bool:
-    """Return whether the managed template1 exception was actually verified."""
+def connection_options(url: str) -> dict:
     target = urlsplit(url)
     query = parse_qs(target.query)
     if (
@@ -26,7 +25,7 @@ async def verify(url: str) -> bool:
         raise ValueError("Verified TLS is required")
     ca = query.get("sslrootcert", [None])[0]
     tls = ssl.create_default_context(cafile=ca)
-    options = {
+    return {
         "host": target.hostname,
         "port": target.port,
         "user": unquote(target.username),
@@ -36,6 +35,11 @@ async def verify(url: str) -> bool:
         "command_timeout": 10,
         "server_settings": {"default_transaction_read_only": "on"},
     }
+
+
+async def verify(url: str) -> bool:
+    """Return whether the managed template1 exception was actually verified."""
+    options = connection_options(url)
     connection = await asyncpg.connect(database="momentum", **options)
     try:
         databases = await connection.fetch(

@@ -84,66 +84,15 @@ class HTTPPolicy:
             return ",".join(values) if values else None
 
         route = self.route_name(scope)
-        status, response_headers, body = 500, [], b""
         try:
             self.authorize(scope, headers)
-            if method not in METHODS:
-                raise APIError(501, "not-implemented")
-            if route is None:
-                raise APIError(404, "not-found")
-            if method not in {"GET", "HEAD", "OPTIONS"}:
-                raise APIError(405, "method-not-allowed")
-            if method == "OPTIONS":
-                status = 204
-            else:
-                # Read no more than one chunk when a body is present. Bodyless
-                # reads are not replayed, buffered or passed on to dependencies.
-                while True:
-                    message = await receive()
-                    if message["type"] == "http.disconnect":
-                        return
-                    if message.get("body"):
-                        raise APIError(400, "invalid-argument")
-                    if not message.get("more_body", False):
-                        break
-                messages: list[Message] = []
-
-                async def capture(message: Message) -> None:
-                    messages.append(message)
-
-                async def empty_request() -> Message:
-                    return {"type": "http.request", "body": b"", "more_body": False}
-
-                await self.app({**scope, "method": "GET"}, empty_request, capture)
-                start = next(m for m in messages if m["type"] == "http.response.start")
-                status = start["status"]
-                response_headers = start.get("headers", [])
-                body = b"".join(m.get("body", b"") for m in messages)
-                if status == 200:
-                    if not accepts(
-                        combined("accept"), "application/json"
-                    ) or not accepts_identity(combined("accept-encoding")):
-                        raise APIError(406, "not-acceptable")
-                    tag = representation_tag(body)
-                    response_headers.append((b"etag", tag.encode()))
-                    try:
-                        conditional = precondition(
-                            tag, combined("if-match"), combined("if-none-match")
-                        )
-                    except ValueError:
-                        raise APIError(400, "invalid-argument") from None
-                    if conditional == 412:
-                        raise APIError(412, "precondition-failed")
-                    if conditional == 304:
-                        status, body = 304, b""
+            self._validate_method(method, route)
+            response = await self._dispatch(scope, receive, headers)
+            if response is None:
+                return
+            status, response_headers, body = response
         except APIError as error:
-            status, body = error.status, problem_bytes(error) if error.code else b""
-            response_headers = [(b"content-type", b"application/problem+json")]
-            if status == 401 or error.code == "invalid-request":
-                challenge = 'Bearer realm="momentum-api"'
-                if error.code:
-                    challenge += f', error="{error.code.replace("-", "_")}"'
-                response_headers.append((b"www-authenticate", challenge.encode()))
+            status, response_headers, body = self._problem_response(error)
         except Exception as error:
             # Log code locations, never exception messages, source lines or locals.
             sources = [
@@ -161,35 +110,15 @@ class HTTPPolicy:
             )
             status, body = 500, problem_bytes(APIError(500, "internal-error"))
             response_headers = [(b"content-type", b"application/problem+json")]
-        category = "SUCCESS"
-        if status >= 400:
-            category = "UNAUTHENTICATED" if status == 401 else "INTERNAL_ERROR"
-            if body:
-                candidate = json.loads(body).get("code")
-                if candidate in CODES.values():
-                    category = candidate
+        category = self._category(status, body)
         if status >= 400 and (
             not accepts(combined("accept"), "application/problem+json")
             or not accepts_identity(combined("accept-encoding"))
         ):
             body = b""
-        response_headers = [
-            (key, value)
-            for key, value in response_headers
-            if key.lower() not in {b"content-length", b"cache-control", b"vary"}
-            and not (key.lower() == b"content-type" and not body)
-        ]
-        response_headers.extend(
-            [
-                (b"cache-control", b"no-store"),
-                (b"vary", b"Accept, Accept-Encoding"),
-                (b"request-id", request_id.encode()),
-            ]
+        response_headers = self._headers(
+            response_headers, body, status, route, request_id
         )
-        if route is not None and status in {204, 405}:
-            response_headers.append((b"allow", ALLOW.encode()))
-        if status not in {204, 304}:
-            response_headers.append((b"content-length", str(len(body)).encode()))
         await send(
             {
                 "type": "http.response.start",
@@ -210,3 +139,123 @@ class HTTPPolicy:
             duration_ms=round((monotonic() - started) * 1000, 3),
             **trace,
         )
+
+    @staticmethod
+    def _validate_method(method: str, route: str | None) -> None:
+        if method not in METHODS:
+            raise APIError(501, "not-implemented")
+        if route is None:
+            raise APIError(404, "not-found")
+        if method not in {"GET", "HEAD", "OPTIONS"}:
+            raise APIError(405, "method-not-allowed")
+
+    async def _dispatch(
+        self, scope: Scope, receive: Receive, headers: Headers
+    ) -> tuple[int, list[tuple[bytes, bytes]], bytes] | None:
+        if scope["method"] == "OPTIONS":
+            return 204, [], b""
+        # Read no more than one chunk when a body is present. Bodyless
+        # reads are not replayed, buffered or passed on to dependencies.
+        while True:
+            message = await receive()
+            if message["type"] == "http.disconnect":
+                return None
+            if message.get("body"):
+                raise APIError(400, "invalid-argument")
+            if not message.get("more_body", False):
+                break
+        messages: list[Message] = []
+
+        async def capture(message: Message) -> None:
+            messages.append(message)
+
+        async def empty_request() -> Message:
+            return {"type": "http.request", "body": b"", "more_body": False}
+
+        await self.app({**scope, "method": "GET"}, empty_request, capture)
+        start = next(m for m in messages if m["type"] == "http.response.start")
+        status = start["status"]
+        response_headers = start.get("headers", [])
+        body = b"".join(m.get("body", b"") for m in messages)
+        return self._conditional_response(headers, status, response_headers, body)
+
+    @staticmethod
+    def _conditional_response(
+        headers: Headers,
+        status: int,
+        response_headers: list[tuple[bytes, bytes]],
+        body: bytes,
+    ) -> tuple[int, list[tuple[bytes, bytes]], bytes]:
+        def combined(name: str) -> str | None:
+            values = headers.getlist(name)
+            return ",".join(values) if values else None
+
+        if status == 200:
+            if not accepts(
+                combined("accept"), "application/json"
+            ) or not accepts_identity(combined("accept-encoding")):
+                raise APIError(406, "not-acceptable")
+            tag = representation_tag(body)
+            response_headers.append((b"etag", tag.encode()))
+            try:
+                conditional = precondition(
+                    tag, combined("if-match"), combined("if-none-match")
+                )
+            except ValueError:
+                raise APIError(400, "invalid-argument") from None
+            if conditional == 412:
+                raise APIError(412, "precondition-failed")
+            if conditional == 304:
+                status, body = 304, b""
+        return status, response_headers, body
+
+    @staticmethod
+    def _problem_response(
+        error: APIError,
+    ) -> tuple[int, list[tuple[bytes, bytes]], bytes]:
+        status, body = error.status, problem_bytes(error) if error.code else b""
+        response_headers = [(b"content-type", b"application/problem+json")]
+        if status == 401 or error.code == "invalid-request":
+            challenge = 'Bearer realm="momentum-api"'
+            if error.code:
+                challenge += f', error="{error.code.replace("-", "_")}"'
+            response_headers.append((b"www-authenticate", challenge.encode()))
+        return status, response_headers, body
+
+    @staticmethod
+    def _category(status: int, body: bytes) -> str:
+        category = "SUCCESS"
+        if status >= 400:
+            category = "UNAUTHENTICATED" if status == 401 else "INTERNAL_ERROR"
+            if body:
+                candidate = json.loads(body).get("code")
+                if candidate in CODES.values():
+                    category = candidate
+        return category
+
+    @staticmethod
+    def _headers(
+        response_headers: list[tuple[bytes, bytes]],
+        body: bytes,
+        status: int,
+        route: str | None,
+        request_id: str,
+    ) -> list[tuple[bytes, bytes]]:
+        response_headers = [
+            (key, value)
+            for key, value in response_headers
+            if key.lower() not in {b"content-length", b"cache-control", b"vary"}
+            and not (key.lower() == b"content-type" and not body)
+        ]
+        response_headers.extend(
+            [
+                (b"cache-control", b"no-store"),
+                (b"vary", b"Accept, Accept-Encoding"),
+                (b"request-id", request_id.encode()),
+            ]
+        )
+        if route is not None and status in {204, 405}:
+            response_headers.append((b"allow", ALLOW.encode()))
+        if status not in {204, 304}:
+            response_headers.append((b"content-length", str(len(body)).encode()))
+        return response_headers

@@ -56,21 +56,8 @@ async def test_complete_projection_from_independent_legacy_snapshot(
         )
         values = {}
         for index, column in enumerate(columns, start=1):
-            name, kind = column["column_name"], column["data_type"]
-            if name == "id":
-                value = UUID(int=table_index + 1)
-            elif name == "result_id":
-                value = UUID(int=1)
-            elif kind == "date":
-                value = date(2026, 10, 22)
-            elif kind == "timestamp with time zone":
-                value = datetime(2026, 10, 22, tzinfo=UTC)
-            elif kind in {"double precision", "real"}:
-                value = table_index * 100 + index + 0.25
-            elif kind in {"integer", "bigint"}:
-                value = index
-            else:
-                value = f"v{index}"
+            name = column["column_name"]
+            value = fixture_value(column, table_index, index)
             values[name] = None if nulls and column["is_nullable"] == "YES" else value
         names = ",".join(values)
         placeholders = ",".join(f"${index}" for index in range(1, len(values) + 1))
@@ -130,3 +117,22 @@ async def test_invalid_stored_values_and_singleton_duplicates(admin, service):
     with pytest.raises(InvalidStoredAnalysisError):
         await reader.get(UUID(int=1))
     assert engine.pool.checkedout() == 0
+
+
+def fixture_value(column, table_index, index):
+    name, kind = column["column_name"], column["data_type"]
+    if name == "id":
+        value = UUID(int=table_index + 1)
+    elif name == "result_id":
+        value = UUID(int=1)
+    elif kind == "date":
+        value = date(2026, 10, 22)
+    elif kind == "timestamp with time zone":
+        value = datetime(2026, 10, 22, tzinfo=UTC)
+    elif kind in {"double precision", "real"}:
+        value = table_index * 100 + index + 0.25
+    elif kind in {"integer", "bigint"}:
+        value = index
+    else:
+        value = f"v{index}"
+    return value
