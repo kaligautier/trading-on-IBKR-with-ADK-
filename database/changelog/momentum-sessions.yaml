@@ -1,4 +1,0 @@
-databaseChangeLog:
-  - include:
-      file: momentum-sessions/001-initial.sql
-      relativeToChangelogFile: true

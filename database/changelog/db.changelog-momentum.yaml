@@ -1,7 +1,0 @@
-databaseChangeLog:
-  - include:
-      file: momentum-unified/sessions.sql
-      relativeToChangelogFile: true
-  - include:
-      file: momentum-unified/results.sql
-      relativeToChangelogFile: true
