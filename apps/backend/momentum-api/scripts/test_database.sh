@@ -4,6 +4,7 @@ set -euo pipefail
 name=momentum-api-test-db
 label=org.deepcopy.momentum-api-test
 root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../../../.." && pwd)
+script="$root/apps/backend/momentum-api/scripts/test_database.sh"
 image=postgres:17@sha256:d74eeac9a635390a49bc21bd49fccd973de707e2a53a76ac49b552b8712ec46f
 
 verify_container() {
@@ -39,6 +40,12 @@ SQL
 }
 
 case "${1:-}" in
+  verify)
+    bash "$script" start
+    trap 'bash "$script" stop' EXIT
+    cd "$root/apps/backend/momentum-api"
+    MOMENTUM_API_TEST_DATABASE=1 uv run --frozen pytest src/test "${@:2}"
+    ;;
   start)
     if docker container inspect "$name" >/dev/null 2>&1; then
       echo 'Container exists; inspect it and stop it explicitly before restarting.' >&2
@@ -57,5 +64,5 @@ case "${1:-}" in
     exit 1
     ;;
   stop) verify_container; docker stop "$name" ;;
-  *) echo 'Usage: bash scripts/test_database.sh start|stop' >&2; exit 2 ;;
+  *) echo 'Usage: bash scripts/test_database.sh start|stop|verify' >&2; exit 2 ;;
 esac
