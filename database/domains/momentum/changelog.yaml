@@ -17,3 +17,7 @@ databaseChangeLog:
       changes:
         - tagDatabase:
             tag: aiven-20261023
+  - include:
+      file: ../../changelog/momentum-unified/trader-ratio-text.sql
+      relativeToChangelogFile: true
+      logicalFilePath: changelog/momentum-unified/trader-ratio-text.sql
