@@ -1,0 +1,85 @@
+name: Momentum consultation API
+on:
+  pull_request:
+    paths:
+      - 'apps/backend/momentum-api/**'
+      - 'apps/backend/momentum-adk/app/infrastructure/models.py'
+      - 'database/**'
+      - 'infra/momentum-api/**'
+      - 'docs/postman/momentum-api.postman_collection.json'
+      - '.github/workflows/momentum-api.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'apps/backend/momentum-api/**'
+      - 'apps/backend/momentum-adk/app/infrastructure/models.py'
+      - 'database/**'
+      - 'infra/momentum-api/**'
+      - 'docs/postman/momentum-api.postman_collection.json'
+      - '.github/workflows/momentum-api.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: momentum-api-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  api:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: apps/backend/momentum-api
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e
+        with:
+          version: '0.12.2'
+          enable-cache: true
+      - run: uv sync --frozen --python 3.12
+      - run: uv run --frozen ruff check src scripts
+      - run: uv run --frozen ruff format --check src scripts
+      - run: uv run --frozen mypy src/app
+      - run: uv run --frozen python scripts/check_storage_contract.py
+      - run: uv run --frozen python scripts/export_openapi.py --check
+      - name: Real Liquibase, PostgreSQL and effective reader permissions
+        run: bash scripts/test_database.sh verify --cov=app --cov-branch --cov-report=term-missing --cov-fail-under=90 -q
+      - run: uv build --out-dir dist
+      - name: Install pinned Postman CLI for local-only assertions
+        run: |
+          curl --fail --location --silent --show-error \
+            https://dl-cli.pstmn.io/download/version/1.73.0/linux64 \
+            --output "$RUNNER_TEMP/postman.tgz"
+          printf '%s  %s\n' 8f95dfcfc113a7af796783f88e19de26cc7606c9438b414e8cc485199b205817 "$RUNNER_TEMP/postman.tgz" | sha256sum --check -
+          mkdir "$RUNNER_TEMP/momentum-postman"
+          tar -xzf "$RUNNER_TEMP/postman.tgz" -C "$RUNNER_TEMP/momentum-postman"
+          mv "$RUNNER_TEMP/momentum-postman/postman-cli" "$RUNNER_TEMP/momentum-postman/postman"
+          echo "$RUNNER_TEMP/momentum-postman" >> "$GITHUB_PATH"
+      - name: Build and exercise release image and saved requests
+        run: |
+          bash scripts/test_database.sh start
+          docker build --platform linux/amd64 --tag local/momentum-api:verify .
+          uv run --frozen python scripts/container_smoke.py local/momentum-api:verify
+      - name: Clean up owned disposable fixture
+        if: always()
+        run: |
+          if docker container inspect momentum-api-test-db >/dev/null 2>&1; then
+            bash scripts/test_database.sh stop
+          fi
+      - name: Audit locked runtime dependencies
+        run: |
+          uv export --quiet --frozen --no-dev --no-emit-project --format requirements-txt -o "$RUNNER_TEMP/momentum-requirements.txt"
+          uvx --python 3.12 --from pip-audit==2.10.1 pip-audit --disable-pip --no-deps -r "$RUNNER_TEMP/momentum-requirements.txt"
+  infrastructure:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd
+        with:
+          terraform_version: '1.14.4'
+          terraform_wrapper: false
+      - run: terraform -chdir=infra/momentum-api fmt -check -recursive
+      - run: terraform -chdir=infra/momentum-api init -backend=false -input=false -lockfile=readonly
+      - run: terraform -chdir=infra/momentum-api validate
+      - run: terraform -chdir=infra/momentum-api test

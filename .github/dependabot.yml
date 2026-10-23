@@ -110,3 +110,32 @@ updates:
       time: "08:00"
       timezone: Europe/Paris
     open-pull-requests-limit: 3
+
+  - package-ecosystem: uv
+    directory: /apps/backend/momentum-api
+    schedule:
+      interval: weekly
+      day: monday
+      time: "08:00"
+      timezone: Europe/Paris
+    open-pull-requests-limit: 3
+    allow:
+      - dependency-type: all
+
+  - package-ecosystem: docker
+    directory: /apps/backend/momentum-api
+    schedule:
+      interval: weekly
+      day: monday
+      time: "08:00"
+      timezone: Europe/Paris
+    open-pull-requests-limit: 3
+
+  - package-ecosystem: terraform
+    directory: /infra/momentum-api
+    schedule:
+      interval: weekly
+      day: monday
+      time: "08:00"
+      timezone: Europe/Paris
+    open-pull-requests-limit: 3
