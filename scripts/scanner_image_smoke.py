@@ -20,7 +20,7 @@ def require(result: subprocess.CompletedProcess[str]) -> str:
 
 
 def verify(image: str) -> None:
-    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "database/scripts"))
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "database/testing"))
     import local_domains
 
     if local_domains.inspect_container() is None:
@@ -53,7 +53,7 @@ def verify(image: str) -> None:
                 "--name",
                 name,
                 "--network",
-                "container:deepcopy-domains-test",
+                "container:deepcopy-current-domains-test",
                 *environment,
                 image,
             )
