@@ -32,5 +32,31 @@ DO $$ BEGIN
         OR has_schema_privilege('momentum_results_reader', 'public', 'CREATE') THEN
         RAISE EXCEPTION 'Reader must not own the database or inherit CREATE/TEMP';
     END IF;
+    IF EXISTS (
+        SELECT FROM pg_namespace n
+        WHERE left(n.nspname, 3) <> 'pg_' AND n.nspname <> 'information_schema'
+          AND (has_schema_privilege('momentum_results_reader', n.oid, 'CREATE,USAGE WITH GRANT OPTION')
+               OR (n.nspname IN ('_sessions', 'liquibase')
+                   AND has_schema_privilege('momentum_results_reader', n.oid, 'USAGE')))
+    ) OR EXISTS (
+        SELECT FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+        WHERE left(n.nspname, 3) <> 'pg_' AND n.nspname <> 'information_schema'
+          AND c.relkind IN ('r','p','v','m','f') AND (
+            has_table_privilege('momentum_results_reader', c.oid,
+                                'INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER,SELECT WITH GRANT OPTION')
+            OR has_any_column_privilege('momentum_results_reader', c.oid,
+                                        'INSERT,UPDATE,REFERENCES,SELECT WITH GRANT OPTION')
+            OR (NOT (n.nspname='_analysis' AND c.relname IN (
+                'analysis_results','technical_indicators','fundamentals',
+                'sentiment_results','sentiment_items','news_results','news_items',
+                'research_plans','trader_proposals','portfolio_decisions',
+                'debate_arguments','run_stats')) AND (
+                has_table_privilege('momentum_results_reader', c.oid, 'SELECT')
+                OR has_any_column_privilege('momentum_results_reader', c.oid, 'SELECT')
+            ))
+        )
+    ) THEN
+        RAISE EXCEPTION 'Reader has unexpected effective storage privileges or ownership';
+    END IF;
 END $$;
 COMMIT;

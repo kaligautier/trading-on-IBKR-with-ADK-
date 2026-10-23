@@ -146,6 +146,11 @@ def install_schema(app: FastAPI) -> None:
                 "operationId": "options_" + operation["operationId"],
                 "summary": "Allowed methods; does not configure browser CORS.",
                 "security": deepcopy(operation["security"]),
+                "parameters": [
+                    deepcopy(parameter)
+                    for parameter in operation.get("parameters", [])
+                    if parameter["in"] == "path"
+                ],
                 "responses": {
                     "204": {
                         "description": "No content.",

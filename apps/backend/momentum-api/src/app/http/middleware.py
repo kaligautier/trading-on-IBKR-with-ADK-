@@ -14,7 +14,7 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from app.config import Settings
 from app.http.conditional import precondition, representation_tag
-from app.http.negotiation import accepts, accepts_identity
+from app.http.negotiation import HTTP_WORD, accepts, accepts_identity
 from app.http.problems import CODES, APIError, problem_bytes
 
 LOGGER = logging.getLogger("momentum_api")
@@ -45,7 +45,9 @@ class HTTPPolicy:
         if scope["path"] == "/health":
             return
         credentials = headers.getlist("authorization")
-        query = parse_qsl(scope.get("query_string", b"").decode("latin-1"))
+        query = parse_qsl(
+            scope.get("query_string", b"").decode("latin-1"), keep_blank_values=True
+        )
         if len(credentials) > 1 or any(key == "access_token" for key, _ in query):
             raise APIError(400, "invalid-request")
         if self.settings.AUTH_MODE == "cloud_run":
@@ -56,6 +58,8 @@ class HTTPPolicy:
             raise APIError(401, "")
         scheme, _, credential = credentials[0].partition(" ")
         credential = credential.lstrip(" ")
+        if not re.fullmatch(HTTP_WORD, scheme):
+            raise APIError(400, "invalid-request")
         if scheme.lower() != "bearer":
             raise APIError(401, "")
         if not re.fullmatch(r"[A-Za-z0-9._~+/-]+=*", credential):
@@ -80,10 +84,10 @@ class HTTPPolicy:
         status, response_headers, body = 500, [], b""
         try:
             self.authorize(scope, headers)
-            if route is None:
-                raise APIError(404, "not-found")
             if method not in METHODS:
                 raise APIError(501, "not-implemented")
+            if route is None:
+                raise APIError(404, "not-found")
             if method not in {"GET", "HEAD", "OPTIONS"}:
                 raise APIError(405, "method-not-allowed")
             if method == "OPTIONS":

@@ -14,6 +14,9 @@ def export() -> str:
     settings = Settings(
         DATABASE_URL="postgresql://momentum_results_reader:unused@localhost/momentum",
         API_TOKEN="offline-contract-placeholder",  # noqa: S106 -- offline export only
+        AUTH_MODE="token",
+        DATABASE_POOL_SIZE=1,
+        DATABASE_POOL_TIMEOUT=5,
         _env_file=None,
     )
     return json.dumps(create_app(settings).openapi(), indent=2, sort_keys=True) + "\n"

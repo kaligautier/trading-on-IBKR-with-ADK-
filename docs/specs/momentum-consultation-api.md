@@ -209,10 +209,10 @@ duration and safe failure category without financial payloads, tokens or DB URLs
 Python 3.12, FastAPI, Pydantic 2, SQLAlchemy 2 async, asyncpg, Uvicorn, uv;
 pytest/pytest-asyncio, Ruff and strict mypy. Match compatible Scanner conventions
 and generate a dedicated lockfile during implementation. Exact dependency
-versions and container digests are to be resolved and audited in the plan, not
-copied from the legacy lock without checking. No new shared runtime package.
+versions are locked and audited; container digests and local verification evidence
+are recorded in the delivery report. No new shared runtime package.
 
-Proposed paths, not yet implemented:
+Implementation layout:
 
 ```text
 apps/backend/momentum-api/
@@ -237,15 +237,15 @@ requests. No workspace provisioning or publication is needed for this spec.
 
 ## Commands
 
-Available now, from repository root, for this documentation change:
+Repository policy checks, from repository root:
 
 ```sh
 git diff --check
 python3 -m unittest discover -s .github/scripts -p 'test_pr_*.py' -v
 ```
 
-Required interface after the implementation supplies the proposed package/scripts
-(these commands have not been run and do not work in the current checkout):
+Implemented package commands (verification evidence is recorded in
+[momentum-api-delivery.md](momentum-api-delivery.md)):
 
 ```sh
 uv sync --project apps/backend/momentum-api --frozen --python 3.12
@@ -268,7 +268,7 @@ reader login, and local TLS certificate/key paths in `API_TLS_CERT_FILE` and
 `API_TLS_KEY_FILE`. Clients must trust the development CA and verify the local
 server identity. Examples contain placeholders or disposable test values only.
 
-From repository root, after image/infrastructure files exist:
+Image and infrastructure checks, from repository root:
 
 ```sh
 docker build --platform linux/amd64 --tag local/momentum-api:verify apps/backend/momentum-api
@@ -333,22 +333,21 @@ Apply this style to Momentum's own types; never import the sibling application.
 - Always: preserve dirty files, keep the source checkout untouched, validate
   inputs, minimize database privileges, retain provenance, verify field fidelity,
   and distinguish local tests, CI, deployment and live evidence.
-- Ask first: validate this spec, then its plan, then tasks before implementation;
-  resolve a shared backend versus dedicated API, launch/admin scope, tenancy,
+- Ask first: the implementation/MR request authorizes this spec and plan; resolve
+  any expansion into a shared backend, launch/admin scope, tenancy,
   compatibility requirements or broader schema/data migration before dependent work.
   Approved plan details do not require repeated routine confirmations.
 - Never: expose the API anonymously, copy secrets/customer data, migrate historical
   records implicitly, edit applied migrations, issue orders, generate analyses on
   a read, weaken PR gates, or publish/merge/deploy as a side effect of specification.
 
-Review decisions: confirm the dedicated consultation-only product and shared
-catalogue assumptions; accept the versioned contract with paginated history,
-latest-per-ticker views and recommendations. The user requested both the
+Retained decisions: dedicated consultation-only product, shared catalogue and
+versioned contract with paginated history, latest-per-ticker and recommendations. The user requested both the
 latest-per-ticker view and full history on 2026-10-22, then strict RFC alignment.
 If legacy consumer compatibility is required,
-specify it before finalizing the contract. The initial draft has no live rollout
-authorization and no specified latency SLO; measure query behavior during planning
-before committing a performance target.
+specify it before finalizing the contract. This delivery has no live rollout
+authorization and no specified latency SLO; synthetic query-plan measurements are
+recorded without turning local latency into a production guarantee.
 
 Technical references checked while drafting:
 [Cloud Run service authentication](https://docs.cloud.google.com/run/docs/authenticating/service-to-service),

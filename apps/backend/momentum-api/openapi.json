@@ -2379,6 +2379,7 @@
       },
       "options": {
         "operationId": "options_health",
+        "parameters": [],
         "responses": {
           "204": {
             "description": "No content.",
@@ -2715,6 +2716,7 @@
       },
       "options": {
         "operationId": "options_get_openapi",
+        "parameters": [],
         "responses": {
           "204": {
             "description": "No content.",
@@ -3070,6 +3072,7 @@
       },
       "options": {
         "operationId": "options_ready",
+        "parameters": [],
         "responses": {
           "204": {
             "description": "No content.",
@@ -3495,6 +3498,7 @@
       },
       "options": {
         "operationId": "options_list_analyses",
+        "parameters": [],
         "responses": {
           "204": {
             "description": "No content.",
@@ -3954,6 +3958,7 @@
       },
       "options": {
         "operationId": "options_latest_analyses",
+        "parameters": [],
         "responses": {
           "204": {
             "description": "No content.",
@@ -4319,6 +4324,18 @@
       },
       "options": {
         "operationId": "options_get_analysis",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "analysis_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Analysis Id",
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "204": {
             "description": "No content.",
@@ -4778,6 +4795,7 @@
       },
       "options": {
         "operationId": "options_get_recommendations",
+        "parameters": [],
         "responses": {
           "204": {
             "description": "No content.",
