@@ -197,3 +197,30 @@ The returned Request-ID and safe failure code are logged for correlation.
 
 ### not-implemented
 501: the HTTP method is not implemented by this service.
+
+## Operational evidence
+
+Request and unexpected-failure events are emitted as single-line JSON with UTC
+`timestamp`, `severity`, `event` and server-generated `request_id`. Completed
+requests include the route template, HTTP status, safe category and duration.
+Diagnostics contain code locations and exception classes, not raw exception
+messages, source lines, locals, request URLs, tokens or financial values.
+Python logging-internal traceback output is disabled at runtime bootstrap;
+a broken logging sink does not replace the HTTP outcome.
+
+A valid version-00 W3C `traceparent` adds `trace_id` and `parent_span_id` for
+correlation with upstream traces. Zero, malformed, unsupported or repeated values
+are ignored. These fields never authenticate a caller and are not local span IDs.
+The service creates no spans and configures no OpenTelemetry exporter or collector.
+See [W3C Trace Context](https://www.w3.org/TR/trace-context/) and the
+[OpenTelemetry log data model](https://opentelemetry.io/docs/specs/otel/logs/data-model/).
+
+Storage and mapping failures retain their original causes internally while the
+HTTP boundary returns the existing sanitized problems. Shutdown always attempts
+to dispose the pool. If cleanup also fails during a primary lifecycle failure,
+the primary failure is preserved and cleanup is reported with a safe JSON event.
+A standalone cleanup failure remains a failed shutdown.
+
+Tests inject settings with dotenv disabled and explicit deployment options;
+`app.main:create_app` still loads runtime settings when invoked without arguments.
+A synthetic poisoned environment/dotenv test verifies the injection boundary.

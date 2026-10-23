@@ -10,12 +10,14 @@ from app.adapters.postgresql.connection import create_engine
 from app.adapters.postgresql.repository import AnalysisRepository
 from app.app_factory import create_app as application
 from app.config.settings import Settings
-from app.presentation.http.middleware import LOGGER
+from app.observability import LOGGER, log_event
 from app.services.analysis_service import AnalysisService
 
 
-def create_app() -> FastAPI:
-    settings = Settings()
+def create_app(settings: Settings | None = None) -> FastAPI:
+    settings = settings if settings is not None else Settings()
+    # Handler.handleError must not print raw exception chains on stderr.
+    logging.raiseExceptions = False
     LOGGER.setLevel(logging.INFO)
     if not LOGGER.handlers:
         LOGGER.addHandler(logging.StreamHandler())
@@ -27,7 +29,17 @@ def create_app() -> FastAPI:
         app.state.service = AnalysisService(AnalysisRepository(engine))
         try:
             yield
-        finally:
+        except BaseException:
+            try:
+                await engine.dispose()
+            except Exception as error:
+                log_event(
+                    logging.ERROR,
+                    "storage_cleanup_failed",
+                    exception_type=type(error).__name__,
+                )
+            raise
+        else:
             await engine.dispose()
 
     return application(settings, lifespan=lifespan)

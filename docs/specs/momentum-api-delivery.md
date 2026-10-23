@@ -193,3 +193,31 @@ including exact runtime OpenAPI, authentication, real storage, HEAD and 304.
 The initial delivery evidence above describes the original tip; these checks
 validate the subsequent architecture refinement. No endpoint, dependency, schema,
 authentication policy or deployment change is introduced.
+
+## Operational engineering follow-up
+
+The relevant engineering practices are applied to this read-only service:
+framework-independent use cases remain behind a reader port; failures retain
+internal causes and stable public codes; tests inject configuration rather than
+reading a developer environment; shutdown preserves primary failures; JSON events
+provide safe request and upstream-trace correlation. Agent instructions, model
+selection, mutable batch replay, screenshot artifacts and object retention are not
+part of this component's responsibilities.
+
+The runtime emits UTC JSON events. Valid version-00 W3C trace identifiers are
+correlation metadata only, not authentication or newly created spans. No tracer,
+exporter or collector is configured. Original storage/mapping causes stay internal;
+HTTP errors remain sanitized. A secondary logging/cleanup failure does not replace
+the primary operation's outcome. Runtime bootstrap disables Python logging's raw
+handler-error diagnostics; a regression uses a real failing StreamHandler and
+checks that neither primary nor logging exception text appears on stderr.
+
+Evidence: 152 tests pass on fresh Liquibase/PostgreSQL, 97.14% combined coverage;
+126 unit tests pass; Ruff and strict mypy pass for 34 runtime modules; deterministic
+OpenAPI is unchanged. Wheel/sdist and Linux amd64 non-root image build. The image
+passes 15 Postman requests / 56 assertions, and container_smoke.py independently
+parses the emitted JSON logs, matches the response Request-ID and validated trace
+identifiers, and checks that the disposable bearer token is absent from logs.
+These are local/container results; deployed trace ingestion and IAM/TLS acceptance
+remain independent rollout checks. No schema, endpoint, dependency or deployment
+change is introduced.

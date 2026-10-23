@@ -14,11 +14,11 @@ from starlette.datastructures import Headers
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from app.config.settings import Settings
+from app.observability import log_event, trace_fields
 from app.presentation.http.conditional import precondition, representation_tag
 from app.presentation.http.negotiation import HTTP_WORD, accepts, accepts_identity
 from app.presentation.http.problems import CODES, APIError, problem_bytes
 
-LOGGER = logging.getLogger("momentum_api")
 ALLOW = "GET, HEAD, OPTIONS"
 METHODS = {
     "GET",
@@ -77,6 +77,7 @@ class HTTPPolicy:
         started = monotonic()
         request_id = str(uuid4())
         headers, method = Headers(scope=scope), scope["method"]
+        trace = trace_fields(headers.getlist("traceparent"))
 
         def combined(name: str) -> str | None:
             values = headers.getlist(name)
@@ -150,11 +151,13 @@ class HTTPPolicy:
                 for frame, line in walk_tb(error.__traceback__)
                 if str(frame.f_globals.get("__name__", "")).startswith("app.")
             ]
-            LOGGER.error(
-                "request_id=%s exception_type=%s source=%s",
-                request_id,
-                type(error).__name__,
-                sources[-1] if sources else "unknown",
+            log_event(
+                logging.ERROR,
+                "request_failed",
+                request_id=request_id,
+                exception_type=type(error).__name__,
+                source=sources[-1] if sources else "unknown",
+                **trace,
             )
             status, body = 500, problem_bytes(APIError(500, "internal-error"))
             response_headers = [(b"content-type", b"application/problem+json")]
@@ -197,11 +200,13 @@ class HTTPPolicy:
         await send(
             {"type": "http.response.body", "body": b"" if method == "HEAD" else body}
         )
-        LOGGER.info(
-            "request_id=%s route=%s status=%d category=%s duration_ms=%.1f",
-            request_id,
-            route or "unknown",
-            status,
-            category,
-            (monotonic() - started) * 1000,
+        log_event(
+            logging.INFO,
+            "request_completed",
+            request_id=request_id,
+            route=route or "unknown",
+            status=status,
+            category=category,
+            duration_ms=round((monotonic() - started) * 1000, 3),
+            **trace,
         )

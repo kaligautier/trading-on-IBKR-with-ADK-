@@ -88,6 +88,10 @@ async def test_actual_http_operations_and_private_fields(admin, service):
     reader, _ = service
     await seed(admin)
     settings = Settings(
+        _env_file=None,
+        AUTH_MODE="token",
+        DATABASE_POOL_SIZE=1,
+        DATABASE_POOL_TIMEOUT=5,
         DATABASE_URL=BASE.format("momentum_results_reader"),
         API_TOKEN="disposable-reader-token",
     )

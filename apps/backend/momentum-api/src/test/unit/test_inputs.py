@@ -13,7 +13,15 @@ TOKEN = "disposable-token-for-tests"
 
 def settings(**overrides):
     return Settings(
-        _env_file=None, **{"DATABASE_URL": URL, "API_TOKEN": TOKEN, **overrides}
+        _env_file=None,
+        **{
+            "DATABASE_URL": URL,
+            "API_TOKEN": TOKEN,
+            "AUTH_MODE": "token",
+            "DATABASE_POOL_SIZE": 1,
+            "DATABASE_POOL_TIMEOUT": 5,
+            **overrides,
+        },
     )
 
 

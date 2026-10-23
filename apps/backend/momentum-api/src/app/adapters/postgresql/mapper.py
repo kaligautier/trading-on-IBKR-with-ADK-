@@ -114,8 +114,8 @@ def detail(stored: StoredAnalysis) -> AnalysisDetail:
                 "run_stats": section(stored, "run_stats", RunStats),
             }
         )
-    except (ValidationError, TypeError, ValueError):
-        raise InvalidStoredAnalysisError("Stored analysis is invalid") from None
+    except (ValidationError, TypeError, ValueError) as error:
+        raise InvalidStoredAnalysisError("Stored analysis is invalid") from error
 
 
 def summary(stored: StoredAnalysis) -> AnalysisSummary:
@@ -159,5 +159,7 @@ def summary(stored: StoredAnalysis) -> AnalysisSummary:
             data[target] = trader.get(source)
     try:
         return AnalysisSummary.model_validate(data)
-    except ValidationError:
-        raise InvalidStoredAnalysisError("Stored analysis summary is invalid") from None
+    except ValidationError as error:
+        raise InvalidStoredAnalysisError(
+            "Stored analysis summary is invalid"
+        ) from error

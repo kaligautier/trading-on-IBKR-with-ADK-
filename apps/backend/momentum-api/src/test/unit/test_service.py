@@ -62,6 +62,10 @@ async def test_application_failures_are_translated_only_at_http_boundary(
 ):
     app = create_app(
         Settings(
+            _env_file=None,
+            AUTH_MODE="token",
+            DATABASE_POOL_SIZE=1,
+            DATABASE_POOL_TIMEOUT=5,
             DATABASE_URL="postgresql://momentum_results_reader:unused@localhost/momentum",
             API_TOKEN="disposable-test-token",
         )
