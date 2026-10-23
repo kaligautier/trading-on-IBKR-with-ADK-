@@ -6,6 +6,7 @@ on:
       - 'apps/backend/market-scanner-adk/**'
       - 'apps/backend/market-scanner-api/**'
       - 'apps/backend/momentum-adk/**'
+      - 'apps/backend/momentum-api/**'
       - '.github/workflows/domain-database.yml'
   workflow_dispatch:
 permissions:
@@ -22,7 +23,6 @@ jobs:
       - run: |
           uv sync --project apps/backend/market-scanner-adk --frozen --python 3.12
           uv sync --project apps/backend/market-scanner-api --frozen --python 3.12
-          if [ -d apps/backend/momentum-adk ]; then
-            uv sync --project apps/backend/momentum-adk --frozen --python 3.12
-          fi
-      - run: python3 database/scripts/rehearse_domains.py
+          uv sync --project apps/backend/momentum-adk --frozen --python 3.12
+          uv sync --project apps/backend/momentum-api --frozen --python 3.12
+      - run: python3 database/testing/rehearse.py

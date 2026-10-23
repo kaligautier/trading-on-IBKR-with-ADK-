@@ -9,7 +9,7 @@ import pytest
 
 @pytest.fixture
 def harness():
-    path = Path(__file__).resolve().parents[1] / "scripts/local_domains.py"
+    path = Path(__file__).resolve().parents[1] / "testing/local_domains.py"
     spec = importlib.util.spec_from_file_location("local_domains", path)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)

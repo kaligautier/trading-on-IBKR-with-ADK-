@@ -1,8 +1,8 @@
 """Rebuild and exercise only owned local fixtures, with independent Python processes."""
 
-import argparse
 import json
 import os
+import socket
 import subprocess
 import sys
 import time
@@ -17,7 +17,7 @@ def execute(args, *, cwd=ROOT, environment=None):
     result = subprocess.run(
         args,
         cwd=cwd,
-        env={**os.environ, "TZ": "UTC", **(environment or {})},
+        env={**os.environ, "TZ": "UTC", "PGSSLMODE": "disable", **(environment or {})},
         capture_output=True,
         text=True,
         check=False,
@@ -37,6 +37,8 @@ def fixture(name, port, label):
         ].get("5432/tcp") != [{"HostIp": "127.0.0.1", "HostPort": port}]:
             raise RuntimeError("Refusing a foreign regression-test container")
         domains.run("docker", "stop", name)
+    with socket.socket() as probe:
+        probe.bind(("127.0.0.1", int(port)))
     domains.run(
         "docker",
         "run",
@@ -72,9 +74,6 @@ def test(component, environment, *paths):
 
 
 def main():
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--momentum-root", type=Path)
-    args = parser.parse_args()
     scanner = ROOT / "apps/backend/market-scanner-adk"
     reader = ROOT / "apps/backend/market-scanner-api"
     execute(
@@ -94,15 +93,14 @@ def main():
             "database/tests",
         ]
     )  # The foundation suite explicitly resets only the owned domain fixture.
-    name = "deepcopy-scanner-tests"
-    fixture(name, "55462", "org.deepcopy.scanner-tests")
+    name = "deepcopy-current-scanner-tests"
+    fixture(name, "55466", "org.deepcopy.scanner-tests")
     try:
         test(
             scanner,
             {
                 "RUN_DOMAIN_TESTS": "1",
-                "SCANNER_DOMAIN_TEST_PORT": "55461",
-                "MARKET_SHARED_TEST_DATABASE_URL": "postgresql://postgres:local-test-only@127.0.0.1:55462/postgres",
+                "MARKET_SHARED_TEST_DATABASE_URL": "postgresql://postgres:local-test-only@127.0.0.1:55466/postgres",
                 "MARKET_SHARED_TEST_CONTAINER": name,
             },
             "src/test",
@@ -114,43 +112,35 @@ def main():
             reader,
             {
                 "RUN_DOMAIN_TESTS": "1",
-                "SCANNER_DOMAIN_TEST_PORT": "55461",
-                "TEST_DATABASE_URL": "postgresql://postgres:local-test-only@127.0.0.1:55462/scanner_reader_test",
+                "TEST_DATABASE_URL": "postgresql://postgres:local-test-only@127.0.0.1:55466/scanner_reader_test",
             },
             "src/test",
         )
     finally:
         domains.run("docker", "stop", name)
-    momentum = (args.momentum_root or ROOT) / "apps/backend/momentum-adk"
-    if momentum.exists():
-        test(momentum, {}, "tests/unit")
-        execute(
-            [
-                "uv",
-                "run",
-                "--project",
-                str(momentum.resolve()),
-                "--frozen",
-                "python",
-                "-m",
-                "pytest",
-                "-q",
-                "--tb=short",
-                "-c",
-                "database/pytest.ini",
-                "--confcutdir=database/momentum_tests",
-                "database/momentum_tests",
-            ],
-            environment={"MOMENTUM_ROOT": str(momentum.resolve())},
+    momentum = ROOT / "apps/backend/momentum-adk"
+    test(momentum, {}, "tests/unit")
+    execute(["bash", str(momentum / "scripts/test_database.sh"), "start"])
+    try:
+        test(
+            momentum,
+            {
+                "MOMENTUM_TEST_ADMIN_URL": "postgresql://postgres:local-test-only@127.0.0.1:55467/postgres",
+                "MOMENTUM_TEST_CONTAINER": "momentum-current-test-db",
+            },
+            "tests/integration",
         )
-    elif args.momentum_root:
-        raise RuntimeError("The supplied Momentum worktree has no application package")
-    else:
-        print(
-            "Momentum SDK/schema verified; adapter package absent from this branch. "
-            "Use --momentum-root for its separate worktree."
-        )
-    print("Local rehearsal passed. Domain databases remain on 127.0.0.1:55461.")
+    finally:
+        execute(["bash", str(momentum / "scripts/test_database.sh"), "stop"])
+
+    execute(
+        [
+            "bash",
+            str(ROOT / "apps/backend/momentum-api/scripts/test_database.sh"),
+            "verify",
+        ]
+    )
+    print("Local rehearsal passed. Domain databases remain on 127.0.0.1:55471.")
 
 
 if __name__ == "__main__":
