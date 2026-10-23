@@ -8,7 +8,7 @@ import pytest
     "key,own,other,count",
     [
         ("sessions_runtime", "_sessions", "_analysis", 5),
-        ("results_runtime", "_analysis", "_sessions", 12),
+        ("results_runtime", "_analysis", "_sessions", 13),
     ],
 )
 async def test_schema_isolation_in_one_database(

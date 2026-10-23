@@ -5,19 +5,19 @@ User authorized implementation after PR #178. Each slice has a focused check.
 - [x] T01 Preserve prior tasks and record dependency plan.
   - Files: spec, plan, todo, archived plan and todo.
   - Verify: document links, git diff --check.
-- [ ] T02 Scanner TLS adapter and engine integration.
+- [x] T02 Scanner TLS adapter and engine integration.
   - Files: services/postgres_tls.py, database.py, session_database.py, TLS unit test, existing URL tests.
   - Accept: verified context, sanitized URL, insecure remote rejection, local fixture support.
   - Verify: focused Scanner unit tests (RED then GREEN).
-- [ ] T03 Momentum TLS adapter and engine integration (depends T02 contract).
+- [x] T03 Momentum TLS adapter and engine integration (depends T02 contract).
   - Files: infrastructure/postgres_tls.py, session_database.py, job_runner.py, worker tests, TLS unit test.
   - Accept: identical security policy for session/result engines.
   - Verify: focused Momentum tests.
-- [ ] T04 TLS infrastructure and real handshake fixture (depends T02/T03).
+- [x] T04 TLS infrastructure and real handshake fixture (depends T02/T03).
   - Split into worker-specific commits, each <=5 files.
   - Accept: pinned CA mount/access, valid and invalid certificate/hostname tests.
   - Verify: real local TLS PostgreSQL handshakes and Terraform mock assertions.
-- [ ] T05 Memory migration (depends T03).
+- [x] T05 Memory migration (depends T03).
   - Files: migration SQL, changelog, migration tests, fixture migration selection.
   - Accept: upgrade/fresh/repeat behavior; baseline unchanged; reader denied.
   - Verify: disposable Liquibase upgrade and privilege tests.
@@ -48,3 +48,12 @@ User authorized implementation after PR #178. Each slice has a focused check.
 - [ ] T12 Full regression, review, packaging and PR publication.
   - Accept: every spec criterion mapped to direct evidence; local/live status explicit.
   - Verify: database rehearsal, lint, wheel, Terraform checks and each PR's required checks.
+
+## Evidence so far
+
+- Scanner TLS: 373 unit tests, six real TLS cases, ten Terraform tests; PR #179.
+- Momentum TLS: 196 unit tests, combined 12 real TLS cases, three Terraform tests; PR #180.
+- Memory schema: real additive upgrade retains session sentinel and prior Liquibase
+  checksums; repeat update; seven private-memory privilege tests plus existing integrations.
+- Capacity inventory: max_connections=15, superuser_reserved_connections=3,
+  reserved_connections=0; application/admin/migration budget must fit 12 ordinary slots.
