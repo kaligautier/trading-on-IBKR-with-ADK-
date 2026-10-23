@@ -3099,6 +3099,890 @@
         ],
         "summary": "Allowed methods; does not configure browser CORS."
       }
+    },
+    "/v1/analyses": {
+      "get": {
+        "description": "All retained runs, including repeated ticker/date analyses, newest first.",
+        "operationId": "list_analyses",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "ticker",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Ticker"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page_size",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Page Size",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page_token",
+            "required": false,
+            "schema": {
+              "default": "",
+              "maxLength": 512,
+              "title": "Page Token",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Accept",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Accept-Encoding",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "If-Match",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "If-None-Match",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnalysisPage"
+                }
+              }
+            },
+            "description": "Successful Response",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/Cache-Control"
+              },
+              "ETag": {
+                "$ref": "#/components/headers/ETag"
+              },
+              "Request-ID": {
+                "$ref": "#/components/headers/Request-ID"
+              },
+              "Vary": {
+                "$ref": "#/components/headers/Vary"
+              }
+            }
+          },
+          "304": {
+            "description": "Not Modified; no content.",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/Cache-Control"
+              },
+              "ETag": {
+                "$ref": "#/components/headers/ETag"
+              },
+              "Request-ID": {
+                "$ref": "#/components/headers/Request-ID"
+              },
+              "Vary": {
+                "$ref": "#/components/headers/Vary"
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "405": {
+            "$ref": "#/components/responses/405"
+          },
+          "406": {
+            "$ref": "#/components/responses/406"
+          },
+          "412": {
+            "$ref": "#/components/responses/412"
+          },
+          "500": {
+            "$ref": "#/components/responses/500"
+          },
+          "503": {
+            "$ref": "#/components/responses/503"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          }
+        ],
+        "summary": "History"
+      },
+      "head": {
+        "description": "All retained runs, including repeated ticker/date analyses, newest first.",
+        "operationId": "head_list_analyses",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "ticker",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Ticker"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page_size",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Page Size",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page_token",
+            "required": false,
+            "schema": {
+              "default": "",
+              "maxLength": 512,
+              "title": "Page Token",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Accept",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Accept-Encoding",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "If-Match",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "If-None-Match",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/Cache-Control"
+              },
+              "ETag": {
+                "$ref": "#/components/headers/ETag"
+              },
+              "Request-ID": {
+                "$ref": "#/components/headers/Request-ID"
+              },
+              "Vary": {
+                "$ref": "#/components/headers/Vary"
+              }
+            }
+          },
+          "304": {
+            "description": "Not Modified",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/Cache-Control"
+              },
+              "ETag": {
+                "$ref": "#/components/headers/ETag"
+              },
+              "Request-ID": {
+                "$ref": "#/components/headers/Request-ID"
+              },
+              "Vary": {
+                "$ref": "#/components/headers/Vary"
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/Cache-Control"
+              },
+              "Request-ID": {
+                "$ref": "#/components/headers/Request-ID"
+              },
+              "Vary": {
+                "$ref": "#/components/headers/Vary"
+              },
+              "WWW-Authenticate": {
+                "$ref": "#/components/headers/WWW-Authenticate"
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/Cache-Control"
+              },
+              "Request-ID": {
+                "$ref": "#/components/headers/Request-ID"
+              },
+              "Vary": {
+                "$ref": "#/components/headers/Vary"
+              },
+              "WWW-Authenticate": {
+                "$ref": "#/components/headers/WWW-Authenticate"
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/Cache-Control"
+              },
+              "Request-ID": {
+                "$ref": "#/components/headers/Request-ID"
+              },
+              "Vary": {
+                "$ref": "#/components/headers/Vary"
+              }
+            }
+          },
+          "405": {
+            "description": "Method Not Allowed",
+            "headers": {
+              "Allow": {
+                "$ref": "#/components/headers/Allow"
+              },
+              "Cache-Control": {
+                "$ref": "#/components/headers/Cache-Control"
+              },
+              "Request-ID": {
+                "$ref": "#/components/headers/Request-ID"
+              },
+              "Vary": {
+                "$ref": "#/components/headers/Vary"
+              }
+            }
+          },
+          "406": {
+            "description": "Not Acceptable",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/Cache-Control"
+              },
+              "Request-ID": {
+                "$ref": "#/components/headers/Request-ID"
+              },
+              "Vary": {
+                "$ref": "#/components/headers/Vary"
+              }
+            }
+          },
+          "412": {
+            "description": "Precondition Failed",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/Cache-Control"
+              },
+              "Request-ID": {
+                "$ref": "#/components/headers/Request-ID"
+              },
+              "Vary": {
+                "$ref": "#/components/headers/Vary"
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/Cache-Control"
+              },
+              "Request-ID": {
+                "$ref": "#/components/headers/Request-ID"
+              },
+              "Vary": {
+                "$ref": "#/components/headers/Vary"
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/Cache-Control"
+              },
+              "Request-ID": {
+                "$ref": "#/components/headers/Request-ID"
+              },
+              "Vary": {
+                "$ref": "#/components/headers/Vary"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          }
+        ],
+        "summary": "Metadata only: History"
+      },
+      "options": {
+        "operationId": "options_list_analyses",
+        "responses": {
+          "204": {
+            "description": "No content.",
+            "headers": {
+              "Allow": {
+                "$ref": "#/components/headers/Allow"
+              },
+              "Cache-Control": {
+                "$ref": "#/components/headers/Cache-Control"
+              },
+              "Request-ID": {
+                "$ref": "#/components/headers/Request-ID"
+              },
+              "Vary": {
+                "$ref": "#/components/headers/Vary"
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          }
+        ],
+        "summary": "Allowed methods; does not configure browser CORS."
+      }
+    },
+    "/v1/analyses/latest": {
+      "get": {
+        "description": "One winner per ticker, by creation time then UUID, before rating filtering.",
+        "operationId": "latest_analyses",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "ticker",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Ticker"
+            }
+          },
+          {
+            "in": "query",
+            "name": "rating",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 128,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Rating"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page_size",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Page Size",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page_token",
+            "required": false,
+            "schema": {
+              "default": "",
+              "maxLength": 512,
+              "title": "Page Token",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Accept",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Accept-Encoding",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "If-Match",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "If-None-Match",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnalysisPage"
+                }
+              }
+            },
+            "description": "Successful Response",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/Cache-Control"
+              },
+              "ETag": {
+                "$ref": "#/components/headers/ETag"
+              },
+              "Request-ID": {
+                "$ref": "#/components/headers/Request-ID"
+              },
+              "Vary": {
+                "$ref": "#/components/headers/Vary"
+              }
+            }
+          },
+          "304": {
+            "description": "Not Modified; no content.",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/Cache-Control"
+              },
+              "ETag": {
+                "$ref": "#/components/headers/ETag"
+              },
+              "Request-ID": {
+                "$ref": "#/components/headers/Request-ID"
+              },
+              "Vary": {
+                "$ref": "#/components/headers/Vary"
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "405": {
+            "$ref": "#/components/responses/405"
+          },
+          "406": {
+            "$ref": "#/components/responses/406"
+          },
+          "412": {
+            "$ref": "#/components/responses/412"
+          },
+          "500": {
+            "$ref": "#/components/responses/500"
+          },
+          "503": {
+            "$ref": "#/components/responses/503"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          }
+        ],
+        "summary": "Latest"
+      },
+      "head": {
+        "description": "One winner per ticker, by creation time then UUID, before rating filtering.",
+        "operationId": "head_latest_analyses",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "ticker",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Ticker"
+            }
+          },
+          {
+            "in": "query",
+            "name": "rating",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 128,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Rating"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page_size",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Page Size",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page_token",
+            "required": false,
+            "schema": {
+              "default": "",
+              "maxLength": 512,
+              "title": "Page Token",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Accept",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Accept-Encoding",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "If-Match",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "If-None-Match",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/Cache-Control"
+              },
+              "ETag": {
+                "$ref": "#/components/headers/ETag"
+              },
+              "Request-ID": {
+                "$ref": "#/components/headers/Request-ID"
+              },
+              "Vary": {
+                "$ref": "#/components/headers/Vary"
+              }
+            }
+          },
+          "304": {
+            "description": "Not Modified",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/Cache-Control"
+              },
+              "ETag": {
+                "$ref": "#/components/headers/ETag"
+              },
+              "Request-ID": {
+                "$ref": "#/components/headers/Request-ID"
+              },
+              "Vary": {
+                "$ref": "#/components/headers/Vary"
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/Cache-Control"
+              },
+              "Request-ID": {
+                "$ref": "#/components/headers/Request-ID"
+              },
+              "Vary": {
+                "$ref": "#/components/headers/Vary"
+              },
+              "WWW-Authenticate": {
+                "$ref": "#/components/headers/WWW-Authenticate"
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/Cache-Control"
+              },
+              "Request-ID": {
+                "$ref": "#/components/headers/Request-ID"
+              },
+              "Vary": {
+                "$ref": "#/components/headers/Vary"
+              },
+              "WWW-Authenticate": {
+                "$ref": "#/components/headers/WWW-Authenticate"
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/Cache-Control"
+              },
+              "Request-ID": {
+                "$ref": "#/components/headers/Request-ID"
+              },
+              "Vary": {
+                "$ref": "#/components/headers/Vary"
+              }
+            }
+          },
+          "405": {
+            "description": "Method Not Allowed",
+            "headers": {
+              "Allow": {
+                "$ref": "#/components/headers/Allow"
+              },
+              "Cache-Control": {
+                "$ref": "#/components/headers/Cache-Control"
+              },
+              "Request-ID": {
+                "$ref": "#/components/headers/Request-ID"
+              },
+              "Vary": {
+                "$ref": "#/components/headers/Vary"
+              }
+            }
+          },
+          "406": {
+            "description": "Not Acceptable",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/Cache-Control"
+              },
+              "Request-ID": {
+                "$ref": "#/components/headers/Request-ID"
+              },
+              "Vary": {
+                "$ref": "#/components/headers/Vary"
+              }
+            }
+          },
+          "412": {
+            "description": "Precondition Failed",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/Cache-Control"
+              },
+              "Request-ID": {
+                "$ref": "#/components/headers/Request-ID"
+              },
+              "Vary": {
+                "$ref": "#/components/headers/Vary"
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/Cache-Control"
+              },
+              "Request-ID": {
+                "$ref": "#/components/headers/Request-ID"
+              },
+              "Vary": {
+                "$ref": "#/components/headers/Vary"
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/Cache-Control"
+              },
+              "Request-ID": {
+                "$ref": "#/components/headers/Request-ID"
+              },
+              "Vary": {
+                "$ref": "#/components/headers/Vary"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          }
+        ],
+        "summary": "Metadata only: Latest"
+      },
+      "options": {
+        "operationId": "options_latest_analyses",
+        "responses": {
+          "204": {
+            "description": "No content.",
+            "headers": {
+              "Allow": {
+                "$ref": "#/components/headers/Allow"
+              },
+              "Cache-Control": {
+                "$ref": "#/components/headers/Cache-Control"
+              },
+              "Request-ID": {
+                "$ref": "#/components/headers/Request-ID"
+              },
+              "Vary": {
+                "$ref": "#/components/headers/Vary"
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          }
+        ],
+        "summary": "Allowed methods; does not configure browser CORS."
+      }
     }
   }
 }
