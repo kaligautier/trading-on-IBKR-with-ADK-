@@ -129,3 +129,15 @@ key and the database, then run
 trigger requires `MARKET_SCANNER_JOB=projects/PROJECT/locations/REGION/jobs/JOB`
 and permission to invoke it; it does not silently run an in-process background
 scan when the job is absent.
+
+## Verified PostgreSQL transport
+
+Both the HTTP worker and daily job require a remote URL with
+`sslmode=verify-full`. Publish a reviewed URL as a new numeric secret version
+before deploying these images; `sslmode=require` is intentionally rejected.
+The existing CA secret is mounted at `/etc/database/ca.pem` through
+`database_ca_secret_id` and pinned `database_ca_version`. `DATABASE_CA_FILE` passes
+that path to both session/result adapters; never put CA contents or URLs in state.
+If the URL includes `sslrootcert`, its path must match the mount. Local loopback
+fixtures may explicitly use `sslmode=disable`. Test certificate/hostname rejection
+and a real read/write session against the deployment target before sign-off.

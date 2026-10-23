@@ -21,7 +21,21 @@ resource "google_cloud_run_v2_job" "daily_scan" {
           }
         }
       }
+      volumes {
+        name = "database-ca"
+        secret {
+          secret = var.database_ca_secret_id
+          items {
+            version = var.database_ca_version
+            path    = "ca.pem"
+          }
+        }
+      }
       containers {
+        volume_mounts {
+          name       = "database-ca"
+          mount_path = "/etc/database"
+        }
         image   = var.image
         command = ["/app/.venv/bin/python"]
         args    = ["-m", "app.jobs.daily_scan"]
@@ -59,7 +73,7 @@ resource "google_cloud_run_v2_job" "daily_scan" {
       }
     }
   }
-  depends_on = [google_secret_manager_secret_iam_member.database]
+  depends_on = [google_secret_manager_secret_iam_member.database, google_secret_manager_secret_iam_member.database_ca]
 }
 
 resource "google_cloud_run_v2_job_iam_member" "dispatcher" {
