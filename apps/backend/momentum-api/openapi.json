@@ -218,6 +218,172 @@
       }
     },
     "schemas": {
+      "AnalysisDetail": {
+        "additionalProperties": false,
+        "properties": {
+          "analysis_date": {
+            "format": "date",
+            "title": "Analysis Date",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "debate_arguments": {
+            "items": {
+              "$ref": "#/components/schemas/DebateArgument"
+            },
+            "title": "Debate Arguments",
+            "type": "array"
+          },
+          "deep_think_llm": {
+            "title": "Deep Think Llm",
+            "type": "string"
+          },
+          "fundamentals": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Fundamentals"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "llm_provider": {
+            "title": "Llm Provider",
+            "type": "string"
+          },
+          "news": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/News"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "next_analysis_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Analysis Date"
+          },
+          "next_analysis_desc": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Analysis Desc"
+          },
+          "portfolio_decision": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PortfolioDecision"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "quick_think_llm": {
+            "title": "Quick Think Llm",
+            "type": "string"
+          },
+          "research_plan": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ResearchPlan"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "run_stats": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RunStats"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "sentiment": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Sentiment"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "technical_indicators": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TechnicalIndicators"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "ticker": {
+            "title": "Ticker",
+            "type": "string"
+          },
+          "trader_proposal": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TraderProposal"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "ticker",
+          "analysis_date",
+          "created_at",
+          "llm_provider",
+          "deep_think_llm",
+          "quick_think_llm",
+          "technical_indicators",
+          "fundamentals",
+          "sentiment",
+          "news",
+          "research_plan",
+          "trader_proposal",
+          "portfolio_decision",
+          "debate_arguments",
+          "run_stats"
+        ],
+        "title": "AnalysisDetail",
+        "type": "object"
+      },
       "AnalysisPage": {
         "additionalProperties": false,
         "properties": {
@@ -553,6 +719,85 @@
         "title": "AnalysisSummary",
         "type": "object"
       },
+      "DebateArgument": {
+        "additionalProperties": false,
+        "properties": {
+          "conviction": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Conviction"
+          },
+          "debate_type": {
+            "title": "Debate Type",
+            "type": "string"
+          },
+          "key_data_point": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Key Data Point"
+          },
+          "role": {
+            "title": "Role",
+            "type": "string"
+          },
+          "round": {
+            "title": "Round",
+            "type": "integer"
+          },
+          "stance": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stance"
+          },
+          "target_price": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Price"
+          },
+          "thesis": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Thesis"
+          }
+        },
+        "required": [
+          "debate_type",
+          "role",
+          "round"
+        ],
+        "title": "DebateArgument",
+        "type": "object"
+      },
       "Fundamentals": {
         "additionalProperties": false,
         "properties": {
@@ -813,6 +1058,115 @@
         "title": "Fundamentals",
         "type": "object"
       },
+      "News": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/NewsItem"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "key_catalyst": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Key Catalyst"
+          },
+          "key_risk": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Key Risk"
+          },
+          "macro_environment": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Macro Environment"
+          },
+          "overall_impact": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Overall Impact"
+          },
+          "sector_momentum": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sector Momentum"
+          },
+          "summary_short": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary Short"
+          }
+        },
+        "title": "News",
+        "type": "object"
+      },
+      "NewsItem": {
+        "additionalProperties": false,
+        "properties": {
+          "category": {
+            "title": "Category",
+            "type": "string"
+          },
+          "comment": {
+            "title": "Comment",
+            "type": "string"
+          },
+          "headline": {
+            "title": "Headline",
+            "type": "string"
+          },
+          "impact": {
+            "title": "Impact",
+            "type": "string"
+          }
+        },
+        "required": [
+          "category",
+          "headline",
+          "impact",
+          "comment"
+        ],
+        "title": "NewsItem",
+        "type": "object"
+      },
       "PortfolioDecision": {
         "additionalProperties": false,
         "properties": {
@@ -1043,6 +1397,132 @@
           "duration_seconds"
         ],
         "title": "RunStats",
+        "type": "object"
+      },
+      "Sentiment": {
+        "additionalProperties": false,
+        "properties": {
+          "institutional_sentiment": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Institutional Sentiment"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/SentimentItem"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "key_catalyst": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Key Catalyst"
+          },
+          "key_risk": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Key Risk"
+          },
+          "overall_sentiment": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Overall Sentiment"
+          },
+          "overall_signal": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Overall Signal"
+          },
+          "retail_sentiment": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retail Sentiment"
+          },
+          "summary_short": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary Short"
+          }
+        },
+        "title": "Sentiment",
+        "type": "object"
+      },
+      "SentimentItem": {
+        "additionalProperties": false,
+        "properties": {
+          "comment": {
+            "title": "Comment",
+            "type": "string"
+          },
+          "impact": {
+            "title": "Impact",
+            "type": "string"
+          },
+          "score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Score"
+          },
+          "topic": {
+            "title": "Topic",
+            "type": "string"
+          }
+        },
+        "required": [
+          "topic",
+          "impact",
+          "comment"
+        ],
+        "title": "SentimentItem",
         "type": "object"
       },
       "TechnicalIndicators": {
