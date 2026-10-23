@@ -26,6 +26,17 @@ run "private_runtime" {
   command = plan
 
   assert {
+    condition = (
+      google_cloud_run_v2_service.scanner.template[0].volumes[0].secret[0].items[0].version == var.database_ca_version &&
+      google_cloud_run_v2_job.daily_scan.template[0].template[0].volumes[0].secret[0].secret == var.database_ca_secret_id &&
+      google_cloud_run_v2_service.scanner.template[0].containers[0].volume_mounts[0].mount_path == "/etc/database" &&
+      google_cloud_run_v2_job.daily_scan.template[0].template[0].containers[0].volume_mounts[0].mount_path == "/etc/database" &&
+      local.scanner_environment.DATABASE_CA_FILE == "/etc/database/ca.pem"
+    )
+    error_message = "Both workers must mount the pinned database CA for verified TLS."
+  }
+
+  assert {
     condition     = google_cloud_run_v2_service.scanner.invoker_iam_disabled == false
     error_message = "ADK routes must remain behind Cloud Run IAM."
   }
