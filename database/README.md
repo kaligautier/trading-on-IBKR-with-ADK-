@@ -30,9 +30,10 @@ database/
   manage.py                    # The operator interface
 ```
 
-The superseded shared-database, split-Momentum-database, and cutover scripts have
-been removed. Git retains their history; they are not alternative installation paths.
-There is no global changelog spanning multiple application databases.
+Only the domain entry points above are supported. Legacy shared-database,
+split-Momentum-database, and cutover files remain temporarily while PRs #163–#165
+remove them; do not use those files for installation or migration. Git preserves
+the removed files. No supported changelog spans multiple application databases.
 
 ## Existing Aiven databases
 
@@ -44,7 +45,9 @@ ownership, and effective object grants. Connection strings and business rows are
 excluded. Database-level permissions and role limits are defined separately in
 `bootstrap.sql`; those are not part of the object fingerprint. Verification and
 adoption also check runtime role attributes, connection limits, CREATE/TEMP rights,
-memberships, and effective CONNECT access to other application databases.
+memberships, login capability, and effective CONNECT access to all other
+connectable non-template databases, including `postgres`. Provider-controlled
+template admission is verified separately by the managed reader network checks.
 
 Use Python from a locked application environment and build the pinned migration image:
 
