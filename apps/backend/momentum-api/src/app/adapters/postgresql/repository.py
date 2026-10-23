@@ -9,14 +9,22 @@ from sqlalchemy import bindparam, text
 from sqlalchemy.exc import ProgrammingError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine
 
-from app.adapters.postgresql.mapper import SECTION_MODELS, Row, StoredAnalysis
-from app.domain.analyses.search import AnalysisSearchParams
-from app.presentation.http.problems import APIError
-
-HEADER_COLUMNS = (
-    "id, ticker, analysis_date, created_at, llm_provider, deep_think_llm, "
-    "quick_think_llm, next_analysis_date, next_analysis_desc"
+from app.adapters.postgresql.mapper import (
+    SECTION_MODELS,
+    Row,
+    StoredAnalysis,
+    detail,
+    summary,
 )
+from app.adapters.postgresql.projections import HEADER_COLUMNS, SECTION_COLUMNS
+from app.domain.analyses.errors import (
+    ConsultationError,
+    StoreConfigurationError,
+    StoreUnavailableError,
+)
+from app.domain.analyses.models import AnalysisBatch, AnalysisDetail
+from app.domain.analyses.search import AnalysisSearchParams
+
 SUMMARY_TABLES = (
     "technical_indicators",
     "fundamentals",
@@ -25,32 +33,16 @@ SUMMARY_TABLES = (
 )
 
 
-SECTION_COLUMNS = {
-    table: ", ".join(
-        (
-            "id",
-            "result_id",
-            *(
-                str(field.validation_alias or name)
-                for name, field in model.model_fields.items()
-                if name != "items"
-            ),
-        )
-    )
-    for table, model in SECTION_MODELS.items()
-}
-
-
-def storage_error(error: Exception) -> APIError:
+def storage_error(error: Exception) -> ConsultationError:
     cause: BaseException | None = error
     while cause is not None:
         state = getattr(cause, "sqlstate", None)
         if state is not None and (state[:2] in {"28", "42", "3D", "3F"}):
-            return APIError(500, "configuration-error")
+            return StoreConfigurationError()
         cause = cause.__cause__
     if isinstance(error, ProgrammingError):
-        return APIError(500, "configuration-error")
-    return APIError(503, "store-unavailable")
+        return StoreConfigurationError()
+    return StoreUnavailableError()
 
 
 class AnalysisRepository:
@@ -91,7 +83,7 @@ class AnalysisRepository:
                     )
         return [StoredAnalysis(row, sections[cast(UUID, row["id"])]) for row in headers]
 
-    async def list(self, query: AnalysisSearchParams) -> list[StoredAnalysis]:
+    async def list(self, query: AnalysisSearchParams) -> AnalysisBatch:
         clauses, params = [], {"limit": query.page_size + 1}
         parameters: dict[str, object] = dict(params)
         if query.ticker is not None:
@@ -125,9 +117,13 @@ class AnalysisRepository:
         async with self.read() as connection:
             rows = (await connection.execute(statement, parameters)).mappings().all()
             headers = [cast(Mapping[str, object], dict(row)) for row in rows]
-            return await self.load(connection, headers, SUMMARY_TABLES)
+            loaded = await self.load(connection, headers, SUMMARY_TABLES)
+            return AnalysisBatch(
+                items=[summary(row) for row in loaded[: query.page_size]],
+                has_more=len(loaded) > query.page_size,
+            )
 
-    async def get(self, analysis_id: UUID) -> StoredAnalysis | None:
+    async def get(self, analysis_id: UUID) -> AnalysisDetail | None:
         async with self.read() as connection:
             rows = (
                 (
@@ -144,7 +140,7 @@ class AnalysisRepository:
             )
             headers = [cast(Mapping[str, object], dict(row)) for row in rows]
             loaded = await self.load(connection, headers, tuple(SECTION_MODELS))
-            return loaded[0] if loaded else None
+            return detail(loaded[0]) if loaded else None
 
     async def ready(self) -> None:
         async with self.read() as connection:

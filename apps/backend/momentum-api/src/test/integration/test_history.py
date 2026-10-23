@@ -5,8 +5,8 @@ from uuid import UUID
 import pytest
 from sqlalchemy import text
 
+from app.domain.analyses.errors import StoreConfigurationError, StoreUnavailableError
 from app.domain.analyses.search import AnalysisSearchParams
-from app.presentation.http.problems import APIError
 
 from .conftest import seed
 
@@ -44,10 +44,8 @@ async def test_unknown_schema_is_configuration_failure_and_releases_connection(
     reader, engine = service
     await admin.execute("ALTER SCHEMA _analysis RENAME TO temporarily_hidden")
     try:
-        with pytest.raises(APIError) as caught:
+        with pytest.raises(StoreConfigurationError):
             await reader.list(query())
-        assert caught.value.status == 500
-        assert caught.value.code == "configuration-error"
         assert engine.pool.checkedout() == 0
     finally:
         await admin.execute("ALTER SCHEMA temporarily_hidden RENAME TO _analysis")
@@ -59,10 +57,8 @@ async def test_timeout_is_transient_and_does_not_leak_driver_details(admin, serv
     await transaction.start()
     await admin.execute("LOCK _analysis.analysis_results IN ACCESS EXCLUSIVE MODE")
     try:
-        with pytest.raises(APIError) as caught:
+        with pytest.raises(StoreUnavailableError) as caught:
             await reader.list(query())
-        assert caught.value.status == 503
-        assert caught.value.code == "store-unavailable"
         assert "postgresql" not in str(caught.value)
         assert engine.pool.checkedout() == 0
     finally:
@@ -77,12 +73,8 @@ async def test_missing_optional_physical_column_is_configuration_error(admin, se
     )
     try:
         for operation in (reader.ready, lambda: reader.list(query())):
-            with pytest.raises(APIError) as caught:
+            with pytest.raises(StoreConfigurationError):
                 await operation()
-            assert (
-                caught.value.status == 500
-                and caught.value.code == "configuration-error"
-            )
     finally:
         await admin.execute(
             "ALTER TABLE _analysis.technical_indicators "

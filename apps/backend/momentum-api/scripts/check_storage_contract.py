@@ -3,8 +3,7 @@
 import ast
 from pathlib import Path
 
-from app.adapters.postgresql.mapper import SECTION_MODELS
-from app.adapters.postgresql.repository import HEADER_COLUMNS
+from app.adapters.postgresql.projections import HEADER_COLUMNS, SECTION_COLUMNS
 from app.presentation.dto import AnalysisDetail
 
 ROOT = Path(__file__).resolve().parents[4]
@@ -45,12 +44,12 @@ def columns(source: str) -> dict[str, set[str]]:
 def check(source: str) -> None:
     writer = columns(source)
     expected = {"analysis_results": set(HEADER_COLUMNS.replace(" ", "").split(","))}
-    for table, model in SECTION_MODELS.items():
-        expected[table] = {"id", "result_id"} | {
-            str(field.validation_alias or name)
-            for name, field in model.model_fields.items()
-            if name != "items"
+    expected.update(
+        {
+            table: set(columns.replace(" ", "").split(","))
+            for table, columns in SECTION_COLUMNS.items()
         }
+    )
     for table, projection in expected.items():
         missing = projection - writer.get(table, set())
         if missing:

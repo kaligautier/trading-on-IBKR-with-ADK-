@@ -5,6 +5,7 @@ from dataclasses import dataclass
 
 from pydantic import BaseModel, ValidationError
 
+from app.domain.analyses.errors import InvalidStoredAnalysisError
 from app.domain.analyses.financial_sections import (
     DebateArgument,
     Fundamentals,
@@ -18,7 +19,7 @@ from app.domain.analyses.financial_sections import (
     TechnicalIndicators,
     TraderProposal,
 )
-from app.presentation.dto import AnalysisDetail, AnalysisHeader, AnalysisSummary
+from app.domain.analyses.models import AnalysisDetail, AnalysisHeader, AnalysisSummary
 
 Row = Mapping[str, object]
 SECTION_MODELS: dict[str, type[BaseModel]] = {
@@ -34,10 +35,6 @@ SECTION_MODELS: dict[str, type[BaseModel]] = {
     "debate_arguments": DebateArgument,
     "run_stats": RunStats,
 }
-
-
-class InvalidStoredAnalysisError(ValueError):
-    """Persisted data cannot be represented by the public contract."""
 
 
 @dataclass(frozen=True, slots=True)

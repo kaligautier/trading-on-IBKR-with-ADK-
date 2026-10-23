@@ -38,11 +38,22 @@ async def client():
 
 async def test_liveness_and_authenticated_openapi(client):
     assert (await client.get("/health")).json() == {"status": "ok"}
+
     missing = await client.get("/openapi.json")
     assert missing.status_code == 401 and missing.content == b""
     assert missing.headers["www-authenticate"] == 'Bearer realm="momentum-api"'
     schema = await client.get("/openapi.json", headers={"Authorization": BEARER})
     assert schema.status_code == 200 and "openapi" in schema.json()
+
+
+async def test_unexpected_failure_has_safe_correlated_diagnostics(client, caplog):
+    with caplog.at_level(logging.ERROR, logger="momentum_api"):
+        response = await client.get("/crash", headers={"Authorization": BEARER})
+    assert response.status_code == 500
+    assert response.headers["request-id"] in caplog.text
+    assert "exception_type=RuntimeError" in caplog.text
+    assert "source=app." in caplog.text
+    assert "never expose credentials or SQL" not in caplog.text
 
 
 @pytest.mark.parametrize(

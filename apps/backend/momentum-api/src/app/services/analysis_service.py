@@ -1,23 +1,11 @@
 """Consultation use cases, independent of HTTP and database connection ownership."""
 
-from typing import Protocol
 from uuid import UUID
 
-from app.adapters.postgresql.mapper import (
-    InvalidStoredAnalysisError,
-    StoredAnalysis,
-    detail,
-    summary,
-)
+from app.domain.analyses.errors import AnalysisNotFoundError
+from app.domain.analyses.models import AnalysisDetail, AnalysisPage
 from app.domain.analyses.search import AnalysisSearchParams, Cursor
-from app.presentation.dto import AnalysisDetail, AnalysisPage
-from app.presentation.http.problems import APIError
-
-
-class AnalysisReader(Protocol):
-    async def list(self, query: AnalysisSearchParams) -> list[StoredAnalysis]: ...
-    async def get(self, analysis_id: UUID) -> StoredAnalysis | None: ...
-    async def ready(self) -> None: ...
+from app.ports.analysis_reader import AnalysisReader
 
 
 class AnalysisService:
@@ -25,13 +13,10 @@ class AnalysisService:
         self.repository = repository
 
     async def list(self, query: AnalysisSearchParams) -> AnalysisPage:
-        rows = await self.repository.list(query)
-        try:
-            items = [summary(row) for row in rows[: query.page_size]]
-        except InvalidStoredAnalysisError:
-            raise APIError(500, "invalid-stored-data") from None
+        batch = await self.repository.list(query)
+        items = batch.items
         token = ""
-        if len(rows) > query.page_size:
+        if batch.has_more:
             last = items[-1]
             token = Cursor(
                 created_at=last.created_at, id=last.id, scope=query.scope
@@ -41,12 +26,8 @@ class AnalysisService:
     async def get(self, analysis_id: UUID) -> AnalysisDetail:
         stored = await self.repository.get(analysis_id)
         if stored is None:
-            raise APIError(404, "analysis-not-found")
-        try:
-            return detail(stored)
-        except InvalidStoredAnalysisError:
-            raise APIError(500, "invalid-stored-data") from None
+            raise AnalysisNotFoundError()
+        return stored
 
-    async def ready(self) -> dict[str, str]:
+    async def ready(self) -> None:
         await self.repository.ready()
-        return {"status": "ready"}
