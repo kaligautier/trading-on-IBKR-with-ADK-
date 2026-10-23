@@ -2,9 +2,11 @@
 
 import subprocess
 import time
+import sys
 from pathlib import Path
 
-import local_domains
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "testing"))
+import local_domains  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
 NAME = "deepcopy-scanner-bootstrap-test"
@@ -54,7 +56,7 @@ def main():
         for _ in range(60):
             if (
                 subprocess.run(
-                    ["docker", "exec", NAME, "pg_isready", "-U", "postgres"],
+                    ["docker", "exec", NAME, "pg_isready", "-h", "127.0.0.1", "-U", "postgres"],
                     capture_output=True,
                 ).returncode
                 == 0
