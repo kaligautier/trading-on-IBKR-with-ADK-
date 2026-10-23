@@ -8,8 +8,8 @@
     ],
     "fingerprint": "18115857d808af56e6c48d14df13beb8d351c21617114c6f237857738e421b08",
     "runtime_roles": {
-      "market_scanner_writer": 4,
-      "market_scanner_reader": 2
+      "market_scanner_writer": 3,
+      "market_scanner_reader": 1
     }
   },
   "momentum": {
@@ -21,9 +21,9 @@
     ],
     "fingerprint": "f815d7ca19bb2961f96285a4920b7e9e4fdb8f98d3643ea04b5f2b4b43bf10c9",
     "runtime_roles": {
-      "momentum_sessions_writer": 2,
+      "momentum_sessions_writer": 1,
       "momentum_results_writer": 2,
-      "momentum_results_reader": 2
+      "momentum_results_reader": 1
     }
   },
   "litellm": {
