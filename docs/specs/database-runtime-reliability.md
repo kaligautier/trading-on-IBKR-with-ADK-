@@ -1,6 +1,7 @@
 # Spec: verified worker TLS, durable Momentum memory and connection capacity
 
-Status: **SPECIFY — awaiting human validation**. No implementation is claimed.
+Status: **IMPLEMENT — authorized by the user instruction `implem` after PR #178**.
+Implementation evidence is tracked in `tasks/todo.md`; no live rollout is claimed.
 Baseline: `bf6e2e2`. Requested on 23 October 2026.
 
 ## Objective
