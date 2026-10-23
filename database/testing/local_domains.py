@@ -79,7 +79,7 @@ def start():
     )
     for _ in range(60):
         ready = subprocess.run(
-            ["docker", "exec", NAME, "pg_isready", "-U", "postgres"],
+            ["docker", "exec", NAME, "pg_isready", "-h", "127.0.0.1", "-U", "postgres"],
             capture_output=True,
         )
         if ready.returncode == 0:
