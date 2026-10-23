@@ -13,9 +13,9 @@ BEGIN
     GRANT CONNECT, CREATE ON DATABASE market_scanner TO database_migrator;
     REVOKE ALL ON SCHEMA public FROM PUBLIC;
     FOREACH runtime IN ARRAY ARRAY['market_scanner_writer', 'market_scanner_reader'] LOOP
-        IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname=runtime)
+        IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname=runtime AND rolcanlogin)
             OR EXISTS (SELECT FROM pg_roles WHERE rolname=runtime
-                       AND (rolsuper OR rolcreatedb OR rolcreaterole OR rolbypassrls))
+                       AND (rolsuper OR rolcreatedb OR rolcreaterole OR rolbypassrls OR rolreplication))
             OR EXISTS (SELECT FROM pg_auth_members m JOIN pg_roles r ON r.oid=m.member
                        WHERE r.rolname=runtime) THEN
             RAISE EXCEPTION 'Runtime roles must exist without administrative rights or memberships';
