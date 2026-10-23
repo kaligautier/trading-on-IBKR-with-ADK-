@@ -1,19 +1,23 @@
 import pytest
 
-from app.job_runner import database_address, main
+from app.infrastructure.postgres_tls import connection_options
+from app.job_runner import main
 
 
 @pytest.mark.parametrize("url", ["sqlite:///file", "postgresql://u:p@host/defaultdb"])
 def test_worker_rejects_wrong_database(url):
     with pytest.raises(ValueError):
-        database_address(url)
+        connection_options(url)
 
 
 def test_worker_preserves_explicit_database_and_ssl():
-    address = database_address("postgres://u:p@host/momentum?sslmode=require")
+    address, tls = connection_options(
+        "postgres://u:p@host/momentum?sslmode=verify-full"
+    )
     assert address.drivername == "postgresql+asyncpg"
     assert address.database == "momentum"
-    assert address.query["ssl"] == "require"
+    assert address.query == {}
+    assert tls.check_hostname
 
 
 def test_worker_fails_without_echoing_invalid_request(monkeypatch, capsys):
@@ -61,8 +65,12 @@ async def test_worker_updates_memory_only_after_result_commit(monkeypatch, save_
         engine=SimpleNamespace(execute=AsyncMock(return_value=execution)),
         session_service=SimpleNamespace(close=AsyncMock()),
     )
-    monkeypatch.setenv("MOMENTUM_SESSION_DATABASE_URL", "postgres://u:p@host/momentum")
-    monkeypatch.setenv("MOMENTUM_RESULT_DATABASE_URL", "postgres://u:p@host/momentum")
+    monkeypatch.setenv(
+        "MOMENTUM_SESSION_DATABASE_URL", "postgres://u:p@localhost/momentum"
+    )
+    monkeypatch.setenv(
+        "MOMENTUM_RESULT_DATABASE_URL", "postgres://u:p@localhost/momentum"
+    )
     monkeypatch.setattr(job_runner, "Settings", Mock(return_value=Mock()))
     monkeypatch.setattr(
         job_runner, "create_model", Mock(return_value=SimpleNamespace())
