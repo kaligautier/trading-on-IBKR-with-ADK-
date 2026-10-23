@@ -15,9 +15,9 @@ BEGIN
     GRANT CONNECT, CREATE ON DATABASE momentum TO database_migrator;
     REVOKE CREATE ON SCHEMA public FROM PUBLIC;
     FOREACH runtime IN ARRAY ARRAY['momentum_sessions_writer', 'momentum_results_writer', 'momentum_results_reader'] LOOP
-        IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname=runtime)
+        IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname=runtime AND rolcanlogin)
             OR EXISTS (SELECT FROM pg_roles WHERE rolname=runtime
-                       AND (rolsuper OR rolcreatedb OR rolcreaterole OR rolbypassrls))
+                       AND (rolsuper OR rolcreatedb OR rolcreaterole OR rolbypassrls OR rolreplication))
             OR EXISTS (SELECT FROM pg_auth_members m JOIN pg_roles r ON r.oid=m.member
                        WHERE r.rolname=runtime) THEN
             RAISE EXCEPTION 'Provision non-administrative runtime logins without memberships';
