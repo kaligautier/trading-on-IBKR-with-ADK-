@@ -27,7 +27,7 @@ class Settings(BaseSettings):
     DATABASE_POOL_SIZE: int = Field(
         default=1,
         ge=1,
-        le=2,
+        le=1,
         description="Maximum number of database connections in the pool",
     )
     DATABASE_POOL_TIMEOUT: float = Field(

@@ -118,7 +118,7 @@ def line(process):
     return result
 
 
-@pytest.mark.parametrize("component", ["scanner"])
+@pytest.mark.parametrize("component", ["scanner", "momentum"])
 @pytest.mark.parametrize("ending", ["normal", "crash"])
 def test_competing_process_is_busy_then_recovers(admission_server, component, ending):
     owner = launch(component, "hold")
@@ -146,3 +146,52 @@ def test_competing_process_is_busy_then_recovers(admission_server, component, en
         if owner.poll() is None:
             owner.kill()
         owner.communicate(timeout=20)
+
+
+def test_fleet_peak_preserves_operator_and_migration_on_15_slots(admission_server):
+    import json
+
+    domains = admission_server
+    budget = json.loads((ROOT / "database/connection-budget.json").read_text())
+    for role, limit in {
+        **budget["roles"],
+        "database_migrator": 1,
+        "capacity_operator": 1,
+    }.items():
+        domains.sql(
+            "postgres",
+            f"""
+            DO $$ BEGIN
+              IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname='{role}') THEN
+                CREATE ROLE {role} LOGIN PASSWORD 'domain-test-only';
+              END IF;
+            END $$;
+            ALTER ROLE {role} CONNECTION LIMIT {limit};
+        """,
+        )
+    domains.sql("postgres", "GRANT pg_read_all_stats TO capacity_operator;")
+    owners = [launch(component, "hold") for component in ("scanner", "momentum")]
+    try:
+        for owner in owners:
+            assert line(owner) == "acquired"
+        result = subprocess.run(
+            [
+                str(ROOT / "apps/backend/momentum-adk/.venv/bin/python"),
+                str(ROOT / "database/testing/capacity_probe.py"),
+            ],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        assert result.returncode == 0, result.stderr
+        assert json.loads(result.stdout) == {
+            "ordinary_connections": 12,
+            "operator": "usable",
+            "migration": "usable",
+        }
+    finally:
+        for owner in owners:
+            if owner.poll() is None:
+                owner.stdin.write("done\n")
+                owner.stdin.flush()
+            owner.communicate(timeout=20)

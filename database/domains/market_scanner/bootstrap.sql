@@ -24,7 +24,7 @@ BEGIN
         EXECUTE format('GRANT CONNECT ON DATABASE market_scanner TO %I', runtime);
         EXECUTE format('REVOKE ALL ON SCHEMA public FROM %I', runtime);
         EXECUTE format('ALTER ROLE %I NOINHERIT CONNECTION LIMIT %s', runtime,
-                       CASE WHEN runtime='market_scanner_writer' THEN 4 ELSE 2 END);
+                       CASE WHEN runtime='market_scanner_writer' THEN 3 ELSE 1 END);
         EXECUTE format('ALTER ROLE %I IN DATABASE market_scanner SET search_path = _analysis, pg_catalog', runtime);
         EXECUTE format('ALTER ROLE %I IN DATABASE market_scanner SET statement_timeout = %L', runtime, '30s');
         EXECUTE format('ALTER ROLE %I IN DATABASE market_scanner SET idle_in_transaction_session_timeout = %L', runtime, '30s');

@@ -176,7 +176,7 @@ async def main():
                     "Dedicated database user unexpectedly has administrative privileges"
                 )
             await admin.execute("GRANT litellm TO avnadmin WITH INHERIT FALSE")
-            await admin.execute("ALTER ROLE litellm CONNECTION LIMIT 12")
+            await admin.execute("ALTER ROLE litellm CONNECTION LIMIT 2")
             await admin.execute("ALTER DATABASE litellm OWNER TO litellm")
             await admin.execute("REVOKE ALL ON DATABASE litellm FROM PUBLIC")
             await admin.execute("GRANT CONNECT ON DATABASE litellm TO avnadmin")
@@ -214,7 +214,7 @@ async def main():
                 sslmode="require",
                 sslcert="/etc/database/ca.pem",
                 sslaccept="strict",
-                connection_limit=2,
+                connection_limit=1,
             )
         )
         url = (
