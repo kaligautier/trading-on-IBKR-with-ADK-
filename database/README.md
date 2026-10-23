@@ -1,130 +1,152 @@
 # Domain databases
 
-PostgreSQL databases are separated by application. Both use `_sessions` for ADK
-state/events, `_analysis` for business results, and `liquibase` for migration history.
+The source of this layout is a read-only inspection of the working Aiven service on
+23 October 2026, PostgreSQL 18.6. Each application owns a database; schemas separate
+application state, analysis results, and migration metadata inside that database.
 
-| Database | Runtime role | Analysis storage | Liquibase entry point |
+| Database | Schemas | Runtime identities | Migration owner |
 | --- | --- | --- | --- |
-| `market_scanner` | `market_scanner_writer` | Report v3, assets, horizons | `db.changelog-scanner.yaml` |
-| `momentum` | `momentum_sessions_writer`, `momentum_results_writer` | 12 financial result tables | `db.changelog-momentum.yaml` |
+| `market_scanner` | `_analysis`, `_sessions`, `liquibase` | `market_scanner_writer`, `market_scanner_reader` | `database_migrator`, Liquibase |
+| `momentum` | `_analysis`, `_sessions`, `liquibase` | `momentum_sessions_writer`, `momentum_results_writer`, `momentum_results_reader` | `database_migrator`, Liquibase |
+| `litellm` | `public` | `litellm` | Official LiteLLM image, Prisma |
 
-The Scanner API and scheduled job both persist sessions. A scheduled execution ID
-can run once; an existing ID fails explicitly, including after a partial failure.
-Start a new execution to rerun. Session and report writes are separate transactions:
-a failed report write leaves session evidence, but never a successful job result.
-Deleting a session does not delete its report. `market_scanner_reader` reads analyses
-only. The ADK SDK cannot create tables or update its schema metadata at runtime.
+Scanner has three analysis tables and five ADK tables; Momentum has twelve analysis
+tables and five ADK tables. LiteLLM's upstream schema stays in its dedicated database;
+application Liquibase never manages it. Provider-internal databases are outside this layout.
 
-## Apply and test locally
+## Where things belong
 
-From the repository root with Docker on a local Unix socket and uv installed:
+```text
+database/
+  domains.json                 # Verified Aiven fingerprints and runtime roles
+  domains/<domain>/
+    bootstrap.sql              # Administrator: database access and role limits
+    baseline.sql               # Current Aiven schemas, constraints, indexes and grants
+    changelog.yaml             # One Liquibase entry point per application database
+    migrations/                # Changes after the baseline
+  operations/                  # Migration preparation and read-only catalog checks
+  testing/                     # Disposable PostgreSQL lifecycle and full rehearsal
+  tests/                       # Baseline, adoption, isolation and tool safety tests
+  manage.py                    # The operator interface
+```
+
+The superseded shared-database, split-Momentum-database, and cutover scripts have
+been removed. Git retains their history; they are not alternative installation paths.
+There is no global changelog spanning multiple application databases.
+
+## Existing Aiven databases
+
+The schema-only baselines were exported with PostgreSQL 18.6 `pg_dump`. They contain
+no business records, credentials, or hostnames. The single ADK schema-version row
+is seeded because the SDK requires it. `domains.json` records fingerprints of both
+managed schemas, including columns, nullability, defaults, constraints, indexes,
+ownership, and effective object grants. Connection strings and business rows are
+excluded. Database-level permissions and role limits are defined separately in
+`bootstrap.sql`; those are not part of the object fingerprint. Verification and
+adoption also check runtime role attributes, connection limits, CREATE/TEMP rights,
+memberships, and effective CONNECT access to other application databases.
+
+Use Python from a locked application environment and build the pinned migration image:
+
+```sh
+uv sync --project apps/backend/market-scanner-adk --frozen --python 3.12
+docker build -t local/deepcopy-database:5.0.4 database
+```
+
+Keep an explicit PostgreSQL URL in an ignored regular file with permissions `0600`.
+Use the appropriate identity and database name, `sslmode=verify-full`, and the Aiven
+CA via `sslrootcert` or `--ca-file`. Never put a real URL in shell history or Git.
+
+```sh
+# Read-only comparison: runtime identities can inspect PostgreSQL catalogs.
+uv run --project apps/backend/market-scanner-adk --frozen python database/manage.py \
+  verify --domain momentum --url-file .local/momentum.url --ca-file .local/aiven-ca.pem
+```
+
+To adopt the new baseline on an existing database, first back up its Liquibase
+tracking tables and establish an exclusive migration window. Use `database_migrator`:
+
+```sh
+uv run --project apps/backend/market-scanner-adk --frozen python database/manage.py \
+  adopt --domain momentum --url-file .local/momentum-migrator.url --ca-file .local/aiven-ca.pem
+```
+
+`adopt` refuses a structural or object-grant mismatch before invoking Liquibase.
+It synchronizes only through tag `aiven-20261023`; it does not run baseline DDL or
+mark pending changes as applied. Existing tracking rows are retained for audit.
+No adoption or schema changes were executed on Aiven as part of this repository reorganization.
+
+## Fresh installation
+
+An administrator creates the selected database and its non-administrative logins,
+sets passwords outside source control, and executes that domain's `bootstrap.sql`.
+Reconnect as `database_migrator` and execute `operations/prepare.sql` to create the
+owned `liquibase` schema. These are distinct identities because an Aiven administrator
+cannot necessarily assume an existing migration role.
+
+Run `manage.py baseline --domain <domain> --url-file <private-file>` to create exactly
+the captured Aiven state, stopping at `aiven-20261023`. Run `verify` afterward.
+An initial baseline has no destructive rollback: restore a protected backup for a live
+recovery, or recreate an explicitly owned disposable test database.
+
+## Managed template database admission
+
+Some managed PostgreSQL services retain PUBLIC CONNECT on their `postgres`-owned
+`template1` while denying actual connections through `pg_hba.conf`. Do not revoke
+provider-owned privileges or exempt application databases. The bootstrap stays
+strict by default. For this specific template only, first grant the new reader
+CONNECT on `momentum` so its credentials can be positively verified, then run:
+
+```sh
+umask 077
+uv run --project apps/backend/momentum-api --frozen python \
+  apps/backend/momentum-api/scripts/verify_reader_network.py \
+  --reader-url-file "$READER_URL_FILE" > "$ADMISSION_SQL"
+```
+
+The private URL file must use verified TLS and a local readable CA path. The
+verifier first connects successfully to Momentum, then attempts every other
+connectable database with that same reader identity. Unexpected errors, bad
+credentials, timeouts or any successful cross-database connection stop it. Only
+an explicit `pg_hba.conf` refusal on the system-owned template emits a session
+attestation. Immediately execute that generated SQL and
+`database/domains/momentum/bootstrap.sql` on the same administrator connection. Do not
+store the attestation in database/role defaults or set it manually. Repeat this
+verification on deployment and after any managed network/access-policy change.
+The attestation never exempts another database or changes network permissions.
+
+
+## Subsequent changes
+
+Use `status` to inspect pending changes, `plan` to review generated SQL, and `migrate`
+to apply them. All commands take the same explicit domain and private URL file.
+After adoption, add a new migration under that domain's `migrations/` directory and
+include it in its `changelog.yaml`. Keep the baseline and applied changes immutable.
+Do not clear checksums to hide a mismatch.
+
+The current Momentum snapshot includes nullable sentiment scores and the consultation
+reader's allowlisted grants and indexes, verified on Aiven during the final inspection.
+There are no pending migrations at this baseline. Create a domain's `migrations/`
+directory only when introducing its next schema change.
+
+## Local verification
 
 ```sh
 uv sync --project apps/backend/market-scanner-adk --frozen --python 3.12
 uv sync --project apps/backend/market-scanner-api --frozen --python 3.12
-python3 database/scripts/rehearse_domains.py
+uv sync --project apps/backend/momentum-adk --frozen --python 3.12
+uv sync --project apps/backend/momentum-api --frozen --python 3.12
+python3 database/testing/rehearse.py
+python3 database/testing/local_domains.py stop
 ```
 
-The rehearsal creates `deepcopy-domains-test` on `127.0.0.1:55461`, rebuilds only
-`market_scanner` and `momentum`, applies each Liquibase chain twice, then exercises
-the actual ADK, API, report storage and reader. Model/data providers are simulated;
-these tests do not generate real market research or call LiteLLM. The regression-test
-container on port 55462 is removed afterward. The domain databases remain
-available for inspection. Local credentials are disposable fixtures, never live secrets.
+The rehearsal uses pinned PostgreSQL 18 on a local Unix-socket Docker daemon. It
+rebuilds only labelled disposable fixtures, checks exact Aiven-baseline equivalence,
+proves adoption preserves application rows and rejects drift, and runs the real
+application persistence and reader suites. Local fixtures explicitly disable TLS;
+remote management requires certificate and hostname verification. No providers or
+LLMs are called. The retained domain fixture binds only to `127.0.0.1:55471`.
 
-If Momentum is in a separate worktree, install its locked Python 3.12 dependencies
-and pass `--momentum-root /path/to/worktree`. When its package is present in this
-checkout, the rehearsal runs it automatically. Without that package, the shared
-Momentum schema/SDK tests still run and the missing adapter suite is reported.
-
-Explicit local controls:
-
-```sh
-python3 database/scripts/local_domains.py reset
-python3 database/scripts/local_domains.py migrate --domain market_scanner
-python3 database/scripts/local_domains.py migrate --domain momentum
-python3 database/scripts/local_domains.py stop
-```
-
-`reset` erases both **owned local domain databases**. The harness refuses remote
-Docker endpoints, unexpected labels and public port bindings. It never accepts a
-remote database URL or uses `defaultdb`. It does not touch LiteLLM.
-
-For the local Scanner `.env`, set:
-
-```dotenv
-MARKET_SCANNER_DATABASE_URL=postgresql://market_scanner_writer:domain-test-only@127.0.0.1:55461/market_scanner
-DATABASE_SCHEMA=_analysis
-```
-
-The reader uses the same database with `market_scanner_reader` and the disposable
-password `domain-test-only`. Momentum uses `momentum_sessions_writer` for `_sessions` and
-`momentum_results_writer` for `_analysis`, both in database `momentum`.
-Live provider credentials are needed only for a real market scan.
-
-Build and verify the Scanner image, including an actual process restart and a
-persisted session read, without external provider calls:
-
-```sh
-docker build -t local/scanner-domain:verify apps/backend/market-scanner-adk
-python3 scripts/scanner_image_smoke.py local/scanner-domain:verify
-```
-
-## Provisioning and migrations
-
-Create application databases and login roles through the owning administration
-process. Run `domain-bootstrap.sql` as administrator with a validated `domain` psql variable; it grants CONNECT to every runtime role
-required by that application. Runtime
-credentials must never own database/schema objects. Each database has an independent
-history. Runtime deployment uses the domain-specific roots. The historical shared master and bootstrap remain only for migration-history regression tests; applications have no legacy schema fallback.
-
-Copy `.env.example` to an ignored `.env` and select exactly one database URL and its
-matching changelog. Keep remote TLS verification enabled. From `database/`:
-
-```sh
-docker compose --profile migration build
-docker compose --profile migration run --rm liquibase validate
-docker compose --profile migration run --rm liquibase update
-```
-
-Momentum SQL is copied unchanged from the unified migrations in runtime revision
-`e0cbd36`; the earlier empty analysis namespace is superseded.
-
-Migration selection is explicit. Changing only the changelog without changing the
-connection URL does not select another database.
-
-Each Scanner process holds at most one session connection plus the configured
-analysis pool (default one). The local writer role limit of four accommodates one
-API process and one job. Revision overlap or simultaneous extra jobs require a
-larger reviewed budget or stopped consumers. Reader pool default is one; Momentum
-session pool is one. Both engines close on shutdown. Service-wide live capacity,
-new immutable images and numeric secret versions must be checked before rollout.
-
-The remote cutover was applied on 2026-10-21. Both domains use their dedicated
-databases, and `defaultdb` is free of application data. See the
-[remote evidence](../docs/migrations/domain-databases/evidence.md),
-[release map](../docs/migrations/domain-databases/release-map.md), and
-[operations runbook](../docs/migrations/domain-databases/operations.md).
-Local test evidence remains separate from the successful live Scanner execution.
-
-Test the non-superuser remote bootstrap SQL safely on a disposable local container:
-
-```sh
-python3 database/scripts/test_scanner_bootstrap.py
-uv run --project apps/backend/market-scanner-adk --frozen pytest -q database/tests/test_scanner_cutover.py
-```
-
-## Momentum database
-
-Use the [Momentum DBA/developer guide](MOMENTUM.md) for the supported single-database
-layout, role separation, the pinned Liquibase commands and verification steps.
-The dedicated `compose.momentum.yaml` override selects `momentum.yaml` explicitly.
-Old Momentum migration roots remain only for historical compatibility.
-
-## JDBC driver updates
-
-`Dockerfile` pins the PostgreSQL JDBC version and SHA-256 from the Maven Central
-artifact. Update the URL, destination filename and digest together, then rebuild
-without cache and run the PostgreSQL integration checks before merging.
-The driver is installed directly into Liquibase's library path; builds do not
-resolve a moving Liquibase Package Manager catalog.
+References: [Liquibase baseline synchronization](https://docs.liquibase.com/community/reference-guide-5-0/database-inspection-change-tracking-and-utility-commands/changelog-sync),
+[PostgreSQL schema-only exports](https://www.postgresql.org/docs/18/app-pgdump.html),
+[LiteLLM migration ownership](../infra/litellm/README.md).

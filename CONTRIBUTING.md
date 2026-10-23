@@ -34,7 +34,7 @@ uv run ruff check src
 Add or update tests for behavior changes. Database integration tests live in
 `apps/backend/market-scanner-adk/src/test/integration` and require a disposable
 local PostgreSQL database. Follow the [database test instructions](database/README.md)
-to run them without skips. Migration files live in `database/changelog`.
+to run them without skips. Migration files live in `database/domains/<domain>/migrations`.
 
 For Terraform changes, run these checks from the repository root:
 
