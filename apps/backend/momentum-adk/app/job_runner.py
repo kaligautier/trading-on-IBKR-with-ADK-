@@ -10,9 +10,9 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from app.config.llm import create_model
 from app.config.rate_limit import ModelRequestGate
 from app.config.settings import Settings
-from app.config.storage import MomentumStorage
 from app.domain.contracts import AnalysisRequest
-from app.infrastructure.memory.log import MemoryLogConfiguration, TradingMemoryLog
+from app.infrastructure.admission import MomentumBusyError, admit_execution
+from app.infrastructure.memory.postgres import PostgresMemoryRepository
 from app.infrastructure.postgres_tls import connection_options
 from app.infrastructure.result_repository import PostgresResultRepository
 from app.infrastructure.result_writer import ModelMetadata, PostgresResultWriter
@@ -46,18 +46,26 @@ async def execute(request: AnalysisRequest):
     config = Settings()
     session_url = os.environ["MOMENTUM_SESSION_DATABASE_URL"]
     connection_options(session_url, os.getenv("DATABASE_CA_FILE"))
+    database = create_result_engine(os.environ["MOMENTUM_RESULT_DATABASE_URL"])
+    try:
+        async with admit_execution(database) as connection:
+            return await _execute_admitted(request, config, session_url, connection)
+    finally:
+        await database.dispose()
+
+
+async def _execute_admitted(request, config, session_url, connection):
     gate = ModelRequestGate()
     models = [
         create_model(config, config.MOMENTUM_QUICK_MODEL, gate),
         create_model(config, config.MOMENTUM_DEEP_MODEL, gate),
     ]
     runtime = None
-    database = create_result_engine(os.environ["MOMENTUM_RESULT_DATABASE_URL"])
     try:
         runtime = await MomentumRuntimeFactory(*models, session_url).create()
-        storage = MomentumStorage.from_environment()
+        factory = async_sessionmaker(connection, expire_on_commit=False)
         memory = TradingMemoryService(
-            TradingMemoryLog(MemoryLogConfiguration(storage.memory_log_path)),
+            PostgresMemoryRepository(factory),
             MarketOutcomeResolver(),
         )
         execution = await MomentumExecutionService(runtime.engine, memory).execute(
@@ -71,10 +79,9 @@ async def execute(request: AnalysisRequest):
             )
         )
         await PostgresResultRepository(
-            async_sessionmaker(database, expire_on_commit=False),
+            factory,
             writer,
         ).save(execution)
-        memory.complete(request, execution.result)
         print(
             json.dumps(
                 {
@@ -92,7 +99,6 @@ async def execute(request: AnalysisRequest):
     finally:
         if runtime is not None:
             await runtime.session_service.close()
-        await database.dispose()
         for model in models:
             if "api_client" in model.__dict__:
                 await model.api_client.aio.aclose()
@@ -115,6 +121,9 @@ def main():
         )
         asyncio.run(execute(request))
         return 0
+    except MomentumBusyError:
+        print(json.dumps({"event": "momentum_busy"}), flush=True)
+        return 75
     except Exception as error:
         # URLs, model prompts and upstream response bodies never enter this log.
         print(

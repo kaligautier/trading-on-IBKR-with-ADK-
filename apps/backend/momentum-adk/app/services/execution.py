@@ -14,7 +14,7 @@ class MomentumExecutionService:
 
     async def execute(self, request: AnalysisRequest) -> WorkflowExecution:
         started_at = time.monotonic()
-        enriched_request = self._memory_log.prepare(request)
+        enriched_request = await self._memory_log.prepare(request)
         execution = await self._engine.execute(
             enriched_request,
             invocation_id=request.invocation_id,

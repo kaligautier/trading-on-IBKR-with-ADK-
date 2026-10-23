@@ -1,1 +1,1 @@
-"""Local decision-memory persistence."""
+"""Durable private decision-memory persistence."""

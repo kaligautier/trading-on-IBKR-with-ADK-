@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from datetime import date, timedelta
 from typing import Any
 
 import yfinance
 
-from app.domain.contracts import AnalysisRequest, PendingOutcome, WorkflowResult
+from app.domain.contracts import AnalysisRequest, PendingOutcome
 
 logger = logging.getLogger(__name__)
 
@@ -64,56 +65,29 @@ class MarketOutcomeResolver:
 
 
 class TradingMemoryService:
-    """Prepare and commit the memory state of one analysis."""
+    """Read durable context, then resolve market outcomes outside SQL sessions."""
 
-    def __init__(
-        self, memory_log: Any, outcome_resolver: MarketOutcomeResolver
-    ) -> None:
-        self._memory_log = memory_log
+    def __init__(self, repository, outcome_resolver: MarketOutcomeResolver) -> None:
+        self._repository = repository
         self._outcome_resolver = outcome_resolver
 
-    def prepare(self, request: AnalysisRequest) -> AnalysisRequest:
-        pending = self._pending_outcomes(request.ticker)
+    async def prepare(self, request: AnalysisRequest) -> AnalysisRequest:
+        snapshot = await self._repository.snapshot(
+            request.requested_by or "system", request.ticker, request.analysis_date
+        )
+        pending = []
+        for entry in snapshot.pending:
+            outcome = await asyncio.to_thread(
+                self._outcome_resolver.resolve,
+                ticker=entry.ticker,
+                trade_date=entry.analysis_date,
+                decision=entry.decision,
+            )
+            if outcome is not None:
+                pending.append(outcome.model_copy(update={"memory_id": entry.id}))
         return request.model_copy(
             update={
-                "past_context": self._memory_log.get_past_context(request.ticker),
+                "past_context": snapshot.context,
                 "pending_outcomes": tuple(pending),
             }
         )
-
-    def complete(self, request: AnalysisRequest, result: WorkflowResult) -> None:
-        updates = [self._update(item) for item in result.memory_reflections]
-        if updates:
-            self._memory_log.batch_update_with_outcomes(updates)
-        self._memory_log.store_decision(
-            ticker=request.ticker,
-            trade_date=str(request.analysis_date),
-            final_trade_decision=result.final_decision,
-        )
-
-    def _pending_outcomes(self, ticker: str) -> list[PendingOutcome]:
-        entries = self._memory_log.get_pending_entries()
-        return [
-            outcome
-            for entry in entries
-            if entry["ticker"] == ticker
-            if (outcome := self._resolve(entry)) is not None
-        ]
-
-    def _resolve(self, entry: dict) -> PendingOutcome | None:
-        return self._outcome_resolver.resolve(
-            ticker=entry["ticker"],
-            trade_date=date.fromisoformat(entry["date"]),
-            decision=entry.get("decision", ""),
-        )
-
-    @staticmethod
-    def _update(reflection) -> dict:
-        return {
-            "ticker": reflection.ticker,
-            "trade_date": str(reflection.trade_date),
-            "raw_return": reflection.raw_return,
-            "alpha_return": reflection.alpha_return,
-            "holding_days": reflection.holding_days,
-            "reflection": reflection.reflection,
-        }

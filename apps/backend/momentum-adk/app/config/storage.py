@@ -13,8 +13,6 @@ class MomentumStorage:
 
     results_directory: Path
     cache_directory: Path
-    memory_log_path: Path
-    memory_log_max_entries: int | None = None
 
     @classmethod
     def from_environment(cls, user_home: Path | None = None) -> MomentumStorage:
@@ -29,11 +27,6 @@ class MomentumStorage:
                 "MOMENTUM_CACHE_DIR",
                 "TRADINGAGENTS_CACHE_DIR",
                 base_directory / "cache",
-            ),
-            memory_log_path=cls._environment_path(
-                "MOMENTUM_MEMORY_LOG_PATH",
-                "TRADINGAGENTS_MEMORY_LOG_PATH",
-                base_directory / "memory" / "trading_memory.md",
             ),
         )
 

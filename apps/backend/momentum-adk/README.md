@@ -75,3 +75,30 @@ role order, defaults, result fields and resume correlation retain the source
 contract. All 16 financial JSON schemas and 12 renderer ASTs match the source;
 workflow state and rating parser are unchanged. A requester label is audit
 context, not authorization.
+
+### Durable private memory
+
+The worker reads user-scoped decisions and reflections from
+`momentum._analysis.trading_memory`, using its existing result connection pool.
+Apply the additive domain Liquibase migration before rolling out this worker.
+Readers and the session writer cannot access this private table. Results, the
+current decision and resolved reflections commit in one transaction; an identical
+execution replay is a no-op, while conflicting completion content is rejected.
+
+Context retrieval is deterministic and bounded (five resolved ticker entries,
+three other resolved entries, at most sixteen pending ticker outcomes). Market
+lookups happen after the read session closes. Reflections reference stable memory
+IDs, so two analyses of the same ticker/date remain distinct. A new process needs
+only PostgreSQL access to recover memory; no local file fallback or automatic
+import of historical `/tmp` files remains. Cache and diagnostic paths may still
+use temporary storage.
+
+### Execution admission
+
+A PostgreSQL advisory lock admits one Momentum job across processes before model
+or ADK session initialization. Competing jobs emit `momentum_busy` and exit 75;
+Cloud Run automatic retries remain disabled. The admitted result connection also
+serves memory reads and atomic completion, with no transaction held during model
+calls. Sessions close before admission is released. Cancellation and process death
+release the physical database session and its lock. This fits the global budget
+in `docs/database-connection-capacity.md`; apply its role limits and rollout gate.

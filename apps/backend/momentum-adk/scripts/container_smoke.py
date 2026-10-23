@@ -15,7 +15,6 @@ storage = MomentumStorage.from_environment()
 for directory in (
     storage.cache_directory,
     storage.results_directory,
-    storage.memory_log_path.parent,
 ):
     directory.mkdir(parents=True, exist_ok=True)
     probe = directory / "smoke"
