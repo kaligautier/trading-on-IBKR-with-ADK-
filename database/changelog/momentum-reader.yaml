@@ -1,7 +1,0 @@
-databaseChangeLog:
-  - include:
-      file: momentum.yaml
-      relativeToChangelogFile: true
-  - include:
-      file: momentum-reader/001-reader.sql
-      relativeToChangelogFile: true
