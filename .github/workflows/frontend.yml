@@ -1,11 +1,10 @@
 name: Public scanner frontend
 on:
-  pull_request:
-    paths:
-      - 'apps/frontend/**'
-      - 'apps/backend/market-scanner-adk/examples/report-v3.json'
-      - 'infra/frontend/**'
-      - '.github/workflows/frontend.yml'
+  workflow_call:
+    outputs:
+      jobs:
+        description: Results of every verification job
+        value: ${{ toJSON(jobs) }}
   push:
     branches: [main]
     paths:

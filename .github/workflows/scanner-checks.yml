@@ -1,0 +1,82 @@
+name: Scanner verification
+on:
+  workflow_call:
+    outputs:
+      jobs:
+        description: Results of every verification job
+        value: ${{ toJSON(jobs) }}
+permissions:
+  contents: read
+jobs:
+  application:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: apps/backend/market-scanner-adk
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
+        with:
+          version: '0.9.17'
+          enable-cache: true
+          cache-dependency-glob: apps/backend/market-scanner-adk/uv.lock
+      - name: Install locked dependencies
+        run: uv sync --locked --python 3.12
+      - name: Lint application and tests
+        run: uv run --no-sync ruff check src ../../../scripts/scanner_image_smoke.py
+      - name: Check formatting
+        run: uv run --no-sync ruff format --check src/app ../../../scripts/scanner_image_smoke.py
+      - name: Test scanner and gateway failure handling
+        run: TZ=UTC uv run --no-sync pytest -q src/test/unit
+      - name: Verify locked ADK and OpenTelemetry compatibility offline
+        run: uv run --no-sync python ../../../.github/scripts/verify_adk_telemetry.py
+
+  infrastructure:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3
+        with:
+          terraform_version: '1.14.4'
+          terraform_wrapper: false
+      - name: Check Terraform formatting
+        run: terraform -chdir=infra fmt -check -recursive
+      - name: Initialize providers without cloud backend
+        run: terraform -chdir=infra/market-scanner init -backend=false -input=false -lockfile=readonly
+      - name: Validate runtime infrastructure
+        run: terraform -chdir=infra/market-scanner validate
+      - name: Test runtime infrastructure with mocked providers
+        run: terraform -chdir=infra/market-scanner test
+      - name: Validate and test bootstrap infrastructure
+        run: |
+          terraform -chdir=infra/bootstrap init -backend=false -input=false -lockfile=readonly
+          terraform -chdir=infra/bootstrap validate
+          terraform -chdir=infra/bootstrap test
+
+  dependencies:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
+        with:
+          version: '0.9.17'
+      - name: Export locked runtime dependencies
+        run: uv export --project apps/backend/market-scanner-adk --frozen --no-dev --no-emit-project --format requirements-txt --output-file=${{ runner.temp }}/scanner-requirements.txt
+      - name: Audit runtime dependencies
+        run: uvx --from pip-audit==2.10.1 --python 3.12 pip-audit -r ${{ runner.temp }}/scanner-requirements.txt --disable-pip --no-deps
+
+  image:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Build Linux release image
+        run: docker build --platform linux/amd64 --tag scanner:verify apps/backend/market-scanner-adk
+      - name: Verify packaged runtime without cloud access
+        run: python3 scripts/scanner_image_smoke.py scanner:verify
+
