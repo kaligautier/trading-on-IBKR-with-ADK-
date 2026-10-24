@@ -5,18 +5,10 @@ from fastmcp.server.lifespan import Lifespan
 from fastmcp.server.middleware.rate_limiting import SlidingWindowRateLimitingMiddleware
 from starlette.responses import JSONResponse
 
+from momentum_public_mcp.constants import PUBLIC_TOOL_NAMES  # noqa: F401 -- compatibility export
+from momentum_public_mcp.observability import ToolTelemetry
 from momentum_public_mcp.security import FingerprintProvider
 from momentum_public_mcp.tools import MomentumPublicTools
-
-PUBLIC_TOOL_NAMES = {
-    "list_analyses",
-    "latest_analyses",
-    "get_analysis",
-    "get_recommendations",
-    "latest_market_scan",
-    "suggest_ticker",
-    "get_suggestion_status",
-}
 
 
 async def health_check(request) -> JSONResponse:
@@ -48,6 +40,7 @@ class MomentumPublicMcpServer:
             tasks=False,
         )
         self.server.enable(tags={"public"}, only=True)
+        self.server.add_middleware(ToolTelemetry())
         self._add_health_route()
         if fingerprint is not None:
             self._add_rate_limit(fingerprint)

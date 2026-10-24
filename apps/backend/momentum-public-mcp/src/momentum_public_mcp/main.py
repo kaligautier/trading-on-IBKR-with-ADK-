@@ -1,11 +1,9 @@
 """Cloud Run entrypoint."""
 
-from momentum_public_mcp.application import (
-    MomentumPublicApplication,
-    MomentumPublicSettings,
-)
+from momentum_public_mcp.application import MomentumPublicApplication
+from momentum_public_mcp.config import Settings
 
-application = MomentumPublicApplication(MomentumPublicSettings.from_environment())
+application = MomentumPublicApplication(Settings())
 mcp = application.mcp
 
 
