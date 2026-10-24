@@ -41,3 +41,12 @@ run "reject_floating_secret" {
   }
   expect_failures = [var.caller_key_version]
 }
+
+run "reject_invalid_sampling" {
+  command = plan
+  variables {
+    log_success_sample_rate = 1.1
+    log_slow_request_ms     = 0
+  }
+  expect_failures = [var.log_success_sample_rate, var.log_slow_request_ms]
+}
