@@ -150,7 +150,12 @@ class HTTPPolicy:
             raise APIError(501, "not-implemented")
         if route is None:
             raise APIError(404, "not-found")
-        if method not in {"GET", "HEAD", "OPTIONS"}:
+        allowed = (
+            {"POST", "OPTIONS"}
+            if route == "/suggestions"
+            else {"GET", "HEAD", "OPTIONS"}
+        )
+        if method not in allowed:
             raise APIError(405, "method-not-allowed")
 
     def _validate_query(self, scope: Scope, route: str | None) -> None:
@@ -164,6 +169,8 @@ class HTTPPolicy:
     ) -> tuple[int, list[tuple[bytes, bytes]], bytes] | None:
         if scope["method"] == "OPTIONS":
             return 204, [], b""
+        if scope["method"] == "POST":
+            return await self._post(scope, receive, headers)
         # Read no more than one chunk when a body is present. Bodyless
         # reads are not replayed, buffered or passed on to dependencies.
         while True:
@@ -188,6 +195,48 @@ class HTTPPolicy:
         response_headers = start.get("headers", [])
         body = b"".join(m.get("body", b"") for m in messages)
         return self._conditional_response(headers, status, response_headers, body)
+
+    async def _post(
+        self, scope: Scope, receive: Receive, headers: Headers
+    ) -> tuple[int, list[tuple[bytes, bytes]], bytes] | None:
+        # Validate representation before any write, so an unacceptable response
+        # cannot commit a suggestion and then misleadingly report HTTP 406.
+        if not accepts(
+            ",".join(headers.getlist("accept")) or None, "application/json"
+        ) or not accepts_identity(",".join(headers.getlist("accept-encoding")) or None):
+            raise APIError(406, "not-acceptable")
+        if (
+            headers.get("content-type", "").split(";", 1)[0].strip().lower()
+            != "application/json"
+        ):
+            raise APIError(415, "unsupported-media-type")
+        if headers.get("if-match") or headers.get("if-none-match"):
+            raise APIError(400, "invalid-argument")
+        body = bytearray()
+        while True:
+            message = await receive()
+            if message["type"] == "http.disconnect":
+                return None
+            body.extend(message.get("body", b""))
+            if len(body) > 4096:
+                raise APIError(413, "payload-too-large")
+            if not message.get("more_body", False):
+                break
+        messages: list[Message] = []
+
+        async def replay() -> Message:
+            return {"type": "http.request", "body": bytes(body), "more_body": False}
+
+        async def capture(message: Message) -> None:
+            messages.append(message)
+
+        await self.app(scope, replay, capture)
+        start = next(m for m in messages if m["type"] == "http.response.start")
+        return (
+            start["status"],
+            start.get("headers", []),
+            b"".join(m.get("body", b"") for m in messages),
+        )
 
     @staticmethod
     def _conditional_response(
@@ -265,7 +314,8 @@ class HTTPPolicy:
             ]
         )
         if route is not None and status in {204, 405}:
-            response_headers.append((b"allow", ALLOW.encode()))
+            allowed = "POST, OPTIONS" if route == "/suggestions" else ALLOW
+            response_headers.append((b"allow", allowed.encode()))
         if status not in {204, 304}:
             response_headers.append((b"content-length", str(len(body)).encode()))
         return response_headers

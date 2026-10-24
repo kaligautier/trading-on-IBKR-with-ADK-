@@ -1,6 +1,8 @@
 # Momentum consultation API
 
-Private, read-only service over committed results in `momentum._analysis`.
+Private consultation service over committed results in `momentum._analysis`,
+with recovered suggestion intake in `momentum._suggestions`. Analysis access
+remains read-only.
 FastAPI models/routes and HTTP policy define the executable contract;
 [openapi.json](openapi.json) is its deterministic export.
 The [product specification](../../../docs/specs/momentum-consultation-api.md)
@@ -233,3 +235,39 @@ A standalone cleanup failure remains a failed shutdown.
 Tests inject settings with dotenv disabled and explicit deployment options;
 `app.main:create_app` still loads runtime settings when invoked without arguments.
 A synthetic poisoned environment/dotenv test verifies the injection boundary.
+
+
+## Recovered DeepCopy suggestions
+
+`POST /suggestions` and `GET /suggestions/{uuid}` preserve the original MCP
+intake/status contract. Submission returns HTTP 202 with a pending record and
+never starts an analysis. Duplicate symbols return the original record, including
+a previously reviewed record. A current analysis prevents a new suggestion;
+expiry uses UTC dates. Intake is limited to one new suggestion per fifteen minutes
+and five per UTC day per signed caller, atomically across connections.
+
+Submission requires the MCP's `X-Momentum-Caller` HMAC fingerprint and its
+`X-Momentum-Signature`, verified with `SUGGESTION_HASH_SECRET`. Cloud Run IAM
+remains mandatory. Invalid or missing signatures return 403; missing signing
+configuration returns 503. There is no fallback to an unverified caller header.
+
+The existing one-connection pool also accesses `_suggestions.ticker_suggestions`
+in the same Momentum database. Only `symbol`, `reason` and `suggested_by` are
+insertable by the runtime role. Its existing analysis grants remain SELECT-only;
+review/status changes, deletion and DDL remain forbidden. The historical login
+name `momentum_results_reader` is retained to avoid adding a connection budget.
+Only the intake transaction temporarily uses READ WRITE; subsequent transactions
+return to the default READ ONLY setting. Liquibase owns the new schema.
+
+Reproducible integration check (after syncing both backend environments and
+installing the pinned Postman CLI):
+
+```sh
+bash scripts/test_database.sh start
+uv run --frozen python scripts/mcp_smoke.py
+bash scripts/test_database.sh stop
+```
+
+This launches real loopback API/MCP processes, runs nine saved Postman requests,
+and independently reads PostgreSQL to prove the pending result was committed.
+It emulates Cloud Run ingress locally; IAM must also be verified after deployment.

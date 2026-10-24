@@ -1,5 +1,6 @@
 """Document the ASGI HTTP policy in the executable OpenAPI contract."""
 
+from collections.abc import Iterator
 from copy import deepcopy
 from typing import Any
 
@@ -85,7 +86,7 @@ def install_schema(app: FastAPI) -> None:
                 },
             }
         }
-        for path, operations in document["paths"].items():
+        for path, operations in _read_paths(document, common):
             operation = operations["get"]
             operation["security"] = [] if path == "/health" else [{"Bearer": []}]
             responses = operation["responses"]
@@ -165,7 +166,8 @@ def install_schema(app: FastAPI) -> None:
                 },
             }
         document["info"]["description"] = (
-            "Private read-only Momentum catalogue. UTC dates/timestamps; finite JSON. "
+            "Private Momentum catalogue and moderated suggestion intake. "
+            "Analyses remain read-only. UTC dates/timestamps; finite JSON. "
             "Clients should send Accept: application/json, application/problem+json "
             "to receive both successful representations and problem details. "
             "For application/json, Accept charset parameters have no effect; "
@@ -183,3 +185,51 @@ def install_schema(app: FastAPI) -> None:
         return document
 
     app.openapi = schema  # type: ignore[method-assign]
+
+
+def _describe_intake(operations: dict[str, Any], common: dict[str, Any]) -> None:
+    operation = operations["post"]
+    operation["security"] = [{"Bearer": []}]
+    operation["description"] = (
+        "Creates a pending suggestion, or returns the original record for the ticker. "
+        "Requires a verified MCP caller HMAC. At most five suggestions per UTC day "
+        "and one per fifteen minutes per caller. Never approves or starts an analysis."
+    )
+    responses = operation["responses"]
+    responses.pop("422", None)
+    responses["202"]["headers"] = deepcopy(common)
+    for status in sorted(ERRORS - {412}):
+        responses[str(status)] = {"$ref": f"#/components/responses/{status}"}
+    operation["parameters"] = [
+        {
+            "in": "header",
+            "name": name,
+            "required": True,
+            "schema": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        }
+        for name in ("X-Momentum-Caller", "X-Momentum-Signature")
+    ]
+    operations["options"] = {
+        "operationId": "options_submit_suggestion",
+        "security": [{"Bearer": []}],
+        "responses": {
+            "204": {
+                "description": "No content; allowed methods: POST, OPTIONS.",
+                "headers": {
+                    **common,
+                    "Allow": {"schema": {"type": "string", "const": "POST, OPTIONS"}},
+                },
+            },
+            "401": {"$ref": "#/components/responses/401"},
+        },
+    }
+
+
+def _read_paths(
+    document: dict[str, Any], common: dict[str, Any]
+) -> Iterator[tuple[str, dict[str, Any]]]:
+    for path, operations in document["paths"].items():
+        if "post" in operations:
+            _describe_intake(operations, common)
+        else:
+            yield path, operations

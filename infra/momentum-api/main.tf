@@ -28,6 +28,14 @@ resource "google_secret_manager_secret_iam_member" "reader" {
   member    = "serviceAccount:${google_service_account.reader.email}"
 }
 
+resource "google_secret_manager_secret_iam_member" "suggestions" {
+  count     = var.suggestion_key_version == null ? 0 : 1
+  project   = var.project_id
+  secret_id = "momentum-mcp-caller-key"
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.reader.email}"
+}
+
 resource "google_cloud_run_v2_service" "reader" {
   project              = var.project_id
   name                 = "momentum-api"
@@ -75,6 +83,18 @@ resource "google_cloud_run_v2_service" "reader" {
           }
         }
       }
+      dynamic "env" {
+        for_each = var.suggestion_key_version == null ? [] : [var.suggestion_key_version]
+        content {
+          name = "SUGGESTION_HASH_SECRET"
+          value_source {
+            secret_key_ref {
+              secret  = "momentum-mcp-caller-key"
+              version = env.value
+            }
+          }
+        }
+      }
       volume_mounts {
         name       = "database-ca"
         mount_path = "/etc/database"
@@ -111,7 +131,7 @@ resource "google_cloud_run_v2_service" "reader" {
     type    = "TRAFFIC_TARGET_ALLOCATION_TYPE_LATEST"
     percent = 100
   }
-  depends_on = [google_secret_manager_secret_iam_member.reader]
+  depends_on = [google_secret_manager_secret_iam_member.reader, google_secret_manager_secret_iam_member.suggestions]
 }
 
 resource "google_cloud_run_v2_service_iam_member" "invoker" {
