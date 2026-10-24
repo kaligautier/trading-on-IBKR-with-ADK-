@@ -61,6 +61,64 @@ async def test_baseline_verifier_remains_distinct(current_databases, monkeypatch
 
 
 @pytest.mark.parametrize(
+    "role,column,privilege,was_allowed,mutation,restore",
+    [
+        (
+            "momentum_results_reader",
+            "decision",
+            "SELECT",
+            False,
+            "GRANT SELECT (decision) ON _analysis.trading_memory TO momentum_results_reader",
+            "REVOKE SELECT (decision) ON _analysis.trading_memory FROM momentum_results_reader",
+        ),
+        (
+            "momentum_results_writer",
+            "reflection",
+            "UPDATE",
+            True,
+            "REVOKE UPDATE (reflection) ON _analysis.trading_memory FROM momentum_results_writer",
+            "GRANT UPDATE (reflection) ON _analysis.trading_memory TO momentum_results_writer",
+        ),
+    ],
+    ids=["private-column-exposed", "required-writer-grant-removed"],
+)
+async def test_verify_rejects_column_privilege_drift(
+    current_databases,
+    monkeypatch,
+    role,
+    column,
+    privilege,
+    was_allowed,
+    mutation,
+    restore,
+):
+    module = management()
+    monkeypatch.setenv("DATABASE_URL", url("momentum"))
+    args = argparse.Namespace(
+        action="verify", domain="momentum", url_file=None, ca_file=None
+    )
+    await module.execute(args)
+    connection = await asyncpg.connect(url("momentum"))
+    try:
+        check = "SELECT has_column_privilege($1, '_analysis.trading_memory', $2, $3)"
+        assert await connection.fetchval(check, role, column, privilege) == was_allowed
+        await connection.execute(mutation)
+        assert await connection.fetchval(check, role, column, privilege) != was_allowed
+    finally:
+        await connection.close()
+    try:
+        with pytest.raises(ValueError, match="Schema differs"):
+            await module.execute(args)
+    finally:
+        connection = await asyncpg.connect(url("momentum"))
+        try:
+            await connection.execute(restore)
+        finally:
+            await connection.close()
+    await module.execute(args)
+
+
+@pytest.mark.parametrize(
     "mutation", ["column", "grant", "missing", "checksum", "null_checksum"]
 )
 async def test_current_verification_rejects_drift(current_databases, mutation):

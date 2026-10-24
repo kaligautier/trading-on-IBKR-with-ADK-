@@ -43,7 +43,8 @@ async def capture_current(connection, root, domain):
 async def read_current(connection):
     """Read schema and migration history in the same consistent, read-only view."""
     async with connection.transaction(isolation="repeatable_read", readonly=True):
-        return fingerprint(await snapshot(connection)), await history(connection)
+        schema = await snapshot(connection, include_column_grants=True)
+        return fingerprint(schema), await history(connection)
 
 
 async def require_current(connection, root, domain):
