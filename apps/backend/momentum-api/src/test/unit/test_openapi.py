@@ -4,6 +4,8 @@ import json
 import runpy
 from pathlib import Path
 
+from app.presentation.routes.analyses import QUERY_PARAMETERS
+
 
 def test_openapi_policy_and_financial_shapes():
     exporter = runpy.run_path(
@@ -33,6 +35,11 @@ def test_openapi_policy_and_financial_shapes():
             assert not header_names & {"accept", "content-type", "authorization"}
             if method in {"get", "head"}:
                 assert {"accept-encoding", "if-match", "if-none-match"} <= header_names
+                assert {
+                    parameter["name"]
+                    for parameter in operation.get("parameters", [])
+                    if parameter["in"] == "query"
+                } == QUERY_PARAMETERS.get(path, frozenset())
             if method == "get":
                 assert "application/json" in operation["responses"]["200"]["content"]
             if method == "head":

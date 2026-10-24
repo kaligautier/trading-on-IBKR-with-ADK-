@@ -2,19 +2,27 @@
 
 import json
 import logging
+from unittest.mock import AsyncMock
 
 import httpx
 import pytest
 
 from app.app_factory import create_app
 from app.config.settings import Settings
+from app.domain.analyses.models import AnalysisPage
 from app.presentation.http.problems import APIError
+from app.services.analysis_service import AnalysisService
 
 BEARER = "Bearer disposable-reader-token"
 
 
 @pytest.fixture
-async def client():
+def reader():
+    return AsyncMock(spec=AnalysisService)
+
+
+@pytest.fixture
+async def client(reader):
     app = create_app(
         Settings(
             _env_file=None,
@@ -25,6 +33,7 @@ async def client():
             API_TOKEN="disposable-reader-token",
         )
     )
+    app.state.service = reader
 
     @app.get("/failure")
     async def failure():
@@ -185,3 +194,118 @@ async def test_malformed_bearer_transport(client, path, headers):
     response = await client.get(path, headers=headers)
     assert response.status_code == 400
     assert "invalid_request" in response.headers["www-authenticate"]
+
+
+@pytest.mark.parametrize("method", ["GET", "HEAD"])
+@pytest.mark.parametrize(
+    ("accept", "status"),
+    [
+        ("application/json;charset=utf-8", 200),
+        ('APPLICATION/JSON;CHARSET="UTF-8"', 200),
+        ("application/json;charset=utf-8;q=0, */*;q=1", 406),
+        ("application/json;charset=utf-8;profile=unknown", 406),
+    ],
+)
+async def test_json_charset_negotiation(client, method, accept, status):
+    response = await client.request(method, "/health", headers={"Accept": accept})
+    assert response.status_code == status
+    if method == "HEAD":
+        assert response.content == b""
+    elif status == 200:
+        assert response.headers["content-type"] == "application/json"
+        assert response.json() == {"status": "ok"}
+
+
+@pytest.mark.parametrize("method", ["GET", "HEAD"])
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/v1/analyses",
+        "/v1/analyses/latest",
+        "/v1/recommendations",
+        "/v1/analyses/00000000-0000-0000-0000-000000000001",
+        "/health",
+        "/ready",
+        "/openapi.json",
+    ],
+)
+@pytest.mark.parametrize("query", ["unexpected=1", "unexpected=1&unexpected=2"])
+async def test_all_read_routes_reject_unknown_queries(
+    client, reader, method, path, query
+):
+    response = await client.request(
+        method,
+        path + "?" + query,
+        headers={"Authorization": BEARER, "If-Match": '"different"'},
+    )
+    assert response.status_code == 400
+    assert response.headers["cache-control"] == "no-store"
+    if method == "HEAD":
+        assert response.content == b""
+    else:
+        assert response.headers["content-type"] == "application/problem+json"
+        assert response.json()["code"] == "INVALID_ARGUMENT"
+    reader.list.assert_not_awaited()
+    reader.get.assert_not_awaited()
+    reader.ready.assert_not_awaited()
+
+
+@pytest.mark.parametrize("method", ["GET", "HEAD"])
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/v1/analyses?ticker=AAPL&%74icker=MSFT",
+        "/v1/analyses/latest?rating=Buy&rating=Sell",
+        "/v1/recommendations?page_size=10&page_size=20",
+        "/v1/analyses?page_token=&page_token=",
+        "/v1/analyses?rating=Buy",
+    ],
+)
+async def test_list_queries_still_reject_duplicates_and_unsupported_filters(
+    client, reader, method, path
+):
+    response = await client.request(method, path, headers={"Authorization": BEARER})
+    assert response.status_code == 400
+    reader.list.assert_not_awaited()
+
+
+async def test_query_validation_preserves_authentication_and_method_precedence(client):
+    path = "/openapi.json?unexpected=1"
+    assert (await client.get(path)).status_code == 401
+    auth = {"Authorization": BEARER}
+    assert (await client.get("/absent?unexpected=1", headers=auth)).status_code == 404
+    assert (await client.post(path, headers=auth)).status_code == 405
+    assert (await client.options(path, headers=auth)).status_code == 204
+    token = await client.get("/openapi.json?access_token=bad", headers=auth)
+    assert token.status_code == 400
+    assert 'error="invalid_request"' in token.headers["www-authenticate"]
+
+
+@pytest.mark.parametrize("method", ["GET", "HEAD"])
+@pytest.mark.parametrize(
+    ("path", "view", "extra", "ratings"),
+    [
+        ("/v1/analyses", "history", "", None),
+        ("/v1/analyses/latest", "latest", "&rating=buy,sell", ("Buy", "Sell")),
+        ("/v1/recommendations", "recommendations", "&rating=hold", ("Hold",)),
+    ],
+)
+async def test_declared_list_parameters_reach_the_reader(
+    client, reader, method, path, view, extra, ratings
+):
+    reader.list.return_value = AnalysisPage(items=[], next_page_token="")
+    response = await client.request(
+        method,
+        path + "?ticker=aapl&page_size=1&page_token=" + extra,
+        headers={"Authorization": BEARER},
+    )
+    assert response.status_code == 200
+    reader.list.assert_awaited_once()
+    query = reader.list.await_args.args[0]
+    assert (query.view, query.ticker, query.page_size, query.cursor, query.ratings) == (
+        view,
+        "AAPL",
+        1,
+        None,
+        ratings,
+    )

@@ -15,7 +15,7 @@ from app.presentation.http.errors import application_problem
 from app.presentation.http.middleware import HTTPPolicy
 from app.presentation.http.problems import APIError, problem_bytes
 from app.presentation.http.schema import install_schema
-from app.presentation.routes.analyses import router
+from app.presentation.routes.analyses import QUERY_PARAMETERS, router
 
 Lifespan = Callable[[FastAPI], AbstractAsyncContextManager[None]]
 
@@ -50,13 +50,22 @@ def create_app(settings: Settings, lifespan: Lifespan | None = None) -> FastAPI:
         return await application_error(_, application_problem(error))
 
     def route_name(scope: Scope) -> str | None:
-        for route in app.routes:
+        # FastAPI can wrap included routers; inspect their concrete resources too.
+        for route in [*app.routes, *router.routes]:
+            path = getattr(route, "path", None)
+            if path is None:
+                continue
             match, _ = route.matches({**scope, "method": "GET"})
             if match == Match.FULL:
-                return str(getattr(route, "path", "unknown"))
+                return str(path)
         return None
 
     app.include_router(router)
-    app.add_middleware(HTTPPolicy, settings=settings, route_name=route_name)
+    app.add_middleware(
+        HTTPPolicy,
+        settings=settings,
+        route_name=route_name,
+        query_parameters=QUERY_PARAMETERS,
+    )
     install_schema(app)
     return app

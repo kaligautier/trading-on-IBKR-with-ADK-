@@ -26,10 +26,26 @@ from app.presentation.http.problems import APIError, problem_bytes
         ("application/json;q=0.0000", False),
         ("APPLICATION/JSON;Q=1", True),
         ("application/json;profile=unknown", False),
+        ("application/json;charset=utf-8", True),
+        ('APPLICATION/JSON;CHARSET="UTF-8"', True),
+        ("application/json;charset=iso-8859-1", True),
+        ("application/*;charset=utf-8", True),
+        ("application/json;charset=utf-8;q=0, */*;q=1", False),
+        ("application/json;q=0;charset=utf-8, application/*;q=1", False),
+        ("application/json;charset=utf-8;q=0.5, */*;q=0", True),
+        ("application/json;charset=utf-8;profile=unknown", False),
+        ("application/json;charset=utf-8;charset=utf-8", False),
     ],
 )
 def test_accept(value: str | None, expected: bool) -> None:
     assert accepts(value, "application/json") is expected
+
+
+def test_json_charset_tolerance_does_not_apply_to_other_media_types():
+    assert not accepts("text/plain;charset=utf-8", "text/plain")
+    assert not accepts(
+        "application/problem+json;charset=utf-8", "application/problem+json"
+    )
 
 
 @pytest.mark.parametrize(
