@@ -1,0 +1,18 @@
+{
+  "source_digest": "462ac184a175aa84e3488ab499c6d7ee1867073e90302aa3f4aa93e725275351",
+  "fingerprint": "18115857d808af56e6c48d14df13beb8d351c21617114c6f237857738e421b08",
+  "changesets": [
+    {
+      "id": "market_scanner-aiven-20261023",
+      "author": "deepcopy",
+      "filename": "domains/market_scanner/changelog.yaml",
+      "md5sum": "9:cbb9133b5c1a8146c3bdd873d07ca523"
+    },
+    {
+      "id": "market_scanner-aiven-20261023-tag",
+      "author": "deepcopy",
+      "filename": "domains/market_scanner/changelog.yaml",
+      "md5sum": "9:29cfc7d7e83a0d37e31bab332a9e6de1"
+    }
+  ]
+}

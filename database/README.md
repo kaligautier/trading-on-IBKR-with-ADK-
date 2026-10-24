@@ -60,9 +60,9 @@ Use the appropriate identity and database name, `sslmode=verify-full`, and the A
 CA via `sslrootcert` or `--ca-file`. Never put a real URL in shell history or Git.
 
 ```sh
-# Read-only comparison: runtime identities can inspect PostgreSQL catalogs.
+# Baseline comparison before adoption; runtime identities can inspect the catalog.
 uv run --project apps/backend/market-scanner-adk --frozen python database/manage.py \
-  verify --domain momentum --url-file .local/momentum.url --ca-file .local/aiven-ca.pem
+  verify-baseline --domain momentum --url-file .local/momentum.url --ca-file .local/aiven-ca.pem
 ```
 
 To adopt the new baseline on an existing database, first back up its Liquibase
@@ -87,7 +87,8 @@ owned `liquibase` schema. These are distinct identities because an Aiven adminis
 cannot necessarily assume an existing migration role.
 
 Run `manage.py baseline --domain <domain> --url-file <private-file>` to create exactly
-the captured Aiven state, stopping at `aiven-20261023`. Run `verify` afterward.
+the captured Aiven state, stopping at `aiven-20261023`. Run `verify-baseline` afterward,
+then `plan`, `migrate` and `verify` to reach and verify the current release.
 An initial baseline has no destructive rollback: restore a protected backup for a live
 recovery, or recreate an explicitly owned disposable test database.
 
@@ -131,11 +132,47 @@ reader's allowlisted grants and indexes, verified on Aiven during the final insp
 The baseline remains immutable. Momentum now has an additive migration for private
 trading memory in `_analysis.trading_memory`; consultation readers receive no grant
 on that table. Adopt the baseline before applying subsequent migrations to an
-existing installation. `verify` compares the captured baseline only: run it before
-adoption/upgrades, then use `status` and the migration-specific tests to verify the
-advanced schema. Do not update the baseline fingerprint to conceal a migration.
+existing installation. `verify-baseline` compares the immutable adoption snapshot;
+`verify` checks the current release's schema, grants, runtime policy and every
+expected Liquibase identity/checksum. Use `database_migrator` for `verify` because
+runtime identities intentionally cannot read migration history. Verification is
+read-only and permits retained historical rows from pre-baseline migrations.
+It rejects missing changesets, null/changed checksums and structural drift.
+Do not update the baseline fingerprint to conceal a migration.
 Memory migration is forward-only once populated; rolling back application images
 must preserve retained decisions/reflections.
+
+The legacy Trader ratio migration remains included with its deployed logical path
+and forward SQL. Its rollback deliberately keeps `TEXT` (`SELECT 1`) because the
+baseline already has that type and completed results may exceed twenty characters.
+Only the rollback directive changes; a real replay test validates the old checksum
+and proves rollback/reapply preserve long explanations. Do not add comments inside
+the applied forward SQL: Liquibase can include them in its checksum.
+
+Each domain's `current.json` is generated from a fresh, fully migrated local
+database, not from production. After adding a migration, regenerate and review it:
+
+```sh
+uv run --project apps/backend/market-scanner-adk --frozen python \
+  database/testing/refresh_current.py
+```
+
+This command resets only the labelled disposable domain fixture. It never accepts
+a remote URL. Commit the new manifest with the migration, leaving `baseline.sql`
+and the baseline fingerprints in `domains.json` unchanged. `verify` rejects a stale
+manifest if the SQL/changelog sources changed; CI independently replays the chain
+and compares both schema fingerprint and history to the committed manifest.
+
+## Required merge check
+
+The `Database migrations` check runs the full rehearsal on **every PR**, on pushes
+to `main`, and on manual dispatch. It has no path filter, conditional job or
+continue-on-error step. Documentation-only PRs therefore emit the same check.
+Require this exact check name, from the GitHub Actions app, in `main` branch
+protection alongside existing checks. Keep strict/up-to-date validation enabled.
+The workflow defines execution; repository branch protection enforces merging.
+When enabling it, preserve existing required checks and other protection settings.
+Open PRs based on an older workflow need an update/rebase to emit the new name.
 
 ## Local verification
 
