@@ -1,0 +1,576 @@
+{
+  "info": {
+    "name": "Momentum MCP stateless migration",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "mcpUrl",
+      "value": "http://127.0.0.1:8107"
+    }
+  ],
+  "item": [
+    {
+      "name": "Discovery",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json, text/event-stream"
+          },
+          {
+            "key": "MCP-Protocol-Version",
+            "value": "2026-07-28"
+          },
+          {
+            "key": "Mcp-Method",
+            "value": "server/discover"
+          }
+        ],
+        "url": "{{mcpUrl}}/",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": \"Discovery\",\n  \"method\": \"server/discover\",\n  \"params\": {\n    \"_meta\": {\n      \"io.modelcontextprotocol/protocolVersion\": \"2026-07-28\",\n      \"io.modelcontextprotocol/clientInfo\": {\n        \"name\": \"postman-contract\",\n        \"version\": \"1\"\n      },\n      \"io.modelcontextprotocol/clientCapabilities\": {}\n    }\n  }\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\",()=>pm.response.to.have.status(200));",
+              "pm.test(\"No protocol session\",()=>pm.expect(pm.response.headers.has(\"Mcp-Session-Id\")).to.equal(false));",
+              "const body=pm.response.json();",
+              "pm.test(\"Modern protocol\",()=>pm.expect(body.result.supportedVersions).to.include(\"2026-07-28\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Tool allowlist",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json, text/event-stream"
+          },
+          {
+            "key": "MCP-Protocol-Version",
+            "value": "2026-07-28"
+          },
+          {
+            "key": "Mcp-Method",
+            "value": "tools/list"
+          }
+        ],
+        "url": "{{mcpUrl}}/",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": \"Tool allowlist\",\n  \"method\": \"tools/list\",\n  \"params\": {\n    \"_meta\": {\n      \"io.modelcontextprotocol/protocolVersion\": \"2026-07-28\",\n      \"io.modelcontextprotocol/clientInfo\": {\n        \"name\": \"postman-contract\",\n        \"version\": \"1\"\n      },\n      \"io.modelcontextprotocol/clientCapabilities\": {}\n    }\n  }\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\",()=>pm.response.to.have.status(200));",
+              "pm.test(\"No protocol session\",()=>pm.expect(pm.response.headers.has(\"Mcp-Session-Id\")).to.equal(false));",
+              "const body=pm.response.json();",
+              "pm.test(\"Seven migrated tools\",()=>pm.expect(body.result.tools.map(t=>t.name).sort()).to.eql([\"list_analyses\",\"latest_analyses\",\"get_analysis\",\"get_recommendations\",\"latest_market_scan\",\"suggest_ticker\",\"get_suggestion_status\"].sort()));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "list_analyses",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json, text/event-stream"
+          },
+          {
+            "key": "MCP-Protocol-Version",
+            "value": "2026-07-28"
+          },
+          {
+            "key": "Mcp-Method",
+            "value": "tools/call"
+          },
+          {
+            "key": "Mcp-Name",
+            "value": "list_analyses"
+          }
+        ],
+        "url": "{{mcpUrl}}/",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": \"list_analyses\",\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"_meta\": {\n      \"io.modelcontextprotocol/protocolVersion\": \"2026-07-28\",\n      \"io.modelcontextprotocol/clientInfo\": {\n        \"name\": \"postman-contract\",\n        \"version\": \"1\"\n      },\n      \"io.modelcontextprotocol/clientCapabilities\": {}\n    },\n    \"name\": \"list_analyses\",\n    \"arguments\": {\n      \"limit\": 1\n    }\n  }\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\",()=>pm.response.to.have.status(200));",
+              "pm.test(\"No protocol session\",()=>pm.expect(pm.response.headers.has(\"Mcp-Session-Id\")).to.equal(false));",
+              "const body=pm.response.json();",
+              "pm.test(\"Successful tool result\",()=>pm.expect(body.result.isError).not.to.equal(true));",
+              "pm.test(\"Summary survived reader adapter\",()=>pm.expect(body.result.structuredContent.result[0].ticker).to.equal(\"AAPL\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "latest_analyses",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json, text/event-stream"
+          },
+          {
+            "key": "MCP-Protocol-Version",
+            "value": "2026-07-28"
+          },
+          {
+            "key": "Mcp-Method",
+            "value": "tools/call"
+          },
+          {
+            "key": "Mcp-Name",
+            "value": "latest_analyses"
+          }
+        ],
+        "url": "{{mcpUrl}}/",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": \"latest_analyses\",\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"_meta\": {\n      \"io.modelcontextprotocol/protocolVersion\": \"2026-07-28\",\n      \"io.modelcontextprotocol/clientInfo\": {\n        \"name\": \"postman-contract\",\n        \"version\": \"1\"\n      },\n      \"io.modelcontextprotocol/clientCapabilities\": {}\n    },\n    \"name\": \"latest_analyses\",\n    \"arguments\": {}\n  }\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\",()=>pm.response.to.have.status(200));",
+              "pm.test(\"No protocol session\",()=>pm.expect(pm.response.headers.has(\"Mcp-Session-Id\")).to.equal(false));",
+              "const body=pm.response.json();",
+              "pm.test(\"Successful tool result\",()=>pm.expect(body.result.isError).not.to.equal(true));",
+              "pm.test(\"Summary survived reader adapter\",()=>pm.expect(body.result.structuredContent.result[0].ticker).to.equal(\"AAPL\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "get_recommendations",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json, text/event-stream"
+          },
+          {
+            "key": "MCP-Protocol-Version",
+            "value": "2026-07-28"
+          },
+          {
+            "key": "Mcp-Method",
+            "value": "tools/call"
+          },
+          {
+            "key": "Mcp-Name",
+            "value": "get_recommendations"
+          }
+        ],
+        "url": "{{mcpUrl}}/",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": \"get_recommendations\",\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"_meta\": {\n      \"io.modelcontextprotocol/protocolVersion\": \"2026-07-28\",\n      \"io.modelcontextprotocol/clientInfo\": {\n        \"name\": \"postman-contract\",\n        \"version\": \"1\"\n      },\n      \"io.modelcontextprotocol/clientCapabilities\": {}\n    },\n    \"name\": \"get_recommendations\",\n    \"arguments\": {}\n  }\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\",()=>pm.response.to.have.status(200));",
+              "pm.test(\"No protocol session\",()=>pm.expect(pm.response.headers.has(\"Mcp-Session-Id\")).to.equal(false));",
+              "const body=pm.response.json();",
+              "pm.test(\"Successful tool result\",()=>pm.expect(body.result.isError).not.to.equal(true));",
+              "pm.test(\"Summary survived reader adapter\",()=>pm.expect(body.result.structuredContent.result[0].ticker).to.equal(\"AAPL\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "get_analysis",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json, text/event-stream"
+          },
+          {
+            "key": "MCP-Protocol-Version",
+            "value": "2026-07-28"
+          },
+          {
+            "key": "Mcp-Method",
+            "value": "tools/call"
+          },
+          {
+            "key": "Mcp-Name",
+            "value": "get_analysis"
+          }
+        ],
+        "url": "{{mcpUrl}}/",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": \"get_analysis\",\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"_meta\": {\n      \"io.modelcontextprotocol/protocolVersion\": \"2026-07-28\",\n      \"io.modelcontextprotocol/clientInfo\": {\n        \"name\": \"postman-contract\",\n        \"version\": \"1\"\n      },\n      \"io.modelcontextprotocol/clientCapabilities\": {}\n    },\n    \"name\": \"get_analysis\",\n    \"arguments\": {\n      \"analysis_id\": \"11111111-1111-1111-1111-111111111111\"\n    }\n  }\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\",()=>pm.response.to.have.status(200));",
+              "pm.test(\"No protocol session\",()=>pm.expect(pm.response.headers.has(\"Mcp-Session-Id\")).to.equal(false));",
+              "const body=pm.response.json();",
+              "pm.test(\"Successful tool result\",()=>pm.expect(body.result.isError).not.to.equal(true));",
+              "pm.test(\"Detail identity\",()=>pm.expect(body.result.structuredContent.ticker).to.equal(\"AAPL\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "latest_market_scan",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json, text/event-stream"
+          },
+          {
+            "key": "MCP-Protocol-Version",
+            "value": "2026-07-28"
+          },
+          {
+            "key": "Mcp-Method",
+            "value": "tools/call"
+          },
+          {
+            "key": "Mcp-Name",
+            "value": "latest_market_scan"
+          }
+        ],
+        "url": "{{mcpUrl}}/",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": \"latest_market_scan\",\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"_meta\": {\n      \"io.modelcontextprotocol/protocolVersion\": \"2026-07-28\",\n      \"io.modelcontextprotocol/clientInfo\": {\n        \"name\": \"postman-contract\",\n        \"version\": \"1\"\n      },\n      \"io.modelcontextprotocol/clientCapabilities\": {}\n    },\n    \"name\": \"latest_market_scan\",\n    \"arguments\": {}\n  }\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\",()=>pm.response.to.have.status(200));",
+              "pm.test(\"No protocol session\",()=>pm.expect(pm.response.headers.has(\"Mcp-Session-Id\")).to.equal(false));",
+              "const body=pm.response.json();",
+              "pm.test(\"Successful tool result\",()=>pm.expect(body.result.isError).not.to.equal(true));",
+              "pm.test(\"Full report-v3 preserved\",()=>pm.expect(body.result.structuredContent.report.schema_version).to.equal(3));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "suggest_ticker",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json, text/event-stream"
+          },
+          {
+            "key": "MCP-Protocol-Version",
+            "value": "2026-07-28"
+          },
+          {
+            "key": "Mcp-Method",
+            "value": "tools/call"
+          },
+          {
+            "key": "Mcp-Name",
+            "value": "suggest_ticker"
+          }
+        ],
+        "url": "{{mcpUrl}}/",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": \"suggest_ticker\",\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"_meta\": {\n      \"io.modelcontextprotocol/protocolVersion\": \"2026-07-28\",\n      \"io.modelcontextprotocol/clientInfo\": {\n        \"name\": \"postman-contract\",\n        \"version\": \"1\"\n      },\n      \"io.modelcontextprotocol/clientCapabilities\": {}\n    },\n    \"name\": \"suggest_ticker\",\n    \"arguments\": {\n      \"symbol\": \"MSFT\",\n      \"reason\": \"MCP migration test\"\n    }\n  }\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\",()=>pm.response.to.have.status(200));",
+              "pm.test(\"No protocol session\",()=>pm.expect(pm.response.headers.has(\"Mcp-Session-Id\")).to.equal(false));",
+              "const body=pm.response.json();",
+              "pm.test(\"Successful tool result\",()=>pm.expect(body.result.isError).not.to.equal(true));",
+              "pm.test(\"Suggestion stays pending\",()=>pm.expect(body.result.structuredContent.status).to.equal(\"pending\"));",
+              "pm.collectionVariables.set(\"suggestionId\", body.result.structuredContent.id);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "get_suggestion_status",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json, text/event-stream"
+          },
+          {
+            "key": "MCP-Protocol-Version",
+            "value": "2026-07-28"
+          },
+          {
+            "key": "Mcp-Method",
+            "value": "tools/call"
+          },
+          {
+            "key": "Mcp-Name",
+            "value": "get_suggestion_status"
+          }
+        ],
+        "url": "{{mcpUrl}}/",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": \"get_suggestion_status\",\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"_meta\": {\n      \"io.modelcontextprotocol/protocolVersion\": \"2026-07-28\",\n      \"io.modelcontextprotocol/clientInfo\": {\n        \"name\": \"postman-contract\",\n        \"version\": \"1\"\n      },\n      \"io.modelcontextprotocol/clientCapabilities\": {}\n    },\n    \"name\": \"get_suggestion_status\",\n    \"arguments\": {\n      \"suggestion_id\": \"{{suggestionId}}\"\n    }\n  }\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\",()=>pm.response.to.have.status(200));",
+              "pm.test(\"No protocol session\",()=>pm.expect(pm.response.headers.has(\"Mcp-Session-Id\")).to.equal(false));",
+              "const body=pm.response.json();",
+              "pm.test(\"Successful tool result\",()=>pm.expect(body.result.isError).not.to.equal(true));",
+              "pm.test(\"Suggestion stays pending\",()=>pm.expect(body.result.structuredContent.status).to.equal(\"pending\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Sanitized upstream failure",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json, text/event-stream"
+          },
+          {
+            "key": "MCP-Protocol-Version",
+            "value": "2026-07-28"
+          },
+          {
+            "key": "Mcp-Method",
+            "value": "tools/call"
+          },
+          {
+            "key": "Mcp-Name",
+            "value": "list_analyses"
+          }
+        ],
+        "url": "{{mcpUrl}}/",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": \"Sanitized upstream failure\",\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"_meta\": {\n      \"io.modelcontextprotocol/protocolVersion\": \"2026-07-28\",\n      \"io.modelcontextprotocol/clientInfo\": {\n        \"name\": \"postman-contract\",\n        \"version\": \"1\"\n      },\n      \"io.modelcontextprotocol/clientCapabilities\": {}\n    },\n    \"name\": \"list_analyses\",\n    \"arguments\": {\n      \"ticker\": \"FAIL\"\n    }\n  }\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\",()=>pm.response.to.have.status(200));",
+              "pm.test(\"No protocol session\",()=>pm.expect(pm.response.headers.has(\"Mcp-Session-Id\")).to.equal(false));",
+              "const body=pm.response.json();",
+              "pm.test(\"Tool error\",()=>pm.expect(body.result.isError).to.equal(true));",
+              "pm.test(\"No upstream detail leak\",()=>pm.expect(JSON.stringify(body)).not.to.include(\"fixture upstream\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Unknown RPC",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json, text/event-stream"
+          },
+          {
+            "key": "MCP-Protocol-Version",
+            "value": "2026-07-28"
+          },
+          {
+            "key": "Mcp-Method",
+            "value": "unknown/method"
+          }
+        ],
+        "url": "{{mcpUrl}}/",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": \"Unknown RPC\",\n  \"method\": \"unknown/method\",\n  \"params\": {\n    \"_meta\": {\n      \"io.modelcontextprotocol/protocolVersion\": \"2026-07-28\",\n      \"io.modelcontextprotocol/clientInfo\": {\n        \"name\": \"postman-contract\",\n        \"version\": \"1\"\n      },\n      \"io.modelcontextprotocol/clientCapabilities\": {}\n    }\n  }\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 404\",()=>pm.response.to.have.status(404));",
+              "pm.test(\"No protocol session\",()=>pm.expect(pm.response.headers.has(\"Mcp-Session-Id\")).to.equal(false));",
+              "const body=pm.response.json();",
+              "pm.test(\"Method not found\",()=>pm.expect(body.error.code).to.equal(-32601));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Cold-start latency",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json, text/event-stream"
+          },
+          {
+            "key": "MCP-Protocol-Version",
+            "value": "2026-07-28"
+          },
+          {
+            "key": "Mcp-Method",
+            "value": "tools/call"
+          },
+          {
+            "key": "Mcp-Name",
+            "value": "list_analyses"
+          }
+        ],
+        "url": "{{mcpUrl}}/",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": \"cold-start\",\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"_meta\": {\n      \"io.modelcontextprotocol/protocolVersion\": \"2026-07-28\",\n      \"io.modelcontextprotocol/clientInfo\": {\n        \"name\": \"postman-contract\",\n        \"version\": \"1\"\n      },\n      \"io.modelcontextprotocol/clientCapabilities\": {}\n    },\n    \"name\": \"list_analyses\",\n    \"arguments\": {\n      \"ticker\": \"SLOW\",\n      \"limit\": 1\n    }\n  }\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\",()=>pm.response.to.have.status(200));",
+              "pm.test(\"No protocol session\",()=>pm.expect(pm.response.headers.has(\"Mcp-Session-Id\")).to.equal(false));",
+              "const body=pm.response.json();",
+              "pm.test(\"Successful tool result\",()=>pm.expect(body.result.isError).not.to.equal(true));",
+              "pm.test(\"Reader cold start above ten seconds succeeds\",()=>{pm.expect(body.result.structuredContent.result[0].ticker).to.equal(\"SLOW\");pm.expect(pm.response.responseTime).to.be.above(10000);});"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
