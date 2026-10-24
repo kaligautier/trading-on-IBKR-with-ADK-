@@ -1,0 +1,97 @@
+{
+  "frontend": {
+    "workflow": "frontend.yml",
+    "paths": [
+      "apps/frontend/**",
+      "apps/backend/market-scanner-adk/examples/report-v3.json",
+      "infra/frontend/**",
+      ".github/workflows/frontend.yml"
+    ],
+    "jobs": [
+      "frontend",
+      "infrastructure",
+      "container"
+    ]
+  },
+  "litellm": {
+    "workflow": "litellm.yml",
+    "paths": [
+      "infra/litellm/**",
+      ".github/workflows/litellm.yml",
+      "apps/backend/market-scanner-adk/pyproject.toml",
+      "apps/backend/market-scanner-adk/uv.lock"
+    ],
+    "jobs": [
+      "configuration",
+      "containers",
+      "image-security"
+    ]
+  },
+  "momentum": {
+    "workflow": "momentum.yml",
+    "paths": [
+      "apps/backend/momentum-adk/**",
+      ".github/workflows/momentum.yml",
+      ".github/scripts/verify_adk_telemetry.py",
+      "database/**",
+      "infra/momentum/**"
+    ],
+    "jobs": [
+      "library",
+      "database",
+      "infrastructure",
+      "dependencies",
+      "image"
+    ]
+  },
+  "momentum_api": {
+    "workflow": "momentum-api.yml",
+    "paths": [
+      "apps/backend/momentum-api/**",
+      "apps/backend/momentum-adk/app/infrastructure/models.py",
+      "database/**",
+      "infra/momentum-api/**",
+      "docs/postman/momentum-api.postman_collection.json",
+      ".github/workflows/momentum-api.yml"
+    ],
+    "jobs": [
+      "api",
+      "infrastructure"
+    ]
+  },
+  "scanner": {
+    "workflow": "scanner-checks.yml",
+    "paths": [
+      "apps/backend/market-scanner-adk/**",
+      "infra/**",
+      ".github/workflows/scanner.yml",
+      "scripts/scanner_image_smoke.py",
+      ".github/scripts/verify_adk_telemetry.py",
+      ".github/workflows/scanner-checks.yml"
+    ],
+    "jobs": [
+      "application",
+      "infrastructure",
+      "dependencies",
+      "image"
+    ]
+  },
+  "scanner_reader": {
+    "workflow": "scanner-reader.yml",
+    "paths": [
+      "apps/backend/market-scanner-api/**",
+      "apps/backend/market-scanner-adk/src/app/models/**",
+      "apps/backend/market-scanner-adk/pyproject.toml",
+      "apps/backend/market-scanner-adk/uv.lock",
+      "apps/backend/market-scanner-adk/examples/report-v3.json",
+      "database/**",
+      "infra/reader/**",
+      ".github/workflows/scanner-reader.yml"
+    ],
+    "jobs": [
+      "api",
+      "writer-contract",
+      "infrastructure"
+    ]
+  }
+}

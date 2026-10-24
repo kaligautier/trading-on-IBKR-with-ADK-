@@ -1,13 +1,10 @@
 name: Momentum consultation API
 on:
-  pull_request:
-    paths:
-      - 'apps/backend/momentum-api/**'
-      - 'apps/backend/momentum-adk/app/infrastructure/models.py'
-      - 'database/**'
-      - 'infra/momentum-api/**'
-      - 'docs/postman/momentum-api.postman_collection.json'
-      - '.github/workflows/momentum-api.yml'
+  workflow_call:
+    outputs:
+      jobs:
+        description: Results of every verification job
+        value: ${{ toJSON(jobs) }}
   push:
     branches: [main]
     paths:

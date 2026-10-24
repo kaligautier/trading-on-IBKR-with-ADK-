@@ -1,0 +1,10 @@
+{
+  "strict": true,
+  "checks": [
+    {"context": "PR component scope", "app_id": 15368},
+    {"context": "PR size", "app_id": 15368},
+    {"context": "ruff", "app_id": 15368},
+    {"context": "Database migrations", "app_id": 15368},
+    {"context": "CI required", "app_id": 15368}
+  ]
+}
