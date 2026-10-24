@@ -9,6 +9,11 @@ PROBLEM_BASE = (
     "/blob/main/apps/backend/momentum-api/README.md#"
 )
 DETAILS = {
+    "forbidden": "The suggestion caller signature is invalid.",
+    "current-analysis": "This ticker already has a current Momentum analysis.",
+    "suggestion-quota": "The suggestion cooldown or daily limit was reached.",
+    "payload-too-large": "The request body exceeds the allowed size.",
+    "unsupported-media-type": "Use application/json for suggestion intake.",
     "invalid-argument": "The request parameters or headers are invalid.",
     "invalid-request": "Use a single Authorization Bearer credential.",
     "invalid-token": "The supplied credential is invalid.",
@@ -26,6 +31,11 @@ DETAILS = {
 
 
 CODES = {
+    "forbidden": "FORBIDDEN",
+    "current-analysis": "CURRENT_ANALYSIS_EXISTS",
+    "suggestion-quota": "SUGGESTION_RATE_LIMIT",
+    "payload-too-large": "PAYLOAD_TOO_LARGE",
+    "unsupported-media-type": "UNSUPPORTED_MEDIA_TYPE",
     "invalid-argument": "INVALID_ARGUMENT",
     "invalid-request": "INVALID_ARGUMENT",
     "invalid-token": "UNAUTHENTICATED",
@@ -52,7 +62,7 @@ def problem_bytes(error: APIError) -> bytes:
     return json.dumps(
         {
             "type": PROBLEM_BASE + error.code,
-            "title": HTTPStatus(error.status).phrase,
+            "title": status_phrase(error.status),
             "status": error.status,
             "detail": DETAILS[error.code],
             "code": CODES[error.code],
@@ -61,3 +71,8 @@ def problem_bytes(error: APIError) -> bytes:
         allow_nan=False,
         separators=(",", ":"),
     ).encode("utf-8")
+
+
+def status_phrase(status: int) -> str:
+    """Keep the public contract stable across Python 3.12 and newer runtimes."""
+    return "Content Too Large" if status == 413 else HTTPStatus(status).phrase

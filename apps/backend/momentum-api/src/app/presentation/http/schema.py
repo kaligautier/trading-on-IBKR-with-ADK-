@@ -1,14 +1,13 @@
 """Document the ASGI HTTP policy in the executable OpenAPI contract."""
 
 from copy import deepcopy
-from http import HTTPStatus
 from typing import Any
 
 from fastapi import FastAPI
 
-from app.presentation.http.problems import DETAILS, PROBLEM_BASE
+from app.presentation.http.problems import DETAILS, PROBLEM_BASE, status_phrase
 
-ERRORS = {400, 401, 404, 405, 406, 412, 500, 503}
+ERRORS = {400, 401, 403, 404, 405, 406, 409, 412, 413, 415, 429, 500, 503}
 
 
 def install_schema(app: FastAPI) -> None:
@@ -66,7 +65,7 @@ def install_schema(app: FastAPI) -> None:
             if status == 405:
                 headers["Allow"] = {"$ref": "#/components/headers/Allow"}
             components["responses"][str(status)] = {
-                "description": HTTPStatus(status).phrase,
+                "description": status_phrase(status),
                 "headers": headers,
                 "content": {
                     "application/problem+json": {
@@ -121,7 +120,7 @@ def install_schema(app: FastAPI) -> None:
             head["summary"] = "Metadata only: " + operation.get("summary", "")
             head["responses"] = {
                 status: {
-                    "description": HTTPStatus(int(status)).phrase,
+                    "description": status_phrase(int(status)),
                     "headers": deepcopy(common),
                 }
                 for status in responses
