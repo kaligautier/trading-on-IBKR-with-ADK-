@@ -7,6 +7,7 @@ import argparse
 import json
 import urllib.error
 import urllib.request
+from uuid import UUID
 
 VERSION = "2026-07-28"
 PREFIX = "io.modelcontextprotocol/"
@@ -44,6 +45,7 @@ def rpc(url, method, params=None, *, version=VERSION, expected_status=200):
         assert response.status == expected_status, response.status
         assert not response.headers.get("Mcp-Session-Id")
         assert not response.headers.get("Set-Cookie")
+        UUID(response.headers["X-Request-ID"])
         payload = json.load(response)
     if expected_status != 200:
         return payload["error"]
@@ -80,6 +82,15 @@ def main():
     discovery = rpc(url, "server/discover")
     assert VERSION in discovery["supportedVersions"]
     tools = rpc(url, "tools/list")["tools"]
+    assert {item["name"] for item in tools} == {
+        "list_analyses",
+        "latest_analyses",
+        "get_analysis",
+        "get_recommendations",
+        "latest_market_scan",
+        "suggest_ticker",
+        "get_suggestion_status",
+    }
     for version in ("2024-11-05", "2025-03-26", "2025-06-18", "2025-11-25"):
         error = rpc(
             url,
@@ -131,6 +142,7 @@ def main():
                 "scan_date": scan["scan_date"],
                 "assets": len(scan["report"]["assets"]),
                 "session_headers": False,
+                "correlation_headers": True,
                 "legacy_handshake": "rejected for all four legacy versions",
                 "suggestions": suggestion_check,
             },

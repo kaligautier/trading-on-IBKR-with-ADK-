@@ -3,6 +3,30 @@ version: 2
 # Keep application directories separate: PR policy allows one component per PR.
 # No auto-merge: dependency updates must pass CI and be reviewed.
 updates:
+  - package-ecosystem: docker
+    directory: /apps/backend/momentum-public-mcp
+    schedule:
+      interval: weekly
+      day: monday
+      time: "08:00"
+      timezone: Europe/Paris
+    open-pull-requests-limit: 3
+
+  - package-ecosystem: uv
+    directory: /apps/backend/momentum-public-mcp
+    schedule:
+      interval: weekly
+      day: monday
+      time: "08:00"
+      timezone: Europe/Paris
+    open-pull-requests-limit: 3
+    ignore:
+      # The chosen MCP compatibility contract explicitly requires 4.1.3.
+      - dependency-name: fastmcp
+        versions: ["*"]
+      - dependency-name: fastmcp-slim
+        versions: ["*"]
+
   - package-ecosystem: uv
     directory: /apps/backend/market-scanner-adk
     schedule:

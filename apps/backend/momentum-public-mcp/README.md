@@ -76,12 +76,14 @@ The API owns the PostgreSQL transaction, quotas and moderation fields.
 ## Run and verify
 
 ```sh
-uv sync --frozen --python 3.12
-uv run --frozen pytest -q
-uv run --frozen ruff check src tests scripts
-uv run --frozen ruff format --check src tests scripts
+uv sync --locked --python 3.12
+uv run --locked pytest -q
+uv run --locked ruff check src tests scripts
+uv run --locked ruff format --check src tests scripts
 # With Postman CLI >=1.73.0 installed (no login or cloud publication):
-uv run --frozen python scripts/simulation.py
+uv run --locked python scripts/simulation.py
+docker build -t local/momentum-public-mcp:verify .
+uv run --locked python scripts/container_smoke.py local/momentum-public-mcp:verify
 ```
 
 The simulation runs this backend, not a mock of it. Its two local upstream
@@ -100,15 +102,71 @@ best-effort 60 requests/minute per fingerprint **per replica**, not a distribute
 quota. With no trusted proxy configured, callers sharing the direct peer share
 that limit. It has no role in protocol session handling.
 
-## Verification recorded on 2026-10-24
+## Configuration and operational logs
+
+`config.py` declares Pydantic `BaseSettings` with a documented `Field` for every
+setting. Environment variables override `.env`; invalid ports, proxy CIDRs,
+remote cleartext URLs and URLs with credentials fail at startup. The required
+signing key uses `SecretStr`, and validation errors hide input values.
+`constants.py` holds the seven tool titles, tags, annotations and shared deadline.
+
+`observability.py` emits JSON `http_request`, `tool_call` and `upstream_request`
+events with duration, outcome, correlation ID and trace ID. Every HTTP response
+includes a new `X-Request-ID`; outgoing API calls propagate that ID and a validated
+W3C trace context. Tool errors count as failures even when HTTP returns 200.
+`GOOGLE_CLOUD_PROJECT` adds Cloud Logging trace association fields. This is log
+correlation, not a complete distributed-tracing exporter.
+
+Logs omit arguments, response bodies, addresses, credentials, exception text and
+third-party free-form messages. Use event, tool, upstream, status and error type
+for diagnosis; this deliberate redaction limits exception detail. Example Logs
+Explorer filter for a request (replace the ID with the response header):
+
+```text
+resource.type="cloud_run_revision"
+resource.labels.service_name="momentum-public-mcp"
+jsonPayload.correlation_id="REQUEST-UUID"
+```
+
+Filter `jsonPayload.event="tool_call"` and `jsonPayload.outcome="error"` for
+tool failures, including errors hidden behind a successful HTTP transport.
+The deployment uses the direct Cloud Run URL without a load balancer or Cloud
+Armor. The per-instance application limiter remains best effort.
+
+The Docker build pins Python and uv by digest, builds a wheel with a locked
+Hatchling toolchain and installs only runtime dependencies in the final non-root
+image. It does not run a floating OS upgrade during the build. Dependabot tracks
+base images and Python dependencies; FastMCP remains explicitly pinned to 4.1.3.
+The container smoke check verifies the entrypoint, protocol, validation errors,
+non-root user and absence of development/build tools. The Postman simulation
+separately exercises the real HTTP clients against contract-derived upstreams.
+
+## Operations release verified on 2026-10-24
+
+- 59 Python tests, four deployment-gate tests, 45 Postman assertions and three
+  Terraform tests passed. The built container passed its runtime smoke check.
+- Cloud Build `87004b53-be13-401c-8274-a1cc96f257bc` produced immutable image
+  `sha256:84403edc237778378650405f7673fa0ee0dba6726ba1993f5e6223024ff99da1`.
+  Revision `momentum-public-mcp-00004-bcc` received 100% of traffic after the
+  verified release wrapper completed. A subsequent Terraform plan was empty.
+- Automatic read-only verification retrieved the AAPL analysis and the daily
+  scanner report with 25 assets, checked all seven advertised tools, rejected
+  legacy handshakes and validated correlation headers on successful/error RPCs.
+- Cloud Logging recorded matching trace IDs in MCP and Momentum API for a
+  successful list and a missing-analysis lookup. The latter produced an upstream
+  404 and `tool_call.outcome=error` despite HTTP 200 at the MCP boundary.
+- Both private APIs still returned 403 to unauthenticated requests. No suggestion
+  was submitted by this release verification; no load balancer or Armor was added.
+
+## Initial migration verification on 2026-10-24
 
 - 45 Python tests and Ruff checks passed.
 - 45 Postman assertions passed over 12 real HTTP requests to the local MCP,
   including an upstream response delayed by 11 seconds.
 - Three Terraform tests passed: public ingress/private reader grants, immutable
   image, and numeric secret-version constraints.
-- Cloud Run revision `momentum-public-mcp-00003-7sx` receives 100% of traffic;
-  Terraform reports no drift. Live requests reject all four 2024/2025 protocol
+- Cloud Run revision `momentum-public-mcp-00003-7sx` received 100% of traffic;
+  Terraform reported no drift. Live requests rejected all four 2024/2025 protocol
   versions and the removed `initialize`, `ping` and `logging/setLevel` methods.
 - Live consultation returned AAPL analysis `9aee5d94-ce77-4ec9-bf02-5882eda66e02`
   and the 2026-10-24 Scanner report containing 25 assets, with no session headers.
