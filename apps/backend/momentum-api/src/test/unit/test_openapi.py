@@ -12,7 +12,7 @@ def test_openapi_policy_and_financial_shapes():
         str(Path(__file__).resolve().parents[3] / "scripts/export_openapi.py")
     )
     schema = json.loads(exporter["export"]())
-    assert len(schema["paths"]) == 7
+    assert len(schema["paths"]) == 8
     ids = []
     for path, operations in schema["paths"].items():
         assert set(operations) == {"get", "head", "options"}

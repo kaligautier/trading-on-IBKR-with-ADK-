@@ -8,10 +8,12 @@ from fastapi import FastAPI
 
 from app.adapters.postgresql.connection import create_engine
 from app.adapters.postgresql.repository import AnalysisRepository
+from app.adapters.postgresql.suggestions import SuggestionRepository
 from app.app_factory import create_app as application
 from app.config.settings import Settings
 from app.observability import LOGGER, log_event
 from app.services.analysis_service import AnalysisService
+from app.services.suggestion_service import SuggestionService
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -27,6 +29,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         engine = create_engine(settings)
         app.state.service = AnalysisService(AnalysisRepository(engine))
+        app.state.suggestions = SuggestionService(SuggestionRepository(engine))
         try:
             yield
         except BaseException:

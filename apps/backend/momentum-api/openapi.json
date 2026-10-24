@@ -1630,6 +1630,71 @@
         "title": "SentimentItem",
         "type": "object"
       },
+      "SuggestionResponse": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "review_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Review Reason"
+          },
+          "reviewed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviewed At"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "symbol": {
+            "title": "Symbol",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "symbol",
+          "reason",
+          "status",
+          "source",
+          "created_at",
+          "reviewed_at",
+          "review_reason"
+        ],
+        "title": "SuggestionResponse",
+        "type": "object"
+      },
       "TechnicalIndicators": {
         "additionalProperties": false,
         "properties": {
@@ -3385,6 +3450,456 @@
       "options": {
         "operationId": "options_ready",
         "parameters": [],
+        "responses": {
+          "204": {
+            "description": "No content.",
+            "headers": {
+              "Allow": {
+                "$ref": "#/components/headers/Allow"
+              },
+              "Cache-Control": {
+                "$ref": "#/components/headers/Cache-Control"
+              },
+              "Request-ID": {
+                "$ref": "#/components/headers/Request-ID"
+              },
+              "Vary": {
+                "$ref": "#/components/headers/Vary"
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          }
+        ],
+        "summary": "Allowed methods; does not configure browser CORS."
+      }
+    },
+    "/suggestions/{suggestion_id}": {
+      "get": {
+        "operationId": "get_suggestion",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "suggestion_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Suggestion Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Accept-Encoding",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "If-Match",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "If-None-Match",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuggestionResponse"
+                }
+              }
+            },
+            "description": "Successful Response",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/Cache-Control"
+              },
+              "ETag": {
+                "$ref": "#/components/headers/ETag"
+              },
+              "Request-ID": {
+                "$ref": "#/components/headers/Request-ID"
+              },
+              "Vary": {
+                "$ref": "#/components/headers/Vary"
+              }
+            }
+          },
+          "304": {
+            "description": "Not Modified; no content.",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/Cache-Control"
+              },
+              "ETag": {
+                "$ref": "#/components/headers/ETag"
+              },
+              "Request-ID": {
+                "$ref": "#/components/headers/Request-ID"
+              },
+              "Vary": {
+                "$ref": "#/components/headers/Vary"
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "405": {
+            "$ref": "#/components/responses/405"
+          },
+          "406": {
+            "$ref": "#/components/responses/406"
+          },
+          "409": {
+            "$ref": "#/components/responses/409"
+          },
+          "412": {
+            "$ref": "#/components/responses/412"
+          },
+          "413": {
+            "$ref": "#/components/responses/413"
+          },
+          "415": {
+            "$ref": "#/components/responses/415"
+          },
+          "429": {
+            "$ref": "#/components/responses/429"
+          },
+          "500": {
+            "$ref": "#/components/responses/500"
+          },
+          "503": {
+            "$ref": "#/components/responses/503"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          }
+        ],
+        "summary": "Status",
+        "tags": [
+          "suggestions"
+        ]
+      },
+      "head": {
+        "operationId": "head_get_suggestion",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "suggestion_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Suggestion Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Accept-Encoding",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "If-Match",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "If-None-Match",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/Cache-Control"
+              },
+              "ETag": {
+                "$ref": "#/components/headers/ETag"
+              },
+              "Request-ID": {
+                "$ref": "#/components/headers/Request-ID"
+              },
+              "Vary": {
+                "$ref": "#/components/headers/Vary"
+              }
+            }
+          },
+          "304": {
+            "description": "Not Modified",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/Cache-Control"
+              },
+              "ETag": {
+                "$ref": "#/components/headers/ETag"
+              },
+              "Request-ID": {
+                "$ref": "#/components/headers/Request-ID"
+              },
+              "Vary": {
+                "$ref": "#/components/headers/Vary"
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/Cache-Control"
+              },
+              "Request-ID": {
+                "$ref": "#/components/headers/Request-ID"
+              },
+              "Vary": {
+                "$ref": "#/components/headers/Vary"
+              },
+              "WWW-Authenticate": {
+                "$ref": "#/components/headers/WWW-Authenticate"
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/Cache-Control"
+              },
+              "Request-ID": {
+                "$ref": "#/components/headers/Request-ID"
+              },
+              "Vary": {
+                "$ref": "#/components/headers/Vary"
+              },
+              "WWW-Authenticate": {
+                "$ref": "#/components/headers/WWW-Authenticate"
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/Cache-Control"
+              },
+              "Request-ID": {
+                "$ref": "#/components/headers/Request-ID"
+              },
+              "Vary": {
+                "$ref": "#/components/headers/Vary"
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/Cache-Control"
+              },
+              "Request-ID": {
+                "$ref": "#/components/headers/Request-ID"
+              },
+              "Vary": {
+                "$ref": "#/components/headers/Vary"
+              }
+            }
+          },
+          "405": {
+            "description": "Method Not Allowed",
+            "headers": {
+              "Allow": {
+                "$ref": "#/components/headers/Allow"
+              },
+              "Cache-Control": {
+                "$ref": "#/components/headers/Cache-Control"
+              },
+              "Request-ID": {
+                "$ref": "#/components/headers/Request-ID"
+              },
+              "Vary": {
+                "$ref": "#/components/headers/Vary"
+              }
+            }
+          },
+          "406": {
+            "description": "Not Acceptable",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/Cache-Control"
+              },
+              "Request-ID": {
+                "$ref": "#/components/headers/Request-ID"
+              },
+              "Vary": {
+                "$ref": "#/components/headers/Vary"
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/Cache-Control"
+              },
+              "Request-ID": {
+                "$ref": "#/components/headers/Request-ID"
+              },
+              "Vary": {
+                "$ref": "#/components/headers/Vary"
+              }
+            }
+          },
+          "412": {
+            "description": "Precondition Failed",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/Cache-Control"
+              },
+              "Request-ID": {
+                "$ref": "#/components/headers/Request-ID"
+              },
+              "Vary": {
+                "$ref": "#/components/headers/Vary"
+              }
+            }
+          },
+          "413": {
+            "description": "Content Too Large",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/Cache-Control"
+              },
+              "Request-ID": {
+                "$ref": "#/components/headers/Request-ID"
+              },
+              "Vary": {
+                "$ref": "#/components/headers/Vary"
+              }
+            }
+          },
+          "415": {
+            "description": "Unsupported Media Type",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/Cache-Control"
+              },
+              "Request-ID": {
+                "$ref": "#/components/headers/Request-ID"
+              },
+              "Vary": {
+                "$ref": "#/components/headers/Vary"
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/Cache-Control"
+              },
+              "Request-ID": {
+                "$ref": "#/components/headers/Request-ID"
+              },
+              "Vary": {
+                "$ref": "#/components/headers/Vary"
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/Cache-Control"
+              },
+              "Request-ID": {
+                "$ref": "#/components/headers/Request-ID"
+              },
+              "Vary": {
+                "$ref": "#/components/headers/Vary"
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/Cache-Control"
+              },
+              "Request-ID": {
+                "$ref": "#/components/headers/Request-ID"
+              },
+              "Vary": {
+                "$ref": "#/components/headers/Vary"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          }
+        ],
+        "summary": "Metadata only: Status",
+        "tags": [
+          "suggestions"
+        ]
+      },
+      "options": {
+        "operationId": "options_get_suggestion",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "suggestion_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Suggestion Id",
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "204": {
             "description": "No content.",
