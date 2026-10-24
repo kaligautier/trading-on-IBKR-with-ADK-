@@ -25,6 +25,16 @@ def test_openapi_policy_and_financial_shapes():
             assert operation["security"] == (
                 [] if path == "/health" else [{"Bearer": []}]
             )
+            header_names = {
+                parameter["name"].lower()
+                for parameter in operation.get("parameters", [])
+                if parameter["in"] == "header"
+            }
+            assert not header_names & {"accept", "content-type", "authorization"}
+            if method in {"get", "head"}:
+                assert {"accept-encoding", "if-match", "if-none-match"} <= header_names
+            if method == "get":
+                assert "application/json" in operation["responses"]["200"]["content"]
             if method == "head":
                 assert all(
                     "content" not in response
@@ -36,6 +46,10 @@ def test_openapi_policy_and_financial_shapes():
     assert "macd_signal_state" not in financial["TechnicalIndicators"]["properties"]
     assert "user_id" not in financial["AnalysisDetail"]["properties"]
     assert schema["components"]["responses"]["405"]["headers"]["Allow"]
+    assert (
+        "application/problem+json"
+        in schema["components"]["responses"]["400"]["content"]
+    )
 
 
 def test_offline_export_is_independent_of_runtime_environment(monkeypatch):

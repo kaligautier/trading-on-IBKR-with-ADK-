@@ -64,7 +64,7 @@ jobs:
       - name: Clean up owned disposable fixture
         if: always()
         run: |
-          if docker container inspect momentum-api-test-db >/dev/null 2>&1; then
+          if docker container inspect momentum-current-api-test-db >/dev/null 2>&1; then
             bash scripts/test_database.sh stop
           fi
       - name: Audit locked runtime dependencies
