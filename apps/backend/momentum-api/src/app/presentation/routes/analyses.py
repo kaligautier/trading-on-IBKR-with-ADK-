@@ -14,6 +14,13 @@ from app.services.analysis_service import AnalysisService
 
 router = APIRouter()
 
+LIST_PARAMETERS = frozenset({"ticker", "page_size", "page_token"})
+QUERY_PARAMETERS = {
+    "/v1/analyses": LIST_PARAMETERS,
+    "/v1/analyses/latest": LIST_PARAMETERS | {"rating"},
+    "/v1/recommendations": LIST_PARAMETERS | {"rating"},
+}
+
 
 def service(request: Request) -> AnalysisService:
     return cast(AnalysisService, request.app.state.service)
@@ -27,21 +34,12 @@ Rating = Annotated[str | None, HTTPQuery(max_length=128)]
 
 
 def parameters(
-    request: Request,
     view: View,
     ticker: str | None,
     rating: str | None,
     page_size: int,
     page_token: str,
 ) -> AnalysisSearchParams:
-    allowed = {"ticker", "page_size", "page_token"}
-    if view != "history":
-        allowed.add("rating")
-    if any(
-        key not in allowed or len(request.query_params.getlist(key)) != 1
-        for key in request.query_params
-    ):
-        raise APIError(400, "invalid-argument")
     try:
         return AnalysisSearchParams.from_parameters(
             view, ticker, rating, page_size, page_token
@@ -52,7 +50,6 @@ def parameters(
 
 @router.get("/v1/analyses", operation_id="list_analyses", response_model=AnalysisPage)
 async def history(
-    request: Request,
     reader: Service,
     ticker: Ticker = None,
     page_size: PageSize = 20,
@@ -60,9 +57,7 @@ async def history(
 ) -> AnalysisPage:
     """All retained runs, including repeated ticker/date analyses, newest first."""
     return page_to_dto(
-        await reader.list(
-            parameters(request, "history", ticker, None, page_size, page_token)
-        )
+        await reader.list(parameters("history", ticker, None, page_size, page_token))
     )
 
 
@@ -70,7 +65,6 @@ async def history(
     "/v1/analyses/latest", operation_id="latest_analyses", response_model=AnalysisPage
 )
 async def latest(
-    request: Request,
     reader: Service,
     ticker: Ticker = None,
     rating: Rating = None,
@@ -79,9 +73,7 @@ async def latest(
 ) -> AnalysisPage:
     """One winner per ticker, by creation time then UUID, before rating filtering."""
     return page_to_dto(
-        await reader.list(
-            parameters(request, "latest", ticker, rating, page_size, page_token)
-        )
+        await reader.list(parameters("latest", ticker, rating, page_size, page_token))
     )
 
 
@@ -91,7 +83,6 @@ async def latest(
     response_model=AnalysisPage,
 )
 async def recommendations(
-    request: Request,
     reader: Service,
     ticker: Ticker = None,
     rating: Rating = None,
@@ -101,9 +92,7 @@ async def recommendations(
     """Latest-per-ticker results, defaulting to Buy and Overweight."""
     return page_to_dto(
         await reader.list(
-            parameters(
-                request, "recommendations", ticker, rating, page_size, page_token
-            )
+            parameters("recommendations", ticker, rating, page_size, page_token)
         )
     )
 

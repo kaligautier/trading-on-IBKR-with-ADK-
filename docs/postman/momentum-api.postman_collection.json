@@ -532,6 +532,110 @@
           }
         }
       ]
+    },
+    {
+      "name": "JSON charset is ignored",
+      "request": {
+        "method": "GET",
+        "url": "{{momentum_api_base_url}}/health",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json;charset=utf-8"
+          }
+        ]
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Private cache policy\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\"));",
+              "pm.test(\"JSON response\", () => pm.expect(pm.response.json()).to.eql({status: \"ok\"}));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "JSON charset preserves quality zero",
+      "request": {
+        "method": "GET",
+        "url": "{{momentum_api_base_url}}/health",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json;charset=utf-8;q=0, */*;q=1"
+          }
+        ]
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 406\", () => pm.response.to.have.status(406));",
+              "pm.test(\"Private cache policy\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\"));",
+              "pm.test(\"Problem code\", () => pm.expect(pm.response.json().code).to.eql(\"NOT_ACCEPTABLE\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Detail rejects unexpected query",
+      "request": {
+        "method": "GET",
+        "url": "{{momentum_api_base_url}}/v1/analyses/{{analysis_id}}?unexpected=1",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json, application/problem+json"
+          }
+        ]
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 400\", () => pm.response.to.have.status(400));",
+              "pm.test(\"Private cache policy\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\"));",
+              "pm.test(\"Problem code\", () => pm.expect(pm.response.json().code).to.eql(\"INVALID_ARGUMENT\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Readiness HEAD rejects repeated query",
+      "request": {
+        "method": "HEAD",
+        "url": "{{momentum_api_base_url}}/ready?unexpected=1&unexpected=2",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json, application/problem+json"
+          }
+        ]
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 400\", () => pm.response.to.have.status(400));",
+              "pm.test(\"Private cache policy\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\"));",
+              "pm.test(\"Bodyless response\", () => pm.expect(pm.response.text()).to.eql(\"\"));"
+            ]
+          }
+        }
+      ]
     }
   ]
 }

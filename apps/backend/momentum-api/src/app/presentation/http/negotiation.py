@@ -56,6 +56,9 @@ def accepts(value: str | None, media_type: str) -> bool:
         if parsed is None:
             continue
         media, params, quality = parsed
+        if media_type == "application/json":
+            # RFC 8259 section 11: charset has no effect on application/json.
+            params.pop("charset", None)
         # No representation parameters are advertised by this API.
         if params:
             continue

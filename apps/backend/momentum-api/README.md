@@ -137,6 +137,11 @@ are separate release steps; local tests do not establish a deployed release.
 
 Success JSON is UTF-8. Accept both `application/json` and
 `application/problem+json`; unsupported success representations give 406.
+For `application/json`, a syntactically valid `charset` parameter in `Accept`
+has no effect ([RFC 8259 section 11](https://www.rfc-editor.org/rfc/rfc8259.html#section-11));
+output remains UTF-8. Quality weights still apply: an explicit JSON `q=0`
+overrides a wildcard even when `charset` is present. Other representation
+parameters, such as an unknown `profile`, are not ignored.
 Identity is the only content coding. All responses use `Cache-Control: no-store`
 and a server-generated `Request-ID`. Successful GET/HEAD responses carry a strong
 ETag of the exact JSON bytes. `If-Match` uses strong comparison before
@@ -144,6 +149,12 @@ ETag of the exact JSON bytes. `If-Match` uses strong comparison before
 validation and not-found errors precede conditional evaluation. HEAD never
 contains response content. Date preconditions and Range are ignored: no
 Last-Modified authority or range support is offered. No CORS policy is installed.
+
+All GET/HEAD resources reject unknown or repeated query parameters with 400
+before accessing the reader. Only the three list endpoints accept query
+parameters; detail, health, readiness and OpenAPI accept none. Authentication,
+unknown-resource and method errors retain precedence. OPTIONS reports capabilities
+without validating query parameters.
 
 Problem type URIs use this README's stable anchors. Status matches the HTTP
 status. Content is omitted if `application/problem+json` or identity is excluded;

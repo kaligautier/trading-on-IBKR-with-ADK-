@@ -4,13 +4,13 @@ import hmac
 import json
 import logging
 import re
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from time import monotonic
 from traceback import walk_tb
 from urllib.parse import parse_qsl
 from uuid import uuid4
 
-from starlette.datastructures import Headers
+from starlette.datastructures import Headers, QueryParams
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from app.config.settings import Settings
@@ -39,8 +39,10 @@ class HTTPPolicy:
         app: ASGIApp,
         settings: Settings,
         route_name: Callable[[Scope], str | None],
+        query_parameters: Mapping[str, frozenset[str]],
     ) -> None:
         self.app, self.settings, self.route_name = app, settings, route_name
+        self.query_parameters = query_parameters
 
     def authorize(self, scope: Scope, headers: Headers) -> None:
         if scope["path"] == "/health":
@@ -87,6 +89,8 @@ class HTTPPolicy:
         try:
             self.authorize(scope, headers)
             self._validate_method(method, route)
+            if method in {"GET", "HEAD"}:
+                self._validate_query(scope, route)
             response = await self._dispatch(scope, receive, headers)
             if response is None:
                 return
@@ -148,6 +152,12 @@ class HTTPPolicy:
             raise APIError(404, "not-found")
         if method not in {"GET", "HEAD", "OPTIONS"}:
             raise APIError(405, "method-not-allowed")
+
+    def _validate_query(self, scope: Scope, route: str | None) -> None:
+        allowed = self.query_parameters.get(route or "", frozenset())
+        query = QueryParams(scope.get("query_string", b""))
+        if any(key not in allowed or len(query.getlist(key)) != 1 for key in query):
+            raise APIError(400, "invalid-argument")
 
     async def _dispatch(
         self, scope: Scope, receive: Receive, headers: Headers

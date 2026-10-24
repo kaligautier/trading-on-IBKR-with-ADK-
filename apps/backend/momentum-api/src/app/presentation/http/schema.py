@@ -169,11 +169,14 @@ def install_schema(app: FastAPI) -> None:
             "Private read-only Momentum catalogue. UTC dates/timestamps; finite JSON. "
             "Clients should send Accept: application/json, application/problem+json "
             "to receive both successful representations and problem details. "
+            "For application/json, Accept charset parameters have no effect; "
+            "quality weights still apply and output remains UTF-8. "
             "Lists are ordered by created_at DESC, id DESC, with filter-bound keyset "
             "tokens and no snapshot guarantee under concurrent updates. "
             "Latest selects one winner per ticker before rating filters. "
-            "Unknown ticker returns an empty page. GET/HEAD bodies and duplicate or "
-            "unknown query parameters are rejected. Error types: "
+            "Unknown ticker returns an empty page. Every GET/HEAD resource rejects "
+            "bodies and duplicate or unknown query parameters. Only list endpoints "
+            "accept query parameters; OPTIONS does not validate them. Error types: "
             + PROBLEM_BASE
             + ", ".join(DETAILS)
         )
