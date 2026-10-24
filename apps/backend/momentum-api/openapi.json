@@ -1630,6 +1630,35 @@
         "title": "SentimentItem",
         "type": "object"
       },
+      "SuggestionRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "reason": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": "",
+            "title": "Reason"
+          },
+          "symbol": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Symbol",
+            "type": "string"
+          }
+        },
+        "required": [
+          "symbol"
+        ],
+        "title": "SuggestionRequest",
+        "type": "object"
+      },
       "SuggestionResponse": {
         "properties": {
           "created_at": {
@@ -2248,7 +2277,7 @@
     }
   },
   "info": {
-    "description": "Private read-only Momentum catalogue. UTC dates/timestamps; finite JSON. Clients should send Accept: application/json, application/problem+json to receive both successful representations and problem details. For application/json, Accept charset parameters have no effect; quality weights still apply and output remains UTF-8. Lists are ordered by created_at DESC, id DESC, with filter-bound keyset tokens and no snapshot guarantee under concurrent updates. Latest selects one winner per ticker before rating filters. Unknown ticker returns an empty page. Every GET/HEAD resource rejects bodies and duplicate or unknown query parameters. Only list endpoints accept query parameters; OPTIONS does not validate them. Error types: https://github.com/kaligautier/trading-on-IBKR-with-ADK-/blob/main/apps/backend/momentum-api/README.md#forbidden, current-analysis, suggestion-quota, payload-too-large, unsupported-media-type, invalid-argument, invalid-request, invalid-token, analysis-not-found, not-found, method-not-allowed, not-acceptable, precondition-failed, invalid-stored-data, configuration-error, store-unavailable, internal-error, not-implemented",
+    "description": "Private Momentum catalogue and moderated suggestion intake. Analyses remain read-only. UTC dates/timestamps; finite JSON. Clients should send Accept: application/json, application/problem+json to receive both successful representations and problem details. For application/json, Accept charset parameters have no effect; quality weights still apply and output remains UTF-8. Lists are ordered by created_at DESC, id DESC, with filter-bound keyset tokens and no snapshot guarantee under concurrent updates. Latest selects one winner per ticker before rating filters. Unknown ticker returns an empty page. Every GET/HEAD resource rejects bodies and duplicate or unknown query parameters. Only list endpoints accept query parameters; OPTIONS does not validate them. Error types: https://github.com/kaligautier/trading-on-IBKR-with-ADK-/blob/main/apps/backend/momentum-api/README.md#forbidden, current-analysis, suggestion-quota, payload-too-large, unsupported-media-type, invalid-argument, invalid-request, invalid-token, analysis-not-found, not-found, method-not-allowed, not-acceptable, precondition-failed, invalid-stored-data, configuration-error, store-unavailable, internal-error, not-implemented",
     "title": "Momentum consultation API",
     "version": "0.1.0"
   },
@@ -3478,6 +3507,143 @@
           }
         ],
         "summary": "Allowed methods; does not configure browser CORS."
+      }
+    },
+    "/suggestions": {
+      "options": {
+        "operationId": "options_submit_suggestion",
+        "responses": {
+          "204": {
+            "description": "No content; allowed methods: POST, OPTIONS.",
+            "headers": {
+              "Allow": {
+                "schema": {
+                  "const": "POST, OPTIONS",
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "$ref": "#/components/headers/Cache-Control"
+              },
+              "Request-ID": {
+                "$ref": "#/components/headers/Request-ID"
+              },
+              "Vary": {
+                "$ref": "#/components/headers/Vary"
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          }
+        ]
+      },
+      "post": {
+        "description": "Creates a pending suggestion, or returns the original record for the ticker. Requires a verified MCP caller HMAC. At most five suggestions per UTC day and one per fifteen minutes per caller. Never approves or starts an analysis.",
+        "operationId": "submit_suggestion",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-Momentum-Caller",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Momentum-Signature",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SuggestionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuggestionResponse"
+                }
+              }
+            },
+            "description": "Successful Response",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/Cache-Control"
+              },
+              "Request-ID": {
+                "$ref": "#/components/headers/Request-ID"
+              },
+              "Vary": {
+                "$ref": "#/components/headers/Vary"
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "405": {
+            "$ref": "#/components/responses/405"
+          },
+          "406": {
+            "$ref": "#/components/responses/406"
+          },
+          "409": {
+            "$ref": "#/components/responses/409"
+          },
+          "413": {
+            "$ref": "#/components/responses/413"
+          },
+          "415": {
+            "$ref": "#/components/responses/415"
+          },
+          "429": {
+            "$ref": "#/components/responses/429"
+          },
+          "500": {
+            "$ref": "#/components/responses/500"
+          },
+          "503": {
+            "$ref": "#/components/responses/503"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          }
+        ],
+        "summary": "Submit",
+        "tags": [
+          "suggestions"
+        ]
       }
     },
     "/suggestions/{suggestion_id}": {

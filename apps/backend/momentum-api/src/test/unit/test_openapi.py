@@ -12,10 +12,14 @@ def test_openapi_policy_and_financial_shapes():
         str(Path(__file__).resolve().parents[3] / "scripts/export_openapi.py")
     )
     schema = json.loads(exporter["export"]())
-    assert len(schema["paths"]) == 8
+    assert len(schema["paths"]) == 9
     ids = []
     for path, operations in schema["paths"].items():
-        assert set(operations) == {"get", "head", "options"}
+        assert set(operations) == (
+            {"post", "options"}
+            if path == "/suggestions"
+            else {"get", "head", "options"}
+        )
         for method, operation in operations.items():
             ids.append(operation["operationId"])
             if "{analysis_id}" in path:

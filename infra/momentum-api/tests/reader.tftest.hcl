@@ -76,3 +76,17 @@ run "no_latest_ca_secret" {
   }
   expect_failures = [var.ca_secret_version]
 }
+
+run "shared_suggestion_key_keeps_single_pool" {
+  command = plan
+  variables { suggestion_key_version = "1" }
+  assert {
+    condition     = length(google_secret_manager_secret_iam_member.suggestions) == 1 && google_cloud_run_v2_service.reader.template[0].scaling[0].max_instance_count == 1
+    error_message = "Suggestion intake only adds its shared signing key, not a pool or public ingress."
+  }
+}
+run "no_floating_suggestion_key" {
+  command = plan
+  variables { suggestion_key_version = "latest" }
+  expect_failures = [var.suggestion_key_version]
+}

@@ -51,3 +51,11 @@ reviewed apply, live denied/allowed identity checks and an independent compariso
 of retained financial values are separate release gates. No live release is
 claimed by these local checks. TLS/HTTP negotiation at managed ingress must be
 verified independently of the container's HTTP/1.1 tests.
+
+
+The suggestion routes use the existing database pool. `suggestion_key_version`
+pins the `momentum-mcp-caller-key` secret version shared with the public MCP;
+it adds only an accessor grant and secret-backed environment variable. The
+2026-10-24 release image and numeric secret versions are recorded in
+`config/preprod.tfvars`; preserve the existing private invoker list when planning.
+The build definition is `cloudbuild.yaml` (BuildKit required by the Dockerfile).

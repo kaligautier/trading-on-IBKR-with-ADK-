@@ -50,3 +50,13 @@ variable "invoker_members" {
     error_message = "Only explicit user or serviceAccount members are allowed."
   }
 }
+
+variable "suggestion_key_version" {
+  type        = string
+  default     = null
+  description = "Pinned momentum-mcp-caller-key version shared with the public MCP."
+  validation {
+    condition     = var.suggestion_key_version == null ? true : can(regex("^[1-9][0-9]*$", var.suggestion_key_version))
+    error_message = "Pin a numeric suggestion signing key version."
+  }
+}
