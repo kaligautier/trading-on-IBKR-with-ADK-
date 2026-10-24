@@ -138,6 +138,19 @@ expected Liquibase identity/checksum. Use `database_migrator` for `verify` becau
 runtime identities intentionally cannot read migration history. Verification is
 read-only and permits retained historical rows from pre-baseline migrations.
 It rejects missing changesets, null/changed checksums and structural drift.
+Current-release verification also includes explicit column privileges from
+[`pg_attribute.attacl`](https://www.postgresql.org/docs/18/catalog-pg-attribute.html),
+expanded with [`aclexplode`](https://www.postgresql.org/docs/18/functions-info.html#FUNCTIONS-ACL).
+Grantee names, privilege types and grant options are sorted independently of
+database object OIDs and ACL entry order. This covers both an unexpected reader
+grant on a private column and a missing writer UPDATE grant, alongside table ACLs.
+PostgreSQL documents these column-level permissions under
+[`GRANT`](https://www.postgresql.org/docs/18/sql-grant.html).
+The fingerprint is a project verification mechanism, not a PostgreSQL migration
+requirement. `verify-baseline` and `adopt` retain their original catalog format
+and fingerprints; they do not gain column-ACL coverage. Only current-release
+manifests are regenerated for this extended check, with no baseline or applied
+migration changes.
 Do not update the baseline fingerprint to conceal a migration.
 Memory migration is forward-only once populated; rolling back application images
 must preserve retained decisions/reflections.

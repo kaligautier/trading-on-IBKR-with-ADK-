@@ -65,14 +65,30 @@ QUERIES = {
     """,
 }
 
+COLUMN_GRANTS_QUERY = """
+    SELECT n.nspname AS schema, c.relname AS table, a.attname AS column,
+      CASE WHEN acl.grantee=0 THEN 'PUBLIC'
+        ELSE pg_get_userbyid(acl.grantee) END AS grantee,
+      acl.privilege_type AS privilege, acl.is_grantable AS grantable
+    FROM pg_attribute a JOIN pg_class c ON c.oid=a.attrelid
+    JOIN pg_namespace n ON n.oid=c.relnamespace
+    CROSS JOIN LATERAL aclexplode(a.attacl) acl
+    WHERE n.nspname=ANY($1) AND c.relkind IN ('r','p','v','m','f')
+      AND a.attnum>0 AND NOT a.attisdropped
+    ORDER BY 1,2,3,4,5,6
+"""
 
-async def snapshot(connection):
-    """Keep every query in one consistent read-only snapshot."""
+
+async def snapshot(connection, *, include_column_grants=False):
+    """Read consistently; retain the historical adoption fingerprint by default."""
+    queries = QUERIES
+    if include_column_grants:
+        queries = {**queries, "column_grants": COLUMN_GRANTS_QUERY}
     async with connection.transaction(isolation="repeatable_read", readonly=True):
         await connection.execute("SET LOCAL search_path = pg_catalog")
         return {
             name: [dict(row) for row in await connection.fetch(query, SCHEMAS)]
-            for name, query in QUERIES.items()
+            for name, query in queries.items()
         }
 
 
