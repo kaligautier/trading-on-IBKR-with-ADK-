@@ -1,0 +1,65 @@
+name: Momentum public MCP
+on:
+  pull_request:
+    paths:
+      - 'apps/backend/momentum-public-mcp/**'
+      - 'infra/momentum-public-mcp/**'
+      - '.github/workflows/momentum-public-mcp.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'apps/backend/momentum-public-mcp/**'
+      - 'infra/momentum-public-mcp/**'
+      - '.github/workflows/momentum-public-mcp.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: momentum-public-mcp-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  backend:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: apps/backend/momentum-public-mcp
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e
+        with:
+          version: '0.12.2'
+          enable-cache: true
+      - run: uv sync --frozen --python 3.12
+      - run: uv run --frozen ruff check src tests scripts
+      - run: uv run --frozen ruff format --check src tests scripts
+      - run: uv run --frozen pytest -q
+      - name: Install pinned Postman CLI
+        run: |
+          curl --fail --location --silent --show-error \
+            https://dl-cli.pstmn.io/download/version/1.73.0/linux64 \
+            --output "$RUNNER_TEMP/postman.tgz"
+          printf '%s  %s\n' 8f95dfcfc113a7af796783f88e19de26cc7606c9438b414e8cc485199b205817 "$RUNNER_TEMP/postman.tgz" | sha256sum --check -
+          mkdir "$RUNNER_TEMP/mcp-postman"
+          tar -xzf "$RUNNER_TEMP/postman.tgz" -C "$RUNNER_TEMP/mcp-postman"
+          mv "$RUNNER_TEMP/mcp-postman/postman-cli" "$RUNNER_TEMP/mcp-postman/postman"
+          echo "$RUNNER_TEMP/mcp-postman" >> "$GITHUB_PATH"
+      - name: Real MCP over HTTP against contract-derived upstreams
+        run: uv run --frozen python scripts/simulation.py
+      - run: docker build -t local/momentum-public-mcp:verify .
+  infrastructure:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    strategy:
+      matrix:
+        root: [infra/momentum-public-mcp, infra/momentum-public-mcp/build]
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd
+        with:
+          terraform_version: '1.14.4'
+          terraform_wrapper: false
+      - run: terraform -chdir=${{ matrix.root }} fmt -check -recursive
+      - run: terraform -chdir=${{ matrix.root }} init -backend=false -input=false -lockfile=readonly
+      - run: terraform -chdir=${{ matrix.root }} validate
+      - run: terraform -chdir=${{ matrix.root }} test
