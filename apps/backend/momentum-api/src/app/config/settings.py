@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     DATABASE_POOL_TIMEOUT: float = Field(default=5, gt=0, le=30)
     AUTH_MODE: Literal["token", "cloud_run"] = "token"
     API_TOKEN: SecretStr = SecretStr("")
+    SUGGESTION_HASH_SECRET: SecretStr = SecretStr("")
 
     @field_validator("DATABASE_URL")
     @classmethod
