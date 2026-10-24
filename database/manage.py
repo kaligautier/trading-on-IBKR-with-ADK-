@@ -17,6 +17,7 @@ import asyncpg
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
 from operations.catalog import require_baseline, snapshot  # noqa: E402
+from operations.current import require_current  # noqa: E402
 
 IMAGE = "local/deepcopy-database:5.0.4"
 BASELINE_TAG = "aiven-20261023"
@@ -154,21 +155,28 @@ async def execute(args):
             raise ValueError("Use a regular private URL file with permissions 0600")
         raw = args.url_file.read_text().strip()
     parameters = connection_parameters(raw, args.domain, args.ca_file)
-    if args.action in {"verify", "adopt"}:
+    if args.action in {"verify", "verify-baseline", "adopt"}:
         connection = await asyncpg.connect(**parameters)
         try:
-            definitions = await snapshot(connection)
             manifest = json.loads((ROOT / "domains.json").read_text())
-            require_baseline(definitions, manifest[args.domain]["fingerprint"])
+            if args.action == "verify":
+                await require_current(connection, ROOT, args.domain)
+            else:
+                require_baseline(
+                    await snapshot(connection), manifest[args.domain]["fingerprint"]
+                )
             await require_runtime_access(
                 connection, manifest[args.domain]["runtime_roles"]
             )
         finally:
             await connection.close()
-        print(
-            f"{args.domain}: schema, ownership, constraints, indexes and grants match Aiven baseline"
+        target = (
+            "current release and migration history"
+            if args.action == "verify"
+            else "Aiven baseline"
         )
-        if args.action == "verify":
+        print(f"{args.domain}: schema and runtime policy match {target}")
+        if args.action != "adopt":
             return
     if parameters["user"] != "database_migrator":
         raise ValueError("Migrations require the database_migrator identity")
@@ -221,7 +229,16 @@ async def require_runtime_access(connection, roles):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "action", choices=("verify", "status", "plan", "baseline", "migrate", "adopt")
+        "action",
+        choices=(
+            "verify",
+            "verify-baseline",
+            "status",
+            "plan",
+            "baseline",
+            "migrate",
+            "adopt",
+        ),
     )
     parser.add_argument(
         "--domain", required=True, choices=("market_scanner", "momentum")

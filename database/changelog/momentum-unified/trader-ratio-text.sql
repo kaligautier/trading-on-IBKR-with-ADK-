@@ -8,4 +8,4 @@ SET LOCAL lock_timeout = '5s';
 SET LOCAL statement_timeout = '30s';
 ALTER TABLE _analysis.trader_proposals ALTER COLUMN risk_reward_ratio TYPE TEXT;
 
---rollback ALTER TABLE _analysis.trader_proposals ALTER COLUMN risk_reward_ratio TYPE VARCHAR(20);
+--rollback SELECT 1;

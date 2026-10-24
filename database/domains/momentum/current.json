@@ -1,0 +1,30 @@
+{
+  "source_digest": "4810722cd72240048052d0bb1a08e96bb69d1eee7900f80e5f5acb5cacfd48e7",
+  "fingerprint": "9a455f238c2820f1b2e1d7231920c96669a0c90af2c45e1420bbc72ac6a4432d",
+  "changesets": [
+    {
+      "id": "momentum-aiven-20261023",
+      "author": "deepcopy",
+      "filename": "domains/momentum/changelog.yaml",
+      "md5sum": "9:4a7d536c41b9b28ae91a2e13c26ef368"
+    },
+    {
+      "id": "momentum-aiven-20261023-tag",
+      "author": "deepcopy",
+      "filename": "domains/momentum/changelog.yaml",
+      "md5sum": "9:29cfc7d7e83a0d37e31bab332a9e6de1"
+    },
+    {
+      "id": "momentum-trading-memory-001",
+      "author": "deepcopy",
+      "filename": "domains/momentum/migrations/001-trading-memory.sql",
+      "md5sum": "9:03ebbf0e6a7b0c83c4329c9a1245dd9d"
+    },
+    {
+      "id": "momentum-trader-ratio-text-001",
+      "author": "deep-copy",
+      "filename": "momentum-unified/trader-ratio-text.sql",
+      "md5sum": "9:fa13583c3763e355f0d9eeb912bca762"
+    }
+  ]
+}

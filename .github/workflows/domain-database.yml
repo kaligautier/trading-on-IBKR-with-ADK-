@@ -1,18 +1,15 @@
 name: Domain database rehearsal
 on:
+  # Always emit the required check, including documentation-only PRs.
   pull_request:
-    paths:
-      - 'database/**'
-      - 'apps/backend/market-scanner-adk/**'
-      - 'apps/backend/market-scanner-api/**'
-      - 'apps/backend/momentum-adk/**'
-      - 'apps/backend/momentum-api/**'
-      - '.github/workflows/domain-database.yml'
+  push:
+    branches: [main]
   workflow_dispatch:
 permissions:
   contents: read
 jobs:
   local-postgres:
+    name: Database migrations
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:

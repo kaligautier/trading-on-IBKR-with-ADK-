@@ -3,8 +3,20 @@
 from pathlib import Path
 import os
 import subprocess
+from tempfile import TemporaryDirectory
 
 import pytest
+
+
+@pytest.fixture
+def mounted_changelog():
+    # Colima shares the checkout, but not macOS's default pytest temp directory.
+    cache = Path(__file__).resolve().parents[2] / ".pytest_cache"
+    cache.mkdir(exist_ok=True)
+    with TemporaryDirectory(dir=cache) as directory:
+        path = Path(directory) / "changelog"
+        path.mkdir(mode=0o755)
+        yield path
 
 
 @pytest.fixture(scope="session", autouse=True)

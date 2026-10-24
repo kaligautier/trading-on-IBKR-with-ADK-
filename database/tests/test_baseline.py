@@ -134,6 +134,9 @@ async def test_drift_prevents_adoption_without_changing_history(monkeypatch):
 async def test_runtime_privilege_drift_prevents_adoption(monkeypatch, mutation):
     module = management()
     admin = await asyncpg.connect(url("market_scanner", "postgres"))
+    original_limit = await admin.fetchval(
+        "SELECT rolconnlimit FROM pg_roles WHERE rolname='market_scanner_writer'"
+    )
     before = await admin.fetch("SELECT * FROM liquibase.databasechangelog ORDER BY id")
     try:
         if mutation == "limit":
@@ -162,7 +165,9 @@ async def test_runtime_privilege_drift_prevents_adoption(monkeypatch, mutation):
             == before
         )
     finally:
-        await admin.execute("ALTER ROLE market_scanner_writer LOGIN CONNECTION LIMIT 4")
+        await admin.execute(
+            f"ALTER ROLE market_scanner_writer LOGIN CONNECTION LIMIT {original_limit}"
+        )
         if mutation == "new_database":
             await admin.execute("DROP DATABASE IF EXISTS isolation_probe")
         await admin.execute(
