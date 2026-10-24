@@ -1,6 +1,70 @@
 # LiteLLM image dependency review
 
-## Decision and evidence
+## 1.106.2 upgrade candidate
+
+Both defaults in `variables.tf` now select the official
+[1.106.2 release](https://github.com/BerriAI/litellm/releases/tag/v1.106.2),
+listed by GitHub as the latest stable release on 2026-10-21 at 21:10 UTC.
+At that check the previously considered 1.107.0 release page returned 404 and
+its proxy tag was unavailable. The 1.106.2 release includes spend accounting,
+batch pricing and token-counting fixes.
+
+Budget exhaustion now defaults to HTTP 422 with error type `budget_exceeded`.
+The container checks assert that response for per-agent and global budgets;
+shared RPM exhaustion must still return HTTP 429. Clients should distinguish
+an exhausted budget from a transient rate limit.
+
+The upgrade tracked in
+[issue #53](https://github.com/kaligautier/trading-on-IBKR-with-ADK-/issues/53)
+remains blocked by the image-security gate. The proposed pins are not a deployed
+upgrade and must not be released until the remaining advisories are resolved.
+
+Both GHCR image indexes were verified on 2026-10-21 and contain `linux/amd64`
+and `linux/arm64` manifests:
+
+```text
+ghcr.io/berriai/litellm@sha256:7294b90f868c5c38c99b83021c7ba46f9b439e95f8e32964c925c7d2563a03f7
+ghcr.io/berriai/litellm-migrations@sha256:bdcb8d71f3cc6344beeb7280b8865cfebfbe218426dd12f079ee4ea99dc10563
+```
+
+Installed package metadata extracted from both exact `linux/amd64` images with
+`--network=none` confirms `litellm 1.106.2`, `aiohttp 3.14.5`, `yarl 1.25.1`, and
+`certifi 2026.4.22`. The full `audit_images.py` run with `pip-audit==2.10.1`
+exited 1. No aiohttp advisory was reported.
+
+| Image, linux/amd64 | Installed distributions | Known advisories | Skipped packages |
+| --- | ---: | ---: | ---: |
+| Proxy 1.106.2 | 200 | 6 | 1 |
+| Migrations 1.106.2 | 145 | 1 | 0 |
+
+Remaining findings:
+
+- Both images: `certifi 2026.4.22`, `PYSEC-2026-4320`
+  (`GHSA-6q48-6c7w-9gw2`), fixed in `2026.10.19`.
+- Proxy only: `pypdf 6.19.0`, `CVE-2026-113792`, `CVE-2026-113795`,
+  `CVE-2026-113793`, `CVE-2026-113794`, and `CVE-2026-113786`.
+  The reported fixes span 6.20.0 through 6.21.1; 6.21.1 addresses all five.
+- The auditor skipped `litellm-admin-mcp 0.1.0` because it could not find the
+  package on PyPI. This limits coverage; it is not a clean bill of health.
+
+The arm64 images have not been audited for this candidate. No exceptions or
+dependency replacements are applied inside the official images. Resolve the
+remaining findings through official upstream images, update both digests
+together, and rerun the audit and `LiteLLM checks` before marking the PR ready.
+Investigate skipped packages before claiming complete Python package coverage.
+
+Local configuration validation passed: 32 infrastructure tests, 4 governance
+policy tests, 28 Python regression tests, and Ruff. The gateway route-isolation
+and SSE smoke test also passed. See
+[PR #99](https://github.com/kaligautier/trading-on-IBKR-with-ADK-/pull/99)
+for the final container test and CI results. Provider responses in the native
+gateway tests are simulated; they do not establish live Vertex connectivity.
+
+No Cloud Run rollout or live Vertex inference is claimed. Before a deployed
+upgrade, back up PostgreSQL, review the Terraform plan, execute migrations, and
+verify gateway behavior after rollout.
+
+## Historical 1.103.4 decision and evidence
 
 The PR initially pinned LiteLLM 1.103.1. An audit of its installed proxy Python
 packages found 31 advisories across seven packages. Upgrade both official images
@@ -21,7 +85,7 @@ from the exact digest-pinned images with networking disabled:
 | Proxy 1.103.4, linux/arm64 | 201 | 0 | 0 |
 | Migrations 1.103.4, linux/arm64 | 147 | 0 | 0 |
 
-The multi-platform index pins in `variables.tf` are:
+The historical multi-platform index pins at that audit were:
 
 ```text
 ghcr.io/berriai/litellm@sha256:8a372e5c22acddcd78e86a68e1c054bd97768ae600006a776475d2d8d4e7574b
