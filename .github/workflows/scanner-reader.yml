@@ -1,15 +1,10 @@
 name: Scanner consultation API
 on:
-  pull_request:
-    paths:
-      - 'apps/backend/market-scanner-api/**'
-      - 'apps/backend/market-scanner-adk/src/app/models/**'
-      - 'apps/backend/market-scanner-adk/pyproject.toml'
-      - 'apps/backend/market-scanner-adk/uv.lock'
-      - 'apps/backend/market-scanner-adk/examples/report-v3.json'
-      - 'database/**'
-      - 'infra/reader/**'
-      - '.github/workflows/scanner-reader.yml'
+  workflow_call:
+    outputs:
+      jobs:
+        description: Results of every verification job
+        value: ${{ toJSON(jobs) }}
   push:
     branches: [main]
     paths:

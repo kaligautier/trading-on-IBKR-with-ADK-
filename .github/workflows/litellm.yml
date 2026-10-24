@@ -1,12 +1,11 @@
 name: LiteLLM checks
 
 on:
-  pull_request:
-    paths:
-      - 'infra/litellm/**'
-      - '.github/workflows/litellm.yml'
-      - 'apps/backend/market-scanner-adk/pyproject.toml'
-      - 'apps/backend/market-scanner-adk/uv.lock'
+  workflow_call:
+    outputs:
+      jobs:
+        description: Results of every verification job
+        value: ${{ toJSON(jobs) }}
   push:
     branches: [main]
     paths:

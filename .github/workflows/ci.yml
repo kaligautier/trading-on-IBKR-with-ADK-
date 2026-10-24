@@ -1,0 +1,67 @@
+name: Pull request CI
+on:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ci-required-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  scope:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    outputs:
+      selected: ${{ steps.scope.outputs.selected }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Test CI selection and failure handling
+        run: python3 -m unittest discover -s .github/scripts -p 'test_*.py' -v
+      - name: Select affected components
+        id: scope
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: python3 .github/scripts/ci_scope.py
+  frontend:
+    needs: scope
+    if: fromJSON(needs.scope.outputs.selected).frontend
+    uses: ./.github/workflows/frontend.yml
+  litellm:
+    needs: scope
+    if: fromJSON(needs.scope.outputs.selected).litellm
+    uses: ./.github/workflows/litellm.yml
+  momentum:
+    needs: scope
+    if: fromJSON(needs.scope.outputs.selected).momentum
+    uses: ./.github/workflows/momentum.yml
+  momentum_api:
+    needs: scope
+    if: fromJSON(needs.scope.outputs.selected).momentum_api
+    uses: ./.github/workflows/momentum-api.yml
+  scanner:
+    needs: scope
+    if: fromJSON(needs.scope.outputs.selected).scanner
+    uses: ./.github/workflows/scanner-checks.yml
+  scanner_reader:
+    needs: scope
+    if: fromJSON(needs.scope.outputs.selected).scanner_reader
+    uses: ./.github/workflows/scanner-reader.yml
+  required:
+    name: CI required
+    if: always()
+    needs: [scope, frontend, litellm, momentum, momentum_api, scanner, scanner_reader]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Reject failed, cancelled, missing or unexpectedly skipped checks
+        env:
+          CI_NEEDS: ${{ toJSON(needs) }}
+        run: python3 .github/scripts/ci_result.py
