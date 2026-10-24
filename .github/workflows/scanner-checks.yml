@@ -79,4 +79,3 @@ jobs:
         run: docker build --platform linux/amd64 --tag scanner:verify apps/backend/market-scanner-adk
       - name: Verify packaged runtime without cloud access
         run: python3 scripts/scanner_image_smoke.py scanner:verify
-
