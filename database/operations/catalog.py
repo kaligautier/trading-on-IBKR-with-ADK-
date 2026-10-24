@@ -87,7 +87,13 @@ async def snapshot(connection, *, include_column_grants=False):
     async with connection.transaction(isolation="repeatable_read", readonly=True):
         await connection.execute("SET LOCAL search_path = pg_catalog")
         return {
-            name: [dict(row) for row in await connection.fetch(query, SCHEMAS)]
+            name: [
+                dict(row)
+                for row in await connection.fetch(
+                    query,
+                    SCHEMAS + ["_suggestions"] if include_column_grants else SCHEMAS,
+                )
+            ]
             for name, query in queries.items()
         }
 

@@ -83,12 +83,18 @@ DO $$ BEGIN
             has_table_privilege('momentum_results_reader', c.oid,
                                 'INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER,SELECT WITH GRANT OPTION')
             OR has_any_column_privilege('momentum_results_reader', c.oid,
-                                        'INSERT,UPDATE,REFERENCES,SELECT WITH GRANT OPTION')
-            OR (NOT (n.nspname='_analysis' AND c.relname IN (
+                                        'UPDATE,REFERENCES,SELECT WITH GRANT OPTION,INSERT WITH GRANT OPTION')
+            OR EXISTS (SELECT FROM pg_attribute a
+                WHERE a.attrelid=c.oid AND a.attnum>0 AND NOT a.attisdropped
+                  AND has_column_privilege('momentum_results_reader',c.oid,a.attnum,'INSERT')
+                  AND NOT (n.nspname='_suggestions' AND c.relname='ticker_suggestions'
+                           AND a.attname IN ('symbol','reason','suggested_by')))
+            OR (NOT ((n.nspname='_suggestions' AND c.relname='ticker_suggestions')
+              OR (n.nspname='_analysis' AND c.relname IN (
                 'analysis_results','technical_indicators','fundamentals',
                 'sentiment_results','sentiment_items','news_results','news_items',
                 'research_plans','trader_proposals','portfolio_decisions',
-                'debate_arguments','run_stats')) AND (
+                'debate_arguments','run_stats'))) AND (
                 has_table_privilege('momentum_results_reader', c.oid, 'SELECT')
                 OR has_any_column_privilege('momentum_results_reader', c.oid, 'SELECT')
             ))

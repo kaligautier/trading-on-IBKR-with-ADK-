@@ -1,6 +1,6 @@
 {
-  "source_digest": "4810722cd72240048052d0bb1a08e96bb69d1eee7900f80e5f5acb5cacfd48e7",
-  "fingerprint": "1b9f4fd77165ba678d5a90819729e2b147e809614527b7659e3d436d1956c9c2",
+  "source_digest": "97536b04f06cbac7a108c9cef8a9c5beebba22f38e4a21c061692eea1c6497c7",
+  "fingerprint": "e9b0b5c019afe12f4fcbbdf81e4c8bee0d5e65bd7bf60a0450727c03e8270065",
   "changesets": [
     {
       "id": "momentum-aiven-20261023",
@@ -19,6 +19,12 @@
       "author": "deepcopy",
       "filename": "domains/momentum/migrations/001-trading-memory.sql",
       "md5sum": "9:03ebbf0e6a7b0c83c4329c9a1245dd9d"
+    },
+    {
+      "id": "momentum-ticker-suggestions-20261024",
+      "author": "deepcopy",
+      "filename": "domains/momentum/migrations/002-ticker-suggestions.sql",
+      "md5sum": "9:52bed66563b76a185524bdd237a5bf33"
     },
     {
       "id": "momentum-trader-ratio-text-001",
