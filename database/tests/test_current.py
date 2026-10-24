@@ -105,7 +105,10 @@ VALUES ('retained-legacy','legacy','legacy.sql',NOW(),0,'EXECUTED',NULL);
         await connection.close()
 
 
-async def test_next_migration_requires_refreshed_manifest(current_databases, tmp_path):
+async def test_next_migration_requires_refreshed_manifest(
+    current_databases, mounted_changelog
+):
+    tmp_path = mounted_changelog
     module = management()
     from operations.current import capture_current
 

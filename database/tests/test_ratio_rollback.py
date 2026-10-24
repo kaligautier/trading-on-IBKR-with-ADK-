@@ -20,7 +20,8 @@ def harness():
 
 
 @pytest.mark.usefixtures("domain_databases")
-def test_legacy_checksum_and_long_values_survive_rollback(tmp_path):
+def test_legacy_checksum_and_long_values_survive_rollback(mounted_changelog):
+    tmp_path = mounted_changelog
     db = harness()
     # A private changelog copy stops before the unrelated, forward-only memory
     # migration. Keep the exact logical identity used by deployed Liquibase.
