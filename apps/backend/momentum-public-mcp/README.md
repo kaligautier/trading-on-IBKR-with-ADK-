@@ -160,6 +160,21 @@ The container smoke check verifies the entrypoint, protocol, validation errors,
 non-root user and absence of development/build tools. The Postman simulation
 separately exercises the real HTTP clients against contract-derived upstreams.
 
+## Canonical-event release verified on 2026-10-24
+
+- 71 Python tests, 45 Postman assertions, four Terraform tests and the final
+  runtime-container smoke check passed, along with Ruff and pre-commit.
+- Cloud Build `d32ec2e2-d8b8-474a-80d7-071d637e8d0d` produced image
+  `sha256:dbb35718d90eff4949c6891cbf769e2865f2bc510f9babe5092ec907a4e3a101`.
+  The verified wrapper deployed `momentum-public-mcp-00005-gxv` to 100% traffic;
+  live business/protocol verification passed and Terraform reported no drift.
+- Cloud Logging contained exactly one canonical MCP event for each of two
+  read-only probes, with matching trace IDs in Momentum API. A successful list
+  included `business.result_count=1`; a missing analysis recorded HTTP 200,
+  `outcome=error` and `upstreams.momentum.last_status=404` in the same event.
+- The live configuration retains all events (`sample_rate=1`); unit tests prove
+  that lower rates still retain errors, cancellations and slow requests.
+
 ## Initial operations release verified on 2026-10-24
 
 - 59 Python tests, four deployment-gate tests, 45 Postman assertions and three
