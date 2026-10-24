@@ -110,7 +110,6 @@ def install_schema(app: FastAPI) -> None:
                         "schema": {"type": "string"},
                     }
                     for name in (
-                        "Accept",
                         "Accept-Encoding",
                         "If-Match",
                         "If-None-Match",
@@ -168,6 +167,8 @@ def install_schema(app: FastAPI) -> None:
             }
         document["info"]["description"] = (
             "Private read-only Momentum catalogue. UTC dates/timestamps; finite JSON. "
+            "Clients should send Accept: application/json, application/problem+json "
+            "to receive both successful representations and problem details. "
             "Lists are ordered by created_at DESC, id DESC, with filter-bound keyset "
             "tokens and no snapshot guarantee under concurrent updates. "
             "Latest selects one winner per ticker before rating filters. "

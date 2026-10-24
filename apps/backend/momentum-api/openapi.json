@@ -2078,7 +2078,7 @@
     }
   },
   "info": {
-    "description": "Private read-only Momentum catalogue. UTC dates/timestamps; finite JSON. Lists are ordered by created_at DESC, id DESC, with filter-bound keyset tokens and no snapshot guarantee under concurrent updates. Latest selects one winner per ticker before rating filters. Unknown ticker returns an empty page. GET/HEAD bodies and duplicate or unknown query parameters are rejected. Error types: https://github.com/kaligautier/trading-on-IBKR-with-ADK-/blob/main/apps/backend/momentum-api/README.md#invalid-argument, invalid-request, invalid-token, analysis-not-found, not-found, method-not-allowed, not-acceptable, precondition-failed, invalid-stored-data, configuration-error, store-unavailable, internal-error, not-implemented",
+    "description": "Private read-only Momentum catalogue. UTC dates/timestamps; finite JSON. Clients should send Accept: application/json, application/problem+json to receive both successful representations and problem details. Lists are ordered by created_at DESC, id DESC, with filter-bound keyset tokens and no snapshot guarantee under concurrent updates. Latest selects one winner per ticker before rating filters. Unknown ticker returns an empty page. GET/HEAD bodies and duplicate or unknown query parameters are rejected. Error types: https://github.com/kaligautier/trading-on-IBKR-with-ADK-/blob/main/apps/backend/momentum-api/README.md#invalid-argument, invalid-request, invalid-token, analysis-not-found, not-found, method-not-allowed, not-acceptable, precondition-failed, invalid-stored-data, configuration-error, store-unavailable, internal-error, not-implemented",
     "title": "Momentum consultation API",
     "version": "0.1.0"
   },
@@ -2088,14 +2088,6 @@
       "get": {
         "operationId": "health",
         "parameters": [
-          {
-            "in": "header",
-            "name": "Accept",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          },
           {
             "in": "header",
             "name": "Accept-Encoding",
@@ -2198,14 +2190,6 @@
       "head": {
         "operationId": "head_health",
         "parameters": [
-          {
-            "in": "header",
-            "name": "Accept",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          },
           {
             "in": "header",
             "name": "Accept-Encoding",
@@ -2409,14 +2393,6 @@
         "parameters": [
           {
             "in": "header",
-            "name": "Accept",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "in": "header",
             "name": "Accept-Encoding",
             "required": false,
             "schema": {
@@ -2517,14 +2493,6 @@
       "head": {
         "operationId": "head_get_openapi",
         "parameters": [
-          {
-            "in": "header",
-            "name": "Accept",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          },
           {
             "in": "header",
             "name": "Accept-Encoding",
@@ -2754,14 +2722,6 @@
         "parameters": [
           {
             "in": "header",
-            "name": "Accept",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "in": "header",
             "name": "Accept-Encoding",
             "required": false,
             "schema": {
@@ -2870,14 +2830,6 @@
         "description": "Connectivity and effective SELECT access to every required table.",
         "operationId": "head_ready",
         "parameters": [
-          {
-            "in": "header",
-            "name": "Accept",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          },
           {
             "in": "header",
             "name": "Accept-Encoding",
@@ -3150,14 +3102,6 @@
           },
           {
             "in": "header",
-            "name": "Accept",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "in": "header",
             "name": "Accept-Encoding",
             "required": false,
             "schema": {
@@ -3296,14 +3240,6 @@
               "default": "",
               "maxLength": 512,
               "title": "Page Token",
-              "type": "string"
-            }
-          },
-          {
-            "in": "header",
-            "name": "Accept",
-            "required": false,
-            "schema": {
               "type": "string"
             }
           },
@@ -3593,14 +3529,6 @@
           },
           {
             "in": "header",
-            "name": "Accept",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "in": "header",
             "name": "Accept-Encoding",
             "required": false,
             "schema": {
@@ -3756,14 +3684,6 @@
               "default": "",
               "maxLength": 512,
               "title": "Page Token",
-              "type": "string"
-            }
-          },
-          {
-            "in": "header",
-            "name": "Accept",
-            "required": false,
-            "schema": {
               "type": "string"
             }
           },
@@ -4006,14 +3926,6 @@
           },
           {
             "in": "header",
-            "name": "Accept",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "in": "header",
             "name": "Accept-Encoding",
             "required": false,
             "schema": {
@@ -4122,14 +4034,6 @@
             "schema": {
               "format": "uuid",
               "title": "Analysis Id",
-              "type": "string"
-            }
-          },
-          {
-            "in": "header",
-            "name": "Accept",
-            "required": false,
-            "schema": {
               "type": "string"
             }
           },
@@ -4430,14 +4334,6 @@
           },
           {
             "in": "header",
-            "name": "Accept",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "in": "header",
             "name": "Accept-Encoding",
             "required": false,
             "schema": {
@@ -4593,14 +4489,6 @@
               "default": "",
               "maxLength": 512,
               "title": "Page Token",
-              "type": "string"
-            }
-          },
-          {
-            "in": "header",
-            "name": "Accept",
-            "required": false,
-            "schema": {
               "type": "string"
             }
           },
