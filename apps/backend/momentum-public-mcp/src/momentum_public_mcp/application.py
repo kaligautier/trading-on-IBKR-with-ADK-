@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import os
 from contextlib import asynccontextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from urllib.parse import urlsplit
 
 import httpx
 import uvicorn
+from pydantic import SecretStr
 
 from momentum_public_mcp.gateway import (
     CloudRunIdentityHeaders,
@@ -37,6 +38,8 @@ class MomentumPublicSettings:
     trusted_proxies: TrustedProxyNetworks
     use_cloud_run_identity: bool
     port: int
+    MOMENTUM_API_TOKEN: SecretStr = field(default=SecretStr(""), repr=False)
+    MARKET_SCANNER_API_TOKEN: SecretStr = field(default=SecretStr(""), repr=False)
 
     @classmethod
     def from_environment(cls) -> MomentumPublicSettings:
@@ -59,6 +62,8 @@ class MomentumPublicSettings:
             proxies,
             use_cloud_run_identity,
             port,
+            SecretStr(os.environ.get("MOMENTUM_API_TOKEN", "")),
+            SecretStr(os.environ.get("MARKET_SCANNER_API_TOKEN", "")),
         )
 
     @staticmethod
@@ -105,11 +110,13 @@ class MomentumPublicApplication:
     def __init__(self, settings: MomentumPublicSettings):
         client = httpx.AsyncClient(
             base_url=settings.api_url,
+            headers=self._backend_headers(settings, settings.MOMENTUM_API_TOKEN),
             timeout=httpx.Timeout(40, connect=5),
             follow_redirects=False,
         )
         market_scanner_client = httpx.AsyncClient(
             base_url=settings.market_scanner_api_url,
+            headers=self._backend_headers(settings, settings.MARKET_SCANNER_API_TOKEN),
             timeout=httpx.Timeout(40, connect=5),
             follow_redirects=False,
         )
@@ -143,6 +150,12 @@ class MomentumPublicApplication:
                 await gateway.close()
 
         self.mcp = MomentumPublicMcpServer(tools, fingerprint, lifespan).server
+
+    @staticmethod
+    def _backend_headers(settings, token: SecretStr) -> dict[str, str]:
+        if settings.use_cloud_run_identity or not token.get_secret_value():
+            return {}
+        return {"Authorization": f"Bearer {token.get_secret_value()}"}
 
     @staticmethod
     def _identity_provider(settings, client):
