@@ -3,6 +3,7 @@ on:
   pull_request:
     paths:
       - 'apps/backend/momentum-api/**'
+      - 'apps/backend/momentum-public-mcp/**'
       - 'apps/backend/momentum-adk/app/infrastructure/models.py'
       - 'database/**'
       - 'infra/momentum-api/**'
@@ -12,6 +13,7 @@ on:
     branches: [main]
     paths:
       - 'apps/backend/momentum-api/**'
+      - 'apps/backend/momentum-public-mcp/**'
       - 'apps/backend/momentum-adk/app/infrastructure/models.py'
       - 'database/**'
       - 'infra/momentum-api/**'
@@ -61,6 +63,10 @@ jobs:
           bash scripts/test_database.sh start
           docker build --platform linux/amd64 --tag local/momentum-api:verify .
           uv run --frozen python scripts/container_smoke.py local/momentum-api:verify
+      - name: Real MCP through Momentum API into PostgreSQL
+        run: |
+          uv sync --project ../momentum-public-mcp --frozen --python 3.12
+          uv run --frozen python scripts/mcp_smoke.py
       - name: Clean up owned disposable fixture
         if: always()
         run: |
