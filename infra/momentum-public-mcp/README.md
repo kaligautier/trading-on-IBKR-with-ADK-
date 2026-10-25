@@ -60,8 +60,12 @@ Keep API versions compatible with that image. Direct `terraform apply` bypasses
 the gate, so use the wrapper for application releases.
 
 Separately verify both private reader URLs reject unauthenticated requests.
-For runtime diagnosis, use `X-Request-ID` to find the correlated HTTP, tool and
-upstream events in Cloud Logging, as described in the application README.
+For runtime diagnosis, use `X-Request-ID` to find the canonical
+`request_completed` event in Cloud Logging. It includes HTTP, tool, business and
+upstream outcomes, as described in the application README. Optional tfvars
+`log_success_sample_rate` (default 1) and `log_slow_request_ms` (default 2000)
+control tail sampling; errors and slow requests are always retained. Cloud Run
+supplies `K_SERVICE` and `K_REVISION` for deployment attribution.
 
 The recovered suggestion routes run in Momentum API using its existing pool and
 isolated `_suggestions` schema. Both tools target that same API; the MCP has no

@@ -93,7 +93,13 @@ class MomentumPublicApplication:
     def run(self) -> None:
         configure_logging(self._settings.GOOGLE_CLOUD_PROJECT)
         uvicorn.run(
-            create_http_app(self.mcp),
+            create_http_app(
+                self.mcp,
+                success_sample_rate=self._settings.LOG_SUCCESS_SAMPLE_RATE,
+                slow_request_ms=self._settings.LOG_SLOW_REQUEST_MS,
+                service=self._settings.K_SERVICE,
+                revision=self._settings.K_REVISION,
+            ),
             host="0.0.0.0",
             port=self._settings.PORT,
             proxy_headers=False,

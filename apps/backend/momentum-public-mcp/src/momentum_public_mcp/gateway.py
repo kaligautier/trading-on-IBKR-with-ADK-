@@ -23,7 +23,7 @@ from momentum_public_mcp.domain import (
     SuggestionReason,
     TickerSymbol,
 )
-from momentum_public_mcp.observability import emit, outbound_headers
+from momentum_public_mcp.observability import outbound_headers, record_upstream
 
 
 class MomentumApiError(RuntimeError):
@@ -294,12 +294,10 @@ class MomentumHttpGateway:
             error_type = type(error).__name__
             raise MomentumApiError("Momentum public API is unavailable.") from error
         finally:
-            emit(
-                "upstream_request",
+            record_upstream(
+                upstream,
                 started,
                 outcome=outcome,
-                upstream=upstream,
-                method=method,
                 status=status,
                 error_type=error_type,
             )

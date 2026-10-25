@@ -72,13 +72,13 @@ class RequireStatelessMetadata(BaseHTTPMiddleware):
         )
 
 
-def create_http_app(server: FastMCP):
+def create_http_app(server: FastMCP, **telemetry_options):
     return server.http_app(
         path="/",
         stateless_http=True,
         json_response=True,
         middleware=[
-            Middleware(RequestTelemetry),
+            Middleware(RequestTelemetry, **telemetry_options),
             Middleware(
                 CORSMiddleware,
                 allow_origins=["*"],

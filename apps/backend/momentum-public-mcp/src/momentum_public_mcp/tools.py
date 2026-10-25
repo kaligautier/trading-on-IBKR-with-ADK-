@@ -30,6 +30,7 @@ from momentum_public_mcp.domain import (
     TickerSymbol,
 )
 from momentum_public_mcp.gateway import MomentumApiError, MomentumPublicGateway
+from momentum_public_mcp.observability import record_result
 from momentum_public_mcp.security import FingerprintProvider
 
 Result = TypeVar("Result")
@@ -165,6 +166,7 @@ class MomentumPublicTools:
             result = await operation()
         except (MomentumApiError, ValueError) as error:
             raise ToolError(str(error)) from error
+        record_result(result)
         if transform is None:
             return result
         return transform(result)

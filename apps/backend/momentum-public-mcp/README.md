@@ -110,15 +110,23 @@ remote cleartext URLs and URLs with credentials fail at startup. The required
 signing key uses `SecretStr`, and validation errors hide input values.
 `constants.py` holds the seven tool titles, tags, annotations and shared deadline.
 
-`observability.py` emits JSON `http_request`, `tool_call` and `upstream_request`
-events with duration, outcome, correlation ID and trace ID. Every HTTP response
-includes a new `X-Request-ID`; outgoing API calls propagate that ID and a validated
-W3C trace context. Tool errors count as failures even when HTTP returns 200.
+Following [Logging Sucks](https://loggingsucks.com/), `observability.py` accumulates
+one context-rich `request_completed` event per HTTP request and emits it at the
+end, including on cancellation. It contains the service/revision, HTTP status,
+tool outcome and duration, per-upstream call/error counts and latency, and bounded
+business outcomes (result count, asset count, record found or moderation status).
+Pagination increments counters instead of producing one log line per API call.
+Third-party per-request chatter is suppressed. Cloud Run's own platform request
+logs remain separate from this application event.
+
+Every HTTP response includes a new `X-Request-ID`; outgoing API calls propagate
+that ID and a validated W3C trace context. Tool errors count as failures even
+when HTTP returns 200. A request-local accumulator keeps concurrent calls isolated.
 `GOOGLE_CLOUD_PROJECT` adds Cloud Logging trace association fields. This is log
 correlation, not a complete distributed-tracing exporter.
 
 Logs omit arguments, response bodies, addresses, credentials, exception text and
-third-party free-form messages. Use event, tool, upstream, status and error type
+third-party free-form messages. Use tool, upstream counters, status and error type
 for diagnosis; this deliberate redaction limits exception detail. Example Logs
 Explorer filter for a request (replace the ID with the response header):
 
@@ -128,8 +136,19 @@ resource.labels.service_name="momentum-public-mcp"
 jsonPayload.correlation_id="REQUEST-UUID"
 ```
 
-Filter `jsonPayload.event="tool_call"` and `jsonPayload.outcome="error"` for
-tool failures, including errors hidden behind a successful HTTP transport.
+Filter `jsonPayload.event="request_completed"` and `jsonPayload.outcome="error"`
+for failures, including errors hidden behind a successful HTTP transport. Add
+`jsonPayload.tool.name="get_analysis"` to select an operation. Upstream statuses
+are in `jsonPayload.upstreams.momentum.last_status` (or `scanner.last_status`),
+and the client-facing HTTP code is in `jsonPayload.http.status`.
+
+Tail sampling happens only after the outcome is known. All errors, cancellations
+and requests lasting at least `LOG_SLOW_REQUEST_MS` (default 2000) are retained.
+`LOG_SUCCESS_SAMPLE_RATE` controls only fast successes, from zero to one; the
+default is one, retaining everything until volume warrants a reduction. The
+event's `sample_rate` records its inclusion probability. Terraform exposes these
+as `log_success_sample_rate` and `log_slow_request_ms`. There is no user-tier rule
+because this public MCP has no authenticated customer identity.
 The deployment uses the direct Cloud Run URL without a load balancer or Cloud
 Armor. The per-instance application limiter remains best effort.
 
@@ -141,7 +160,22 @@ The container smoke check verifies the entrypoint, protocol, validation errors,
 non-root user and absence of development/build tools. The Postman simulation
 separately exercises the real HTTP clients against contract-derived upstreams.
 
-## Operations release verified on 2026-10-24
+## Canonical-event release verified on 2026-10-24
+
+- 71 Python tests, 45 Postman assertions, four Terraform tests and the final
+  runtime-container smoke check passed, along with Ruff and pre-commit.
+- Cloud Build `d32ec2e2-d8b8-474a-80d7-071d637e8d0d` produced image
+  `sha256:dbb35718d90eff4949c6891cbf769e2865f2bc510f9babe5092ec907a4e3a101`.
+  The verified wrapper deployed `momentum-public-mcp-00005-gxv` to 100% traffic;
+  live business/protocol verification passed and Terraform reported no drift.
+- Cloud Logging contained exactly one canonical MCP event for each of two
+  read-only probes, with matching trace IDs in Momentum API. A successful list
+  included `business.result_count=1`; a missing analysis recorded HTTP 200,
+  `outcome=error` and `upstreams.momentum.last_status=404` in the same event.
+- The live configuration retains all events (`sample_rate=1`); unit tests prove
+  that lower rates still retain errors, cancellations and slow requests.
+
+## Initial operations release verified on 2026-10-24
 
 - 59 Python tests, four deployment-gate tests, 45 Postman assertions and three
   Terraform tests passed. The built container passed its runtime smoke check.

@@ -61,6 +61,24 @@ class Settings(BaseSettings):
         ),
     )
 
+    LOG_SUCCESS_SAMPLE_RATE: float = Field(
+        default=1.0,
+        ge=0,
+        le=1,
+        description="Fraction of successful fast requests retained after completion.",
+    )
+    LOG_SLOW_REQUEST_MS: int = Field(
+        default=2000,
+        ge=1,
+        description="Always retain requests slower than this duration in milliseconds.",
+    )
+    K_SERVICE: str = Field(
+        default="momentum-public-mcp", description="Service name supplied by Cloud Run."
+    )
+    K_REVISION: str = Field(
+        default="local", description="Deployment revision supplied by Cloud Run."
+    )
+
     @field_validator("MOMENTUM_API_URL", "MARKET_SCANNER_API_URL")
     @classmethod
     def validate_api_url(cls, value: str) -> str:

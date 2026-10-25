@@ -70,11 +70,13 @@ resource "google_cloud_run_v2_service" "mcp" {
       }
       dynamic "env" {
         for_each = {
-          MOMENTUM_API_URL       = data.google_cloud_run_v2_service.reader["momentum-api"].uri
-          MARKET_SCANNER_API_URL = data.google_cloud_run_v2_service.reader["market-scanner-api"].uri
-          MOMENTUM_API_USE_IAM   = "true"
-          GOOGLE_CLOUD_PROJECT   = var.project_id
-          TRUSTED_PROXIES        = var.trusted_proxies
+          MOMENTUM_API_URL        = data.google_cloud_run_v2_service.reader["momentum-api"].uri
+          MARKET_SCANNER_API_URL  = data.google_cloud_run_v2_service.reader["market-scanner-api"].uri
+          MOMENTUM_API_USE_IAM    = "true"
+          GOOGLE_CLOUD_PROJECT    = var.project_id
+          LOG_SUCCESS_SAMPLE_RATE = tostring(var.log_success_sample_rate)
+          LOG_SLOW_REQUEST_MS     = tostring(var.log_slow_request_ms)
+          TRUSTED_PROXIES         = var.trusted_proxies
         }
         content {
           name  = env.key

@@ -29,3 +29,21 @@ variable "trusted_proxies" {
   default     = ""
   description = "Verified immediate proxy CIDRs only; empty uses the direct peer for local per-instance throttling."
 }
+variable "log_success_sample_rate" {
+  type        = number
+  default     = 1
+  description = "Retained fraction of successful fast requests; errors and slow requests always remain."
+  validation {
+    condition     = var.log_success_sample_rate >= 0 && var.log_success_sample_rate <= 1
+    error_message = "Log success sampling must be between zero and one."
+  }
+}
+variable "log_slow_request_ms" {
+  type        = number
+  default     = 2000
+  description = "Always retain canonical events at or above this duration in milliseconds."
+  validation {
+    condition     = var.log_slow_request_ms >= 1 && floor(var.log_slow_request_ms) == var.log_slow_request_ms
+    error_message = "The slow-request threshold must be a positive integer."
+  }
+}

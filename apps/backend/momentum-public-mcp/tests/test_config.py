@@ -39,3 +39,17 @@ def test_validates_proxies_and_redacts_signing_key():
 def test_empty_signing_key_is_rejected():
     with pytest.raises(ValidationError):
         Settings(_env_file=None, SUGGESTION_HASH_SECRET="")
+
+
+@pytest.mark.parametrize(
+    "values",
+    [
+        {"LOG_SUCCESS_SAMPLE_RATE": -0.1},
+        {"LOG_SUCCESS_SAMPLE_RATE": 1.1},
+        {"LOG_SUCCESS_SAMPLE_RATE": float("nan")},
+        {"LOG_SLOW_REQUEST_MS": 0},
+    ],
+)
+def test_rejects_invalid_sampling_configuration(values):
+    with pytest.raises(ValidationError):
+        settings(**values)
