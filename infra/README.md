@@ -14,6 +14,7 @@ separately. Run commands from the repository root and pass the appropriate
 | `litellm/governance/` | Teams, keys and per-agent budgets; [guide](litellm/governance/README.md). |
 | `litellm/governance/policy/` | Team/key policy module used by the governance root; [guide](litellm/governance/README.md). |
 | `frontend/build/` | Frontend builder and source storage; [build guide](frontend/README.md). |
+| `momentum-public-mcp/` | Public stateless MCP and private reader invocation; [deployment guide](momentum-public-mcp/README.md). |
 | `frontend/` | Public frontend and reader invocation rights; [deployment guide](frontend/README.md). |
 
 The database is external to Terraform; see [database setup](../database/README.md).

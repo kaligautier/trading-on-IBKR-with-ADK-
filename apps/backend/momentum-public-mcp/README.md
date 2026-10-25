@@ -121,4 +121,5 @@ that limit. It has no role in protocol session handling.
   existing one-connection pool. Its 261 tests passed with 95% branch-inclusive
   coverage; 33 Postman assertions exercised the real MCP/API/PostgreSQL chain,
   and 56 assertions passed against the exact release container image.
-- CI workflows are prepared; no commit, push or GitHub CI run was performed.
+- These deployment checks preceded PR preparation; GitHub CI results are tracked
+  separately on the dependent pull requests.

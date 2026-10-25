@@ -40,7 +40,13 @@ Open [Market Scanner](https://deepcopy.fr/#market-scanner) to read the daily ana
 
 ### MCP Momentum
 
-1. Add `https://mcp.deepcopy.fr` to your preferred MCP client. The server supports protocol revision [`2026-07-28`](https://modelcontextprotocol.io/specification/2026-07-28/changelog).
+The migrated backend uses FastMCP **4.1.3** with stateless HTTP. See the
+[backend contract and checks](apps/backend/momentum-public-mcp/README.md).
+The Cloud Run URL below serves all seven tools through Momentum API and Market
+Scanner API, including durable pending suggestions. The MCP has no database
+access. The old `mcp.deepcopy.fr` domain has not been migrated.
+
+1. Add `https://momentum-public-mcp-gdezc6bzrq-ew.a.run.app` to your preferred MCP client. The server supports protocol revision [`2026-07-28`](https://modelcontextprotocol.io/specification/2026-07-28/changelog).
 
 2. Ask for recent stock analyses, for example: “List the latest analyses available for AAPL.”
 
@@ -49,7 +55,7 @@ Open [Market Scanner](https://deepcopy.fr/#market-scanner) to read the daily ana
 To call `list_analyses` directly from a terminal:
 
 ```bash
-curl https://mcp.deepcopy.fr \
+curl https://momentum-public-mcp-gdezc6bzrq-ew.a.run.app \
   -H 'Content-Type: application/json' \
   -H 'Accept: application/json, text/event-stream' \
   -H 'MCP-Protocol-Version: 2026-07-28' \
@@ -77,7 +83,7 @@ Check `result.isError` before using a tool response. If it is `true`, read the e
 <summary>Discover the server and its supported protocol versions</summary>
 
 ```bash
-curl https://mcp.deepcopy.fr \
+curl https://momentum-public-mcp-gdezc6bzrq-ew.a.run.app \
   -H 'Content-Type: application/json' \
   -H 'Accept: application/json, text/event-stream' \
   -H 'MCP-Protocol-Version: 2026-07-28' \
@@ -231,9 +237,9 @@ Returns the latest daily market regime and normalized asset signals.
 | Data | Returned fields |
 | :--- | :-------------- |
 | Identifier and dates | `id`, `scan_date`, `created_at` |
-| Market regime | `regime`, `summary`, `recommendation` |
-| Market observations | `assets`, `signals` |
-| Session | `session_id` |
+| Market regime | `report.regime`, `report.summary` |
+| Market observations | `report.assets`, `report.themes`, `report.sources` |
+| Full report | `report` preserves the v3 reader schema, including arbitration and data quality. |
 
 ### `suggest_ticker`
 
@@ -277,7 +283,7 @@ Returns the moderation decision for a suggestion.
 
 #### Request body
 
-Replace `{{publicMcpAnalysisId}}` with an analysis ID returned by `list_analyses`. Send this body to `https://mcp.deepcopy.fr` with the same content type, accept, and protocol-version headers as the quick start, plus `Mcp-Method: tools/call` and `Mcp-Name: get_analysis`.
+Replace `{{publicMcpAnalysisId}}` with an analysis ID returned by `list_analyses`. Send this body to `https://momentum-public-mcp-gdezc6bzrq-ew.a.run.app` with the same content type, accept, and protocol-version headers as the quick start, plus `Mcp-Method: tools/call` and `Mcp-Name: get_analysis`.
 
 ```json
 {
