@@ -30,10 +30,12 @@ jobs:
         with:
           version: '0.12.2'
           enable-cache: true
-      - run: uv sync --frozen --python 3.12
-      - run: uv run --frozen ruff check src tests scripts
-      - run: uv run --frozen ruff format --check src tests scripts
-      - run: uv run --frozen pytest -q
+      - run: uv sync --locked --python 3.12
+      - run: uv run --locked ruff check src tests scripts ../../../infra/momentum-public-mcp/deploy.py ../../../infra/momentum-public-mcp/tests/test_deploy.py
+      - run: uv run --locked ruff format --check src tests scripts ../../../infra/momentum-public-mcp/deploy.py ../../../infra/momentum-public-mcp/tests/test_deploy.py
+      - run: uv run --locked pytest -q
+      - name: Deployment verification gate
+        run: uv run --locked python -m unittest discover -s ../../../infra/momentum-public-mcp/tests -p 'test_*.py'
       - name: Install pinned Postman CLI
         run: |
           curl --fail --location --silent --show-error \
@@ -45,8 +47,10 @@ jobs:
           mv "$RUNNER_TEMP/mcp-postman/postman-cli" "$RUNNER_TEMP/mcp-postman/postman"
           echo "$RUNNER_TEMP/mcp-postman" >> "$GITHUB_PATH"
       - name: Real MCP over HTTP against contract-derived upstreams
-        run: uv run --frozen python scripts/simulation.py
+        run: uv run --locked python scripts/simulation.py
       - run: docker build -t local/momentum-public-mcp:verify .
+      - name: Verify the release container runtime
+        run: uv run --locked python scripts/container_smoke.py local/momentum-public-mcp:verify
   infrastructure:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
