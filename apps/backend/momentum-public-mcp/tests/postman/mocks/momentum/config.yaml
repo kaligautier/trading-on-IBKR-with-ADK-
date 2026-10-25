@@ -1,0 +1,9 @@
+version: 1
+name: momentum contract
+slug: mcp-momentum
+protocol: http
+interceptRequests: true
+scenarios:
+  - name: default
+    path: ./default.js
+    default: true
