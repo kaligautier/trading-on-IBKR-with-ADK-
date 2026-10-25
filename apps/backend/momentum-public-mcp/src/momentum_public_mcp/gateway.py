@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import hmac
-import logging
+from time import perf_counter
 from typing import Protocol
 
 import httpx
@@ -23,8 +23,7 @@ from momentum_public_mcp.domain import (
     SuggestionReason,
     TickerSymbol,
 )
-
-logger = logging.getLogger(__name__)
+from momentum_public_mcp.observability import emit, outbound_headers
 
 
 class MomentumApiError(RuntimeError):
@@ -266,19 +265,44 @@ class MomentumHttpGateway:
         headers = dict(arguments.pop("headers", {}))
         headers.update(await self._scanner_identity_headers.values())
         return await self._request_from(
-            self._market_scanner_client, method, path, headers=headers, **arguments
+            self._market_scanner_client,
+            method,
+            path,
+            upstream="scanner",
+            headers=headers,
+            **arguments,
         )
 
     async def _request_from(
-        self, client: httpx.AsyncClient, method: str, path: str, **arguments
+        self,
+        client: httpx.AsyncClient,
+        method: str,
+        path: str,
+        *,
+        upstream: str = "momentum",
+        **arguments,
     ) -> httpx.Response:
+        headers = {**arguments.pop("headers", {}), **outbound_headers()}
+        started, status, outcome, error_type = perf_counter(), None, "error", None
         try:
-            response = await client.request(method, path, **arguments)
+            response = await client.request(method, path, headers=headers, **arguments)
+            status = response.status_code
+            self._ensure_success(response)
+            outcome = "success"
+            return response
         except httpx.HTTPError as error:
-            logger.warning("Reader transport failure: %s", type(error).__name__)
+            error_type = type(error).__name__
             raise MomentumApiError("Momentum public API is unavailable.") from error
-        self._ensure_success(response)
-        return response
+        finally:
+            emit(
+                "upstream_request",
+                started,
+                outcome=outcome,
+                upstream=upstream,
+                method=method,
+                status=status,
+                error_type=error_type,
+            )
 
     @staticmethod
     def _ensure_success(response: httpx.Response) -> None:

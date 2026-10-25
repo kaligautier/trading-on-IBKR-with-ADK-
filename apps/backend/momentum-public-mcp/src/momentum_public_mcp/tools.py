@@ -7,8 +7,16 @@ from typing import TypeVar
 
 from fastmcp.exceptions import ToolError
 from fastmcp.tools import tool
-from mcp.types import ToolAnnotations
 
+from momentum_public_mcp.constants import (
+    GET_ANALYSIS_TOOL,
+    GET_RECOMMENDATIONS_TOOL,
+    GET_SUGGESTION_STATUS_TOOL,
+    LATEST_ANALYSES_TOOL,
+    LATEST_MARKET_SCAN_TOOL,
+    LIST_ANALYSES_TOOL,
+    SUGGEST_TICKER_TOOL,
+)
 from momentum_public_mcp.domain import (
     AnalysisDetail,
     AnalysisId,
@@ -25,19 +33,6 @@ from momentum_public_mcp.gateway import MomentumApiError, MomentumPublicGateway
 from momentum_public_mcp.security import FingerprintProvider
 
 Result = TypeVar("Result")
-
-READ_ONLY = ToolAnnotations(
-    read_only_hint=True,
-    destructive_hint=False,
-    idempotent_hint=True,
-    open_world_hint=True,
-)
-MODERATED_WRITE = ToolAnnotations(
-    read_only_hint=False,
-    destructive_hint=False,
-    idempotent_hint=True,
-    open_world_hint=True,
-)
 
 
 class MomentumPublicTools:
@@ -62,12 +57,7 @@ class MomentumPublicTools:
             self.get_suggestion_status,
         ]
 
-    @tool(
-        title="List analyses",
-        tags={"public", "consultation"},
-        annotations=READ_ONLY,
-        timeout=45,
-    )
+    @tool(**LIST_ANALYSES_TOOL)
     async def list_analyses(
         self,
         ticker: str | None = None,
@@ -88,12 +78,7 @@ class MomentumPublicTools:
             transform=lambda summaries: summaries.as_list(),
         )
 
-    @tool(
-        title="Latest analyses",
-        tags={"public", "consultation"},
-        annotations=READ_ONLY,
-        timeout=45,
-    )
+    @tool(**LATEST_ANALYSES_TOOL)
     async def latest_analyses(
         self,
         ticker: str | None = None,
@@ -112,24 +97,14 @@ class MomentumPublicTools:
             transform=lambda summaries: summaries.as_list(),
         )
 
-    @tool(
-        title="Get analysis",
-        tags={"public", "consultation"},
-        annotations=READ_ONLY,
-        timeout=45,
-    )
+    @tool(**GET_ANALYSIS_TOOL)
     async def get_analysis(self, analysis_id: str) -> AnalysisDetail:
         """Get a complete Momentum analysis by UUID."""
         return await self._translate(
             lambda: self._gateway.get_analysis(AnalysisId.parse(analysis_id))
         )
 
-    @tool(
-        title="Get recommendations",
-        tags={"public", "consultation"},
-        annotations=READ_ONLY,
-        timeout=45,
-    )
+    @tool(**GET_RECOMMENDATIONS_TOOL)
     async def get_recommendations(
         self,
         rating: str = "Buy,Overweight",
@@ -146,22 +121,12 @@ class MomentumPublicTools:
             transform=lambda summaries: summaries.as_list(),
         )
 
-    @tool(
-        title="Latest market scan",
-        tags={"public", "market"},
-        annotations=READ_ONLY,
-        timeout=45,
-    )
+    @tool(**LATEST_MARKET_SCAN_TOOL)
     async def latest_market_scan(self) -> MarketScan:
         """Get the most recent daily market regime and normalized asset signals."""
         return await self._translate(self._gateway.latest_market_scan)
 
-    @tool(
-        title="Suggest ticker",
-        tags={"public", "suggestion"},
-        annotations=MODERATED_WRITE,
-        timeout=45,
-    )
+    @tool(**SUGGEST_TICKER_TOOL)
     async def suggest_ticker(self, symbol: str, reason: str = "") -> Suggestion:
         """Suggest a ticker for administrator review without starting an analysis.
 
@@ -177,12 +142,7 @@ class MomentumPublicTools:
             )
         )
 
-    @tool(
-        title="Get suggestion status",
-        tags={"public", "consultation"},
-        annotations=READ_ONLY,
-        timeout=45,
-    )
+    @tool(**GET_SUGGESTION_STATUS_TOOL)
     async def get_suggestion_status(self, suggestion_id: str) -> Suggestion:
         """Get the moderation status for a suggestion UUID."""
         return await self._translate(

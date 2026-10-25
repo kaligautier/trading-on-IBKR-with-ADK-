@@ -13,6 +13,8 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.cors import CORSMiddleware
 from starlette.responses import JSONResponse
 
+from momentum_public_mcp.observability import RequestTelemetry
+
 PREFIX = "io.modelcontextprotocol/"
 VERSION = "2026-07-28"
 
@@ -76,6 +78,7 @@ def create_http_app(server: FastMCP):
         stateless_http=True,
         json_response=True,
         middleware=[
+            Middleware(RequestTelemetry),
             Middleware(
                 CORSMiddleware,
                 allow_origins=["*"],
@@ -86,7 +89,7 @@ def create_http_app(server: FastMCP):
                     "Mcp-Method",
                     "Mcp-Name",
                 ],
-                expose_headers=["MCP-Protocol-Version"],
+                expose_headers=["MCP-Protocol-Version", "X-Request-ID"],
             ),
             Middleware(RequireStatelessMetadata),
         ],

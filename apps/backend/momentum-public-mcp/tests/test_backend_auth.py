@@ -3,10 +3,8 @@
 import httpx
 import pytest
 
-from momentum_public_mcp.application import (
-    MomentumPublicApplication,
-    MomentumPublicSettings,
-)
+from momentum_public_mcp.application import MomentumPublicApplication
+from momentum_public_mcp.config import Settings
 
 
 @pytest.mark.parametrize("iam", [False, True])
@@ -17,7 +15,7 @@ async def test_backend_credentials_are_isolated(monkeypatch, iam):
     monkeypatch.setenv("MOMENTUM_API_TOKEN", "disposable-momentum-token")
     monkeypatch.setenv("MARKET_SCANNER_API_TOKEN", "disposable-scanner-token")
     monkeypatch.setenv("MOMENTUM_API_USE_IAM", str(iam))
-    settings = MomentumPublicSettings.from_environment()
+    settings = Settings(_env_file=None)
     assert "disposable-momentum-token" not in repr(settings)
     assert "disposable-scanner-token" not in repr(settings)
 

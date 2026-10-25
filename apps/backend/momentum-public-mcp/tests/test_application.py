@@ -1,8 +1,6 @@
 """Cloud Run runtime configuration tests."""
 
-from momentum_public_mcp.application import (
-    MomentumPublicSettings,
-)
+from momentum_public_mcp.config import Settings
 
 
 def test_cloud_run_identity_is_enabled_from_environment(monkeypatch) -> None:
@@ -11,6 +9,6 @@ def test_cloud_run_identity_is_enabled_from_environment(monkeypatch) -> None:
     monkeypatch.setenv("SUGGESTION_HASH_SECRET", "test-secret")
     monkeypatch.setenv("MOMENTUM_API_USE_IAM", "true")
 
-    settings = MomentumPublicSettings.from_environment()
+    settings = Settings(_env_file=None)
 
-    assert settings.use_cloud_run_identity is True
+    assert settings.MOMENTUM_API_USE_IAM is True
