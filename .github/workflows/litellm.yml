@@ -100,7 +100,7 @@ jobs:
                 BASE_SHA=$(git merge-base "$BASE_SHA" "$HEAD_SHA")
               fi
               git diff --name-only "$BASE_SHA" "$HEAD_SHA" > "$RUNNER_TEMP/litellm-changes.txt"
-              if ! grep -q '^infra/litellm/' "$RUNNER_TEMP/litellm-changes.txt"; then
+              if ! grep -Eq '^(infra/litellm/|\.github/workflows/litellm\.yml$)' "$RUNNER_TEMP/litellm-changes.txt"; then
                 audit=false
               fi
             fi
