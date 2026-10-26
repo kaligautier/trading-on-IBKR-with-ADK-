@@ -9,6 +9,10 @@ variables {
 run "public_stateless_front_door_private_readers" {
   command = plan
   assert {
+    condition     = length(google_cloud_run_domain_mapping.mcp) == 0
+    error_message = "Domain takeover requires explicit opt-in."
+  }
+  assert {
     condition     = google_cloud_run_v2_service.mcp.invoker_iam_disabled && google_cloud_run_v2_service.mcp.ingress == "INGRESS_TRAFFIC_ALL"
     error_message = "Only the MCP front door must be publicly reachable."
   }
@@ -24,6 +28,35 @@ run "public_stateless_front_door_private_readers" {
     condition     = google_cloud_run_v2_service.mcp.template[0].scaling[0].max_instance_count == 3
     error_message = "Public scaling must remain bounded."
   }
+}
+
+run "transfer_only_public_mcp_domain" {
+  command = plan
+  variables {
+    enable_domain_mapping = true
+  }
+  assert {
+    condition     = length(google_cloud_run_domain_mapping.mcp) == 1 && google_cloud_run_domain_mapping.mcp[0].name == "mcp.deepcopy.fr"
+    error_message = "Only the public MCP hostname may be transferred."
+  }
+  assert {
+    condition     = google_cloud_run_domain_mapping.mcp[0].spec[0].route_name == google_cloud_run_v2_service.mcp.name && google_cloud_run_domain_mapping.mcp[0].spec[0].force_override
+    error_message = "The cutover must target the new MCP service and replace the legacy mapping."
+  }
+  assert {
+    condition     = google_cloud_run_domain_mapping.mcp[0].metadata[0].namespace == "preprod-deep-copy" && google_cloud_run_domain_mapping.mcp[0].location == "europe-west1"
+    error_message = "The public domain must belong to the destination project and region."
+  }
+}
+
+run "reject_domain_in_another_project" {
+  command = plan
+  variables {
+    enable_domain_mapping = true
+    project_id            = "other-project"
+    image                 = "europe-west1-docker.pkg.dev/other-project/market-scanner/momentum-public-mcp@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  }
+  expect_failures = [var.enable_domain_mapping]
 }
 
 run "reject_mutable_release" {
