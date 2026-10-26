@@ -9,10 +9,39 @@ Independent Terraform roots in `preprod-deep-copy/europe-west1`:
   rights on the private `momentum-api` and `market-scanner-api`, and access to a
   single pinned caller-key secret version. No database or ADK permissions.
 
-The Cloud Run `run.app` HTTPS URL is sufficient for web access. This stack does
-not take over the existing `mcp.deepcopy.fr` domain mapping. It keeps explicit
-scaling limits and disables session affinity. Data APIs remain IAM protected.
+The Cloud Run `run.app` HTTPS URL remains available. Preprod configuration enables
+the explicit transfer of `mcp.deepcopy.fr` to this service; other configurations
+leave domain mapping disabled by default. The service keeps explicit scaling
+limits and disables session affinity. Data APIs remain IAM protected.
 No load balancer, Cloud Armor policy or additional edge resource is provisioned.
+
+## Transfer the public domain
+
+The applying account must have verified ownership of `deepcopy.fr` with Google.
+The existing `mcp` CNAME is `ghs.googlehosted.com.`; compare it with
+`domain_resource_records` and retain it unless Google's required records differ.
+The mapping uses `force_override` to take over the hostname from
+`deepcopy-momentum-mcp` in `gen-lang-client-0690499141`. Ensure legacy automation
+will not reclaim that mapping. This plan changes routing, not the runtime image.
+
+```sh
+terraform -chdir=infra/momentum-public-mcp init -backend-config=config/preprod.backend.hcl
+terraform -chdir=infra/momentum-public-mcp plan -var-file=config/preprod.tfvars -out=domain.tfplan
+terraform -chdir=infra/momentum-public-mcp show domain.tfplan
+terraform -chdir=infra/momentum-public-mcp apply domain.tfplan
+gcloud beta run domain-mappings describe --domain=mcp.deepcopy.fr --project=preprod-deep-copy --region=europe-west1
+python3 apps/backend/momentum-public-mcp/scripts/verify_live.py https://mcp.deepcopy.fr
+```
+
+Review a mapping-only plan before applying. Wait for `Ready` and
+`CertificateProvisioned`, then require the real consultation verification above
+to pass before retiring the old project. Domain mapping is a Google Preview
+feature and certificate provisioning can delay availability. `prevent_destroy`
+protects the mapping: setting the flag to false is not a rollback. A rollback
+requires an explicit transfer back to the old service while it still exists.
+
+References: [Cloud Run custom domains](https://docs.cloud.google.com/run/docs/mapping-custom-domains)
+and [Terraform domain mapping](https://registry.terraform.io/providers/hashicorp/google/latest/docs/resources/cloud_run_domain_mapping).
 
 ```sh
 terraform -chdir=infra/momentum-public-mcp/build init -backend-config=preprod.backend.hcl

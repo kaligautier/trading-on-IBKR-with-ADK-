@@ -5,6 +5,15 @@ variable "region" {
   type    = string
   default = "europe-west1"
 }
+variable "enable_domain_mapping" {
+  type        = bool
+  default     = false
+  description = "Transfer mcp.deepcopy.fr to the verified preprod MCP service."
+  validation {
+    condition     = !var.enable_domain_mapping || (var.project_id == "preprod-deep-copy" && var.region == "europe-west1")
+    error_message = "The public MCP domain may only target preprod-deep-copy/europe-west1."
+  }
+}
 variable "image" {
   type = string
   validation {
