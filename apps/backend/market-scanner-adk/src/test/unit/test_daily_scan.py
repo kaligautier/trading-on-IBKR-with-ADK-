@@ -64,7 +64,8 @@ def should_accept_dispatch_without_running_the_workflow(monkeypatch):
     dispatch = Mock(
         return_value="projects/test-project/locations/europe-west1/operations/op1"
     )
-    monkeypatch.setattr(application, "dispatch_scan", dispatch)
+    factory = Mock(return_value=Mock(run_job=dispatch))
+    monkeypatch.setattr(application, "get_cloud_run_jobs_client", factory)
     with TestClient(application.create_app()) as client:
         assert client.post("/internal/daily-scan").status_code == 401
         dispatch.assert_not_called()
@@ -73,7 +74,8 @@ def should_accept_dispatch_without_running_the_workflow(monkeypatch):
         )
     assert response.status_code == 200
     assert response.json() == {"status": "accepted", "operation": dispatch.return_value}
-    dispatch.assert_called_once_with(job)
+    factory.assert_called_once_with(job)
+    dispatch.assert_called_once_with()
 
 
 def should_report_dispatch_failure_without_exposing_details(monkeypatch):
@@ -84,7 +86,9 @@ def should_report_dispatch_failure_without_exposing_details(monkeypatch):
         "projects/test-project/locations/europe-west1/jobs/scanner",
     )
     monkeypatch.setattr(
-        application, "dispatch_scan", Mock(side_effect=RuntimeError("private details"))
+        application,
+        "get_cloud_run_jobs_client",
+        Mock(side_effect=RuntimeError("private details")),
     )
     with TestClient(application.create_app()) as client:
         response = client.post("/internal/daily-scan")
@@ -115,10 +119,12 @@ def should_reject_dispatch_without_a_configured_job(monkeypatch):
     monkeypatch.setattr(application.settings, "MARKET_SCANNER_TOKEN", "")
     monkeypatch.setattr(application.settings, "MARKET_SCANNER_JOB", "")
     dispatch = Mock()
-    monkeypatch.setattr(application, "dispatch_scan", dispatch)
+    factory = Mock(return_value=Mock(run_job=dispatch))
+    monkeypatch.setattr(application, "get_cloud_run_jobs_client", factory)
     with TestClient(application.create_app()) as client:
         response = client.post("/internal/daily-scan")
     assert response.status_code == 503
+    factory.assert_not_called()
     dispatch.assert_not_called()
 
 

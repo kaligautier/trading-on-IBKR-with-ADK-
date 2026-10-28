@@ -19,6 +19,7 @@ dependencies = [
     "asyncpg>=0.30.0",
     "sqlalchemy[asyncio]>=2.0.0",
     "yfinance>=0.2.63",
+    "google-cloud-run>=0.16.2,<0.17",
 ]
 
 [build-system]

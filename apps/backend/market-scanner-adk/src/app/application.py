@@ -16,7 +16,7 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 from app.config.settings import settings
 from app.middleware.wide_event import WideEventMiddleware
 from app.services.database import close_database
-from app.services.scan_dispatch import dispatch_scan
+from app.services.scan_dispatch import get_cloud_run_jobs_client
 from app.services.session_database import (
     ScannerSessionService,
     registered_session_service,
@@ -140,9 +140,10 @@ def create_app() -> FastAPI:
                 {"detail": "Scheduled scan job is not configured"}, status_code=503
             )
         try:
-            operation = await asyncio.to_thread(
-                dispatch_scan, settings.MARKET_SCANNER_JOB
+            jobs_client = await asyncio.to_thread(
+                get_cloud_run_jobs_client, settings.MARKET_SCANNER_JOB
             )
+            operation = await asyncio.to_thread(jobs_client.run_job)
         except Exception as error:
             logger.error(
                 "scheduled scan dispatch failed",

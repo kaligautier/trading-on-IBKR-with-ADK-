@@ -1,0 +1,9 @@
+version: 1
+name: Cloud Run Jobs submission contract
+slug: scanner-cloud-run
+protocol: http
+interceptRequests: true
+scenarios:
+  - name: default
+    path: ./default.js
+    default: true

@@ -1,0 +1,5 @@
+simulation: scanner-cloud-run
+routing: header
+mocks:
+  - routeKey: cloud-run
+    path: ./mocks/cloud-run/config.yaml

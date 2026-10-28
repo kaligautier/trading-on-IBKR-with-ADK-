@@ -14,6 +14,7 @@ class ErrorCode(Enum):
     MARKET_DATA_COLLECTION_ERROR = 3002
     MARKET_DATA_UNAVAILABLE = 3003
     LITELLM_ERROR = 3004
+    CLOUD_RUN_ERROR = 3005
 
 
 HTTP_STATUS_CODES = {
@@ -25,6 +26,7 @@ HTTP_STATUS_CODES = {
     ErrorCode.MARKET_DATA_COLLECTION_ERROR: 502,
     ErrorCode.MARKET_DATA_UNAVAILABLE: 503,
     ErrorCode.LITELLM_ERROR: 502,
+    ErrorCode.CLOUD_RUN_ERROR: 502,
 }
 
 
@@ -37,6 +39,7 @@ ERROR_MESSAGES = {
     ErrorCode.MARKET_DATA_COLLECTION_ERROR: "Market data collection failed",
     ErrorCode.MARKET_DATA_UNAVAILABLE: "No available market data for analysis",
     ErrorCode.LITELLM_ERROR: "LiteLLM gateway request failed",
+    ErrorCode.CLOUD_RUN_ERROR: "Cloud Run Job submission failed",
 }
 
 
@@ -109,6 +112,13 @@ class LiteLLMError(AppError):
 
     def __init__(self, message: str | None = None, details: dict | None = None):
         super().__init__(ErrorCode.LITELLM_ERROR, message, details)
+
+
+class CloudRunError(AppError):
+    """The Job client could not initialize or submit an execution."""
+
+    def __init__(self, message: str | None = None, details: dict | None = None):
+        super().__init__(ErrorCode.CLOUD_RUN_ERROR, message, details)
 
 
 class ConfigurationError(AppError):
