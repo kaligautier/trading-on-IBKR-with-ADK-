@@ -1,4 +1,5 @@
 import Link from "next/link"
+import { ChromaticTextReveal } from "@/components/motion/chromatic-text-reveal"
 import { ArrowUpRight, ChevronDown } from "lucide-react"
 import { CopyEndpointButton } from "./copy-endpoint-button"
 
@@ -15,7 +16,7 @@ export function McpSection() {
       <div className="mx-auto max-w-6xl px-6">
         <div data-animate="section-heading" className="mb-10 grid gap-6 md:grid-cols-12 md:gap-12">
           <h2 id="momentum-mcp-title" className="text-balance font-display text-4xl font-bold leading-tight tracking-tight md:col-span-7 md:text-5xl">
-            Momentum.
+            <ChromaticTextReveal prefix="" words={["Momentum."]} loop={false} />
             <br />
             <span className="font-medium text-on-surface-muted">Company analysis in your assistant.</span>
           </h2>

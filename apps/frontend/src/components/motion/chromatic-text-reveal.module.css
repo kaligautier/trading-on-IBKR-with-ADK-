@@ -1,0 +1,41 @@
+.root {
+  display: inline;
+}
+
+.words {
+  position: relative;
+  display: inline-grid;
+  vertical-align: baseline;
+}
+
+.sizing {
+  visibility: hidden;
+  grid-area: 1 / 1;
+  white-space: nowrap;
+}
+
+.reveal {
+  position: absolute;
+  inset-inline-start: 0;
+  top: 0;
+  white-space: nowrap;
+  color: transparent;
+  background-image: var(--chromatic-gradient);
+  background-clip: text;
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  /* Leave room for descenders and blur inside the paint boundary. */
+  padding: 0.16em 0.08em;
+  margin: -0.16em -0.08em;
+  contain: paint;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal {
+    color: var(--chromatic-foreground);
+    background-image: none;
+    opacity: 1 !important;
+    filter: none !important;
+    transform: none !important;
+  }
+}
