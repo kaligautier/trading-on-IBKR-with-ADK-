@@ -1,4 +1,4 @@
 project_id             = "preprod-deep-copy"
 region                 = "europe-west1"
-image                  = "europe-west1-docker.pkg.dev/preprod-deep-copy/market-scanner/deepcopy-front@sha256:0cd3b95a19478185fd6ea575d56795723bf189d06fc2a6a22823cdebe0301345"
+image                  = "europe-west1-docker.pkg.dev/preprod-deep-copy/market-scanner/deepcopy-front@sha256:1ccf5d749188e348bf1f5448dcc9f0c454cb079d6b493fddb41a441ff03dcce7"
 enable_domain_mappings = true
