@@ -160,9 +160,6 @@ function NavBar() {
         href="/"
         className="pointer-events-auto flex items-center gap-2.5 rounded-full border border-outline-variant bg-[#faf9f6]/80 px-3 py-1.5 backdrop-blur-xl shadow-[0_1px_2px_rgba(0,0,0,0.05),0_14px_34px_-16px_rgba(0,0,0,0.25)]"
       >
-        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-on-surface font-bold text-[11px] text-surface-lowest">
-          DC
-        </span>
         <span className="text-sm font-semibold text-on-surface tracking-tight font-display">
           Deep Copy
         </span>
