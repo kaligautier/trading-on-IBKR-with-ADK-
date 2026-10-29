@@ -10,13 +10,13 @@ const NAV_ITEMS = [
   { href: "/docs", label: "Documentation" },
 ]
 
-export function NavSection() {
+export function NavSection({ sectionPath = "" }: { sectionPath?: string }) {
   return (
     <nav aria-label="Main navigation" className={styles.navigation}>
       <ul className={styles.links}>
         {NAV_ITEMS.map((item) => (
           <li key={item.href}>
-            <a href={item.href}>{item.label}</a>
+            <a href={item.href.startsWith("#") ? `${sectionPath}${item.href}` : item.href}>{item.label}</a>
           </li>
         ))}
       </ul>
