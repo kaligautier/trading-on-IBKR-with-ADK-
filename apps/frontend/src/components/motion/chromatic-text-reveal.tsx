@@ -46,7 +46,7 @@ export function ChromaticTextReveal({
   pauseDuration = 0.8,
   loop = true,
   startOnView = true,
-  once = true,
+  once = false,
   inViewMargin,
   className,
 }: ChromaticTextRevealProps) {
@@ -96,7 +96,7 @@ export function ChromaticTextReveal({
               transform: "translateY(0px)",
             }}
             transition={{
-              "--chromatic-sweep": reduceMotion ? { duration: 0 } : { duration, delay, ease: EASE_IN_OUT },
+              "--chromatic-sweep": reduceMotion || !shouldReveal ? { duration: 0 } : { duration, delay, ease: EASE_IN_OUT },
               opacity: { duration: reduceMotion ? 0 : 0.28, ease: EASE_OUT },
               filter: { duration: reduceMotion ? 0 : 0.36, ease: EASE_OUT },
               transform: { duration: reduceMotion ? 0 : 0.36, ease: EASE_OUT },
