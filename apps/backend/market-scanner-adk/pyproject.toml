@@ -5,9 +5,9 @@ description = "Independent ADK2 daily market scanner"
 requires-python = ">=3.12,<4.0"
 dependencies = [
     "certifi>=2025.1.31",
-    "ddtrace==4.8.2",
+    "ddtrace==4.15.6",
     "dotenv>=0.9.9",
-    # ddtrace 4.8.2 uses the ADK 2.6 tool instrumentation API.
+    # Keep the ADK 2.6 tool instrumentation API while updating ddtrace security fixes.
     "google-adk[db]>=2.6.1,<2.7.0",
     "google-auth>=2.56.2",
     "gunicorn>=23.0.0",
