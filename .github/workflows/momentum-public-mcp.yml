@@ -31,6 +31,10 @@ jobs:
           version: '0.12.2'
           enable-cache: true
       - run: uv sync --locked --python 3.12
+      - name: Audit runtime dependencies
+        run: |
+          uv export --locked --no-dev --no-emit-project --format requirements-txt --output-file="$RUNNER_TEMP/mcp-requirements.txt"
+          uvx --from pip-audit==2.10.1 --python 3.12 pip-audit -r "$RUNNER_TEMP/mcp-requirements.txt" --disable-pip --no-deps
       - run: uv run --locked ruff check src tests scripts ../../../infra/momentum-public-mcp/deploy.py ../../../infra/momentum-public-mcp/tests/test_deploy.py
       - run: uv run --locked ruff format --check src tests scripts ../../../infra/momentum-public-mcp/deploy.py ../../../infra/momentum-public-mcp/tests/test_deploy.py
       - run: uv run --locked pytest -q
