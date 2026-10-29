@@ -46,7 +46,7 @@ export function ChromaticTextReveal({
   pauseDuration = 0.8,
   loop = true,
   startOnView = true,
-  once = true,
+  once = false,
   inViewMargin,
   className,
 }: ChromaticTextRevealProps) {
@@ -88,7 +88,7 @@ export function ChromaticTextReveal({
           <motion.span
             key={`${activeWord}-${activeIndex}`}
             aria-hidden
-            initial={reduceMotion ? false : { opacity: 0.56, filter: "blur(6px)", transform: "translateY(5px)" }}
+            initial={{ opacity: 0.56, filter: "blur(6px)", transform: "translateY(5px)" }}
             animate={{
               "--chromatic-sweep": shouldReveal ? REVEAL_FINISH : REVEAL_START,
               opacity: 1,
@@ -96,7 +96,7 @@ export function ChromaticTextReveal({
               transform: "translateY(0px)",
             }}
             transition={{
-              "--chromatic-sweep": reduceMotion ? { duration: 0 } : { duration, delay, ease: EASE_IN_OUT },
+              "--chromatic-sweep": reduceMotion || !shouldReveal ? { duration: 0 } : { duration, delay, ease: EASE_IN_OUT },
               opacity: { duration: reduceMotion ? 0 : 0.28, ease: EASE_OUT },
               filter: { duration: reduceMotion ? 0 : 0.36, ease: EASE_OUT },
               transform: { duration: reduceMotion ? 0 : 0.36, ease: EASE_OUT },
@@ -104,7 +104,7 @@ export function ChromaticTextReveal({
             onAnimationComplete={scheduleNextWord}
             className={styles.reveal}
             style={{
-              "--chromatic-sweep": reduceMotion ? REVEAL_FINISH : REVEAL_START,
+              "--chromatic-sweep": REVEAL_START,
               "--chromatic-gradient": composeChromaticGradient(colors, foregroundColor),
               "--chromatic-foreground": foregroundColor,
             } as MotionStyle}
