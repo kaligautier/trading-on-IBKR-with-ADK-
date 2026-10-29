@@ -40,6 +40,10 @@ bodies, status codes 200/403/503 and no polling. Stop the simulation with Ctrl-C
 ## Observations
 
 <!-- begin:observations -->
+- 2026-10-29: the no-argument settings factory and explicit singleton passed all
+  three cases through the real REST SDK. The sole member `cloud-run` served
+  exactly three POST requests (200/403/503), with no polling or retries; no
+  member was silent. The class constructs its SDK client internally.
 - 2026-10-28: all three HTTP cases passed. The sole member `cloud-run` served
   three requests with empty JSON bodies; no member was silent. An unfinished
   operation returned immediately, upstream errors became sanitized HTTP 502,

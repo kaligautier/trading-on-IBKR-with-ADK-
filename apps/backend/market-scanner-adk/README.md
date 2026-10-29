@@ -2,7 +2,12 @@
 
 The scheduled `POST /internal/daily-scan` route uses `CloudRunJobsClient` in
 `app.services.scan_dispatch` to submit the configured `MARKET_SCANNER_JOB` through
-the Google Cloud Run v2 SDK. A lazy factory reuses the client in each process.
+the Google Cloud Run v2 SDK. An explicit module singleton reuses the client in each process.
+The no-argument `get_cloud_run_jobs_client()` factory reads settings and extracts
+project, region and short Job name from `MARKET_SCANNER_JOB`, then constructs
+`CloudRunJobsClient(project_id, location, job_name)`. The model's project and
+location are not used to select the Job. The class owns SDK creation and logs
+initialization, submission acceptance and failures without provider error text.
 Client initialization and submission run in worker threads, outside the HTTP
 server's event loop.
 

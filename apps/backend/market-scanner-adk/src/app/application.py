@@ -140,9 +140,7 @@ def create_app() -> FastAPI:
                 {"detail": "Scheduled scan job is not configured"}, status_code=503
             )
         try:
-            jobs_client = await asyncio.to_thread(
-                get_cloud_run_jobs_client, settings.MARKET_SCANNER_JOB
-            )
+            jobs_client = await asyncio.to_thread(get_cloud_run_jobs_client)
             operation = await asyncio.to_thread(jobs_client.run_job)
         except Exception as error:
             logger.error(
@@ -155,10 +153,6 @@ def create_app() -> FastAPI:
             return JSONResponse(
                 {"detail": "Scheduled scan dispatch failed"}, status_code=502
             )
-        logger.info(
-            "scheduled scan accepted",
-            extra={"event": "scheduled_scan.accepted", "operation": operation},
-        )
         return JSONResponse({"status": "accepted", "operation": operation})
 
     logger.info(

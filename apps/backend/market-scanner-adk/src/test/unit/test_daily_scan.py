@@ -74,7 +74,7 @@ def should_accept_dispatch_without_running_the_workflow(monkeypatch):
         )
     assert response.status_code == 200
     assert response.json() == {"status": "accepted", "operation": dispatch.return_value}
-    factory.assert_called_once_with(job)
+    factory.assert_called_once_with()
     dispatch.assert_called_once_with()
 
 
