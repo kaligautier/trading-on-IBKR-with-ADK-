@@ -1,6 +1,57 @@
 # LiteLLM image dependency review
 
-## Decision and evidence
+## 1.106.6 upgrade candidate (2026-10-29)
+
+The scheduled [main image audit](https://github.com/kaligautier/trading-on-IBKR-with-ADK-/actions/runs/40867141373)
+reported 37 advisories across eight proxy packages and 21 across five migration
+packages for the pinned 1.103.4 images. Counts are advisory records, not distinct
+exploitable attack paths.
+
+The latest stable [official release, 1.106.6](https://github.com/BerriAI/litellm/releases/tag/v1.106.6),
+was audited locally on linux/amd64 with the unchanged `audit_images.py` and
+`pip-audit==2.10.1`. Both image indexes were resolved from GHCR on 2026-10-29:
+
+| Candidate | Immutable index | Advisories | Affected packages |
+| --- | --- | ---: | ---: |
+| Proxy 1.106.6 | `sha256:37e2dafb088a7723beb998590682957386dfc83ffea1848486f8e0e5cfac0b06` | 19 | 4 |
+| Migrations 1.106.6 | `sha256:c79b9108fb8acf095641a00e5670bac83d413ef38b49356c9a44b0da21ad845a` | 14 | 2 |
+
+| Package | Installed | Required fix for all reported advisories | Images |
+| --- | --- | --- | --- |
+| ddtrace | 4.11.0 | 4.15.6 | Proxy |
+| dnspython | 2.8.0 | 2.9.0 | Both |
+| filelock | 3.32.7 | 4.2.1 | Both |
+| tornado | 6.5.10 | 6.6 | Proxy |
+
+The installed LiteLLM 1.106.6 distribution declares `filelock>=3.16.1,<4.0`.
+Simply overriding filelock to 4.2.1 violates that dependency constraint. A
+maintained derivative would require a reviewed compatibility change, consistent
+package metadata, dependency checks, and the full migration/authentication/quota/
+streaming regression suite; forcing installation with `--no-deps` is not evidence
+of compatibility. The official-image path requires an upstream release that
+resolves this constraint and passes both exact-image audits.
+
+Audit exit status was 1. Local reports and package inventories are retained at
+`/private/tmp/litellm-audit-20261029-v11066/` (not committed). Configuration-only
+checks against the candidate passed: Terraform validation, 35 infrastructure
+tests, governance validation, four policy tests, Ruff, and 28 Python regression
+tests. Both defaults now select the audited 1.106.6 indexes. Container verification
+is recorded in PR #99; live inference and Cloud Run rollout are not established.
+No advisory exception is applied; the image-security gate remains blocking.
+The older clean scan below is historical evidence only.
+
+Budget exhaustion returns HTTP 422 with error type `budget_exceeded`; the
+container tests retain this assertion from the 1.106.2 candidate. RPM-limit
+checks continue to require HTTP 429.
+
+Upstream tracks the filelock constraint in
+[issue #48394](https://github.com/BerriAI/litellm/issues/48394) and proposes
+allowing filelock 4.x in [PR #48635](https://github.com/BerriAI/litellm/pull/48635).
+That PR is still open as of 2026-10-29. After a corrected official image is
+published, update both digests and rerun the exact-image audit and full container
+suite before release. Back up PostgreSQL and execute migrations before rollout.
+
+## Historical 1.103.4 decision and evidence
 
 The PR initially pinned LiteLLM 1.103.1. An audit of its installed proxy Python
 packages found 31 advisories across seven packages. Upgrade both official images
@@ -21,7 +72,7 @@ from the exact digest-pinned images with networking disabled:
 | Proxy 1.103.4, linux/arm64 | 201 | 0 | 0 |
 | Migrations 1.103.4, linux/arm64 | 147 | 0 | 0 |
 
-The multi-platform index pins in `variables.tf` are:
+The historical multi-platform index pins at that audit were:
 
 ```text
 ghcr.io/berriai/litellm@sha256:8a372e5c22acddcd78e86a68e1c054bd97768ae600006a776475d2d8d4e7574b
