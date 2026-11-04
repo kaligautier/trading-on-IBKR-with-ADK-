@@ -7,7 +7,6 @@ import argparse
 import json
 import urllib.error
 import urllib.request
-from uuid import UUID
 
 VERSION = "2026-07-28"
 PREFIX = "io.modelcontextprotocol/"
@@ -34,8 +33,8 @@ def rpc(url, method, params=None, *, version=VERSION, expected_status=200):
         "MCP-Protocol-Version": version,
         "Mcp-Method": method,
     }
-    if params.get("name"):
-        headers["Mcp-Name"] = params["name"]
+    if params.get("name") or params.get("uri"):
+        headers["Mcp-Name"] = params.get("name") or params["uri"]
     request = urllib.request.Request(url, json.dumps(body).encode(), headers)
     try:
         response = urllib.request.urlopen(request, timeout=60)
@@ -45,7 +44,6 @@ def rpc(url, method, params=None, *, version=VERSION, expected_status=200):
         assert response.status == expected_status, response.status
         assert not response.headers.get("Mcp-Session-Id")
         assert not response.headers.get("Set-Cookie")
-        UUID(response.headers["X-Request-ID"])
         payload = json.load(response)
     if expected_status != 200:
         return payload["error"]
@@ -76,7 +74,12 @@ def main():
     assert len(latest) == 1
     recommendations = tool(url, "get_recommendations", {"limit": 1})["result"]
     assert all(item["rating"] in {"Buy", "Overweight"} for item in recommendations)
-    scan = tool(url, "latest_market_scan", {})
+    scan_uri = "momentum://market-scans/latest"
+    resources = rpc(url, "resources/list")["resources"]
+    assert {item["uri"] for item in resources} == {scan_uri}
+    contents = rpc(url, "resources/read", {"uri": scan_uri})["contents"]
+    assert contents[0]["mimeType"] == "application/json"
+    scan = json.loads(contents[0]["text"])
     assert scan["report"]["schema_version"] == 3
     assert scan["report"]["assets"]
     discovery = rpc(url, "server/discover")
@@ -87,24 +90,16 @@ def main():
         "latest_analyses",
         "get_analysis",
         "get_recommendations",
-        "latest_market_scan",
         "suggest_ticker",
         "get_suggestion_status",
     }
-    for version in ("2024-11-05", "2025-03-26", "2025-06-18", "2025-11-25"):
-        error = rpc(
-            url,
-            "initialize",
-            {
-                "protocolVersion": version,
-                "capabilities": {},
-                "clientInfo": {"name": "legacy-probe", "version": "1"},
-            },
-            version=version,
-            expected_status=400,
-        )
-        assert error["code"] == -32022
-        assert error["data"]["supported"] == [VERSION]
+    prompts = rpc(url, "prompts/list")["prompts"]
+    assert {item["name"] for item in prompts} == {"analyze_ticker"}
+    rendered = rpc(
+        url, "prompts/get", {"name": "analyze_ticker", "arguments": {"ticker": "AAPL"}}
+    )
+    assert "AAPL" in rendered["messages"][0]["content"]["text"]
+    assert scan_uri in rendered["messages"][0]["content"]["text"]
     for method in ("initialize", "ping", "logging/setLevel"):
         assert rpc(url, method, expected_status=404)["code"] == -32601
 
@@ -142,8 +137,6 @@ def main():
                 "scan_date": scan["scan_date"],
                 "assets": len(scan["report"]["assets"]),
                 "session_headers": False,
-                "correlation_headers": True,
-                "legacy_handshake": "rejected for all four legacy versions",
                 "suggestions": suggestion_check,
             },
             indent=2,

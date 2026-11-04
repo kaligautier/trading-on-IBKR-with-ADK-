@@ -3,17 +3,13 @@
 from fastmcp import FastMCP
 from fastmcp.server.lifespan import Lifespan
 from fastmcp.server.middleware.rate_limiting import SlidingWindowRateLimitingMiddleware
-from starlette.responses import JSONResponse
 
-from momentum_public_mcp.constants import PUBLIC_TOOL_NAMES  # noqa: F401 -- compatibility export
-from momentum_public_mcp.observability import ToolTelemetry
+from momentum_public_mcp.config.constants import PUBLIC_TOOL_NAMES  # noqa: F401 -- compatibility export
+from momentum_public_mcp.mcp.prompts.public_prompts import analyze_ticker
+from momentum_public_mcp.mcp.resources.public_resources import MomentumPublicResources
+from momentum_public_mcp.mcp.tools.public_tools import MomentumPublicTools
+from momentum_public_mcp.observability.health import health_check
 from momentum_public_mcp.security import FingerprintProvider
-from momentum_public_mcp.tools import MomentumPublicTools
-
-
-async def health_check(request) -> JSONResponse:
-    """Return process liveness without exposing application data."""
-    return JSONResponse({"status": "healthy", "service": "momentum-public-mcp"})
 
 
 class MomentumPublicMcpServer:
@@ -24,6 +20,8 @@ class MomentumPublicMcpServer:
         tools: MomentumPublicTools,
         fingerprint: FingerprintProvider | None = None,
         lifespan: Lifespan | None = None,
+        *,
+        resources: MomentumPublicResources,
     ):
         self.server = FastMCP(
             name="Momentum Public",
@@ -39,8 +37,9 @@ class MomentumPublicMcpServer:
             mask_error_details=True,
             tasks=False,
         )
+        self.server.add_resource(resources.latest_market_scan)
+        self.server.add_prompt(analyze_ticker)
         self.server.enable(tags={"public"}, only=True)
-        self.server.add_middleware(ToolTelemetry())
         self._add_health_route()
         if fingerprint is not None:
             self._add_rate_limit(fingerprint)

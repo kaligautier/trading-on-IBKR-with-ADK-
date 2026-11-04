@@ -9,6 +9,11 @@ dependencies = [
     "httpx>=0.28.0,<0.29.0",
     "pydantic==2.13.4",
     "pydantic-settings==2.14.2",
+    "opentelemetry-sdk>=1.44,<2",
+    "opentelemetry-instrumentation-asgi>=0.65b0,<1",
+    "opentelemetry-instrumentation-httpx>=0.65b0,<1",
+    "opentelemetry-exporter-gcp-trace>=1.9,<2",
+    "python-json-logger>=3.3,<5",
 ]
 
 [project.scripts]

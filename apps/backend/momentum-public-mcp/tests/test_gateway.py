@@ -9,6 +9,16 @@ from uuid import UUID
 import httpx
 import pytest
 
+from momentum_public_mcp.api.auth import (
+    CloudRunIdentityHeaders,
+    MetadataIdentityTokenProvider,
+)
+from momentum_public_mcp.api.errors import MarketScannerApiError, MomentumApiError
+from momentum_public_mcp.api.market_scanner.client.market_scanner_client import (
+    MarketScannerClient,
+)
+from momentum_public_mcp.api.momentum.client.momentum_client import MomentumClient
+from momentum_public_mcp.api.momentum.client.signing import SuggestionSigner
 from momentum_public_mcp.domain import (
     AnalysisId,
     AnalysisPage,
@@ -17,13 +27,7 @@ from momentum_public_mcp.domain import (
     SuggestionReason,
     TickerSymbol,
 )
-from momentum_public_mcp.gateway import (
-    CloudRunIdentityHeaders,
-    MetadataIdentityTokenProvider,
-    MomentumApiError,
-    MomentumHttpGateway,
-    SuggestionSigner,
-)
+from momentum_public_mcp.mcp.gateway import MomentumHttpGateway
 
 ANALYSIS_ID = UUID("11111111-1111-1111-1111-111111111111")
 SUGGESTION_ID = UUID("22222222-2222-2222-2222-222222222222")
@@ -159,9 +163,8 @@ async def test_latest_market_scan_uses_scanner_consultation_api() -> None:
         base_url="https://scanner.test",
     )
     gateway = MomentumHttpGateway(
-        momentum_client,
-        SuggestionSigner("test-secret"),
-        scanner_client,
+        momentum=MomentumClient(momentum_client, SuggestionSigner("test-secret")),
+        scanner=MarketScannerClient(scanner_client),
     )
 
     result = await gateway.latest_market_scan()
@@ -258,9 +261,8 @@ def gateway_with(
     transport = httpx.MockTransport(handler)
     client = httpx.AsyncClient(transport=transport, base_url="https://momentum.test")
     return MomentumHttpGateway(
-        client,
-        SuggestionSigner(secret),
-        identity_headers=identity_headers,
+        momentum=MomentumClient(client, SuggestionSigner(secret), identity_headers),
+        scanner=MarketScannerClient(client),
     )
 
 
@@ -336,10 +338,12 @@ async def test_scanner_uses_its_own_identity_headers():
         transport=httpx.MockTransport(handler), base_url="https://scanner.test"
     )
     gateway = MomentumHttpGateway(
-        client,
-        SuggestionSigner("test-secret"),
-        identity_headers=CloudRunIdentityHeaders(StaticIdentityTokenProvider()),
-        scanner_identity_headers=CloudRunIdentityHeaders(ScannerIdentity()),
+        momentum=MomentumClient(
+            client,
+            SuggestionSigner("test-secret"),
+            CloudRunIdentityHeaders(StaticIdentityTokenProvider()),
+        ),
+        scanner=MarketScannerClient(client, CloudRunIdentityHeaders(ScannerIdentity())),
     )
     await gateway.latest_market_scan()
     await gateway.close()
@@ -357,3 +361,74 @@ async def test_missing_momentum_suggestions_route_is_a_sanitized_error():
         )
     assert "private upstream" not in str(captured.value)
     await gateway.close()
+
+
+@pytest.mark.parametrize("filtered", [False, True])
+async def test_latest_analysis_query_preserves_filters_across_reader_pages(filtered):
+    calls = []
+
+    async def handler(request):
+        params = dict(request.url.params)
+        expected = {"page_size": "100", "page_token": "next" if calls else ""}
+        if filtered:
+            expected.update(ticker="AAPL", rating="Buy,Overweight")
+        assert params == expected
+        calls.append(params)
+        return httpx.Response(
+            200,
+            json={
+                "items": [analysis_summary()],
+                "next_page_token": "next" if len(calls) == 1 else "",
+            },
+        )
+
+    gateway = gateway_with(handler)
+    try:
+        result = await gateway.latest_analyses(
+            TickerSymbol("aapl") if filtered else None,
+            Ratings.from_csv("buy, overweight") if filtered else None,
+        )
+        assert len(calls) == 2
+        assert len(result.items) == 2
+    finally:
+        await gateway.close()
+
+
+async def test_suggestion_body_preserves_empty_reason_and_excludes_caller_identity():
+    async def handler(request):
+        assert json.loads(request.content) == {"symbol": "MSFT", "reason": ""}
+        assert request.headers["X-Momentum-Caller"] == "caller-fingerprint"
+        response = suggestion()
+        response["reason"] = ""
+        return httpx.Response(202, json=response)
+
+    gateway = gateway_with(handler)
+    try:
+        result = await gateway.suggest_ticker(
+            TickerSymbol("msft"), SuggestionReason(""), "caller-fingerprint"
+        )
+        assert result.reason == ""
+    finally:
+        await gateway.close()
+
+
+@pytest.mark.parametrize("operation", ["get_analysis", "latest_market_scan"])
+async def test_other_api_conflicts_do_not_report_a_suggestion_business_error(operation):
+    async def handler(request):
+        return httpx.Response(409, text="private upstream conflict details")
+
+    gateway = gateway_with(handler)
+    try:
+        error_type = (
+            MomentumApiError if operation == "get_analysis" else MarketScannerApiError
+        )
+        with pytest.raises(error_type) as captured:
+            if operation == "get_analysis":
+                await gateway.get_analysis(AnalysisId(ANALYSIS_ID))
+            else:
+                await gateway.latest_market_scan()
+        assert "current analysis" not in str(captured.value)
+        assert "private upstream" not in str(captured.value)
+        assert captured.value.upstream_status_code == 409
+    finally:
+        await gateway.close()

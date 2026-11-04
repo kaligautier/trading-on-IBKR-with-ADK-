@@ -1,15 +1,17 @@
-"""Public MCP tool metadata and execution limits."""
+"""Public MCP metadata, instruction names and execution limits."""
 
 from mcp.types import ToolAnnotations
 
+NOISY_LOGGERS = ("httpx", "httpcore")
+
 TOOL_TIMEOUT_SECONDS = 45
+ANALYZE_TICKER_INSTRUCTION = "analyze_ticker"
 
 PUBLIC_TOOL_NAMES = {
     "list_analyses",
     "latest_analyses",
     "get_analysis",
     "get_recommendations",
-    "latest_market_scan",
     "suggest_ticker",
     "get_suggestion_status",
 }
@@ -39,11 +41,6 @@ GET_ANALYSIS_TOOL = {**CONSULTATION_TOOL_OPTIONS, "title": "Get analysis"}
 GET_RECOMMENDATIONS_TOOL = {
     **CONSULTATION_TOOL_OPTIONS,
     "title": "Get recommendations",
-}
-LATEST_MARKET_SCAN_TOOL = {
-    **CONSULTATION_TOOL_OPTIONS,
-    "title": "Latest market scan",
-    "tags": {"public", "market"},
 }
 SUGGEST_TICKER_TOOL = {
     "title": "Suggest ticker",

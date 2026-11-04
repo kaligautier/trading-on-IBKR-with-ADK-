@@ -8,29 +8,29 @@ from typing import TypeVar
 from fastmcp.exceptions import ToolError
 from fastmcp.tools import tool
 
-from momentum_public_mcp.constants import (
+from momentum_public_mcp.api.momentum.dtos.response.analyses import (
+    AnalysisDetail,
+    AnalysisSummary,
+)
+from momentum_public_mcp.api.momentum.dtos.response.suggestions import Suggestion
+from momentum_public_mcp.config.constants import (
     GET_ANALYSIS_TOOL,
     GET_RECOMMENDATIONS_TOOL,
     GET_SUGGESTION_STATUS_TOOL,
     LATEST_ANALYSES_TOOL,
-    LATEST_MARKET_SCAN_TOOL,
     LIST_ANALYSES_TOOL,
     SUGGEST_TICKER_TOOL,
 )
 from momentum_public_mcp.domain import (
-    AnalysisDetail,
     AnalysisId,
     AnalysisPage,
-    AnalysisSummary,
-    MarketScan,
     Ratings,
-    Suggestion,
     SuggestionId,
     SuggestionReason,
     TickerSymbol,
 )
-from momentum_public_mcp.gateway import MomentumApiError, MomentumPublicGateway
-from momentum_public_mcp.observability import record_result
+from momentum_public_mcp.errors import AppError
+from momentum_public_mcp.mcp.gateway import MomentumPublicGateway
 from momentum_public_mcp.security import FingerprintProvider
 
 Result = TypeVar("Result")
@@ -53,7 +53,6 @@ class MomentumPublicTools:
             self.latest_analyses,
             self.get_analysis,
             self.get_recommendations,
-            self.latest_market_scan,
             self.suggest_ticker,
             self.get_suggestion_status,
         ]
@@ -122,11 +121,6 @@ class MomentumPublicTools:
             transform=lambda summaries: summaries.as_list(),
         )
 
-    @tool(**LATEST_MARKET_SCAN_TOOL)
-    async def latest_market_scan(self) -> MarketScan:
-        """Get the most recent daily market regime and normalized asset signals."""
-        return await self._translate(self._gateway.latest_market_scan)
-
     @tool(**SUGGEST_TICKER_TOOL)
     async def suggest_ticker(self, symbol: str, reason: str = "") -> Suggestion:
         """Suggest a ticker for administrator review without starting an analysis.
@@ -164,9 +158,8 @@ class MomentumPublicTools:
     ):
         try:
             result = await operation()
-        except (MomentumApiError, ValueError) as error:
+        except (AppError, ValueError) as error:
             raise ToolError(str(error)) from error
-        record_result(result)
         if transform is None:
             return result
         return transform(result)

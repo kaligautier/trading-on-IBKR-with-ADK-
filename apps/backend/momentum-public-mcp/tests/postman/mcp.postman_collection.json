@@ -47,7 +47,8 @@
               "pm.test(\"HTTP 200\",()=>pm.response.to.have.status(200));",
               "pm.test(\"No protocol session\",()=>pm.expect(pm.response.headers.has(\"Mcp-Session-Id\")).to.equal(false));",
               "const body=pm.response.json();",
-              "pm.test(\"Modern protocol\",()=>pm.expect(body.result.supportedVersions).to.include(\"2026-07-28\"));"
+              "pm.test(\"Modern protocol\",()=>pm.expect(body.result.supportedVersions).to.include(\"2026-07-28\"));",
+              "pm.test(\"Resource and prompt capabilities\",()=>{pm.expect(body.result.capabilities).to.have.property(\"resources\");pm.expect(body.result.capabilities).to.have.property(\"prompts\");});"
             ]
           }
         }
@@ -90,7 +91,7 @@
               "pm.test(\"HTTP 200\",()=>pm.response.to.have.status(200));",
               "pm.test(\"No protocol session\",()=>pm.expect(pm.response.headers.has(\"Mcp-Session-Id\")).to.equal(false));",
               "const body=pm.response.json();",
-              "pm.test(\"Seven migrated tools\",()=>pm.expect(body.result.tools.map(t=>t.name).sort()).to.eql([\"list_analyses\",\"latest_analyses\",\"get_analysis\",\"get_recommendations\",\"latest_market_scan\",\"suggest_ticker\",\"get_suggestion_status\"].sort()));"
+              "pm.test(\"Six public tools\",()=>pm.expect(body.result.tools.map(t=>t.name).sort()).to.eql([\"list_analyses\",\"latest_analyses\",\"get_analysis\",\"get_recommendations\",\"suggest_ticker\",\"get_suggestion_status\"].sort()));"
             ]
           }
         }
@@ -125,8 +126,9 @@
         "url": "{{mcpUrl}}/",
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": \"list_analyses\",\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"_meta\": {\n      \"io.modelcontextprotocol/protocolVersion\": \"2026-07-28\",\n      \"io.modelcontextprotocol/clientInfo\": {\n        \"name\": \"postman-contract\",\n        \"version\": \"1\"\n      },\n      \"io.modelcontextprotocol/clientCapabilities\": {}\n    },\n    \"name\": \"list_analyses\",\n    \"arguments\": {\n      \"limit\": 1\n    }\n  }\n}"
-        }
+          "raw": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": \"list_analyses\",\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"_meta\": {\n      \"io.modelcontextprotocol/protocolVersion\": \"2026-07-28\",\n      \"io.modelcontextprotocol/clientCapabilities\": {}\n    },\n    \"name\": \"list_analyses\",\n    \"arguments\": {\n      \"limit\": 1\n    }\n  }\n}"
+        },
+        "description": "Direct tool call without optional clientInfo; FastMCP handles protocol metadata."
       },
       "event": [
         {
@@ -289,7 +291,7 @@
       ]
     },
     {
-      "name": "latest_market_scan",
+      "name": "Latest scan resource",
       "request": {
         "method": "POST",
         "header": [
@@ -307,17 +309,17 @@
           },
           {
             "key": "Mcp-Method",
-            "value": "tools/call"
+            "value": "resources/read"
           },
           {
             "key": "Mcp-Name",
-            "value": "latest_market_scan"
+            "value": "momentum://market-scans/latest"
           }
         ],
         "url": "{{mcpUrl}}/",
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": \"latest_market_scan\",\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"_meta\": {\n      \"io.modelcontextprotocol/protocolVersion\": \"2026-07-28\",\n      \"io.modelcontextprotocol/clientInfo\": {\n        \"name\": \"postman-contract\",\n        \"version\": \"1\"\n      },\n      \"io.modelcontextprotocol/clientCapabilities\": {}\n    },\n    \"name\": \"latest_market_scan\",\n    \"arguments\": {}\n  }\n}"
+          "raw": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": \"Latest scan resource\",\n  \"method\": \"resources/read\",\n  \"params\": {\n    \"_meta\": {\n      \"io.modelcontextprotocol/protocolVersion\": \"2026-07-28\",\n      \"io.modelcontextprotocol/clientInfo\": {\n        \"name\": \"postman-contract\",\n        \"version\": \"1\"\n      },\n      \"io.modelcontextprotocol/clientCapabilities\": {}\n    },\n    \"uri\": \"momentum://market-scans/latest\"\n  }\n}"
         }
       },
       "event": [
@@ -329,8 +331,9 @@
               "pm.test(\"HTTP 200\",()=>pm.response.to.have.status(200));",
               "pm.test(\"No protocol session\",()=>pm.expect(pm.response.headers.has(\"Mcp-Session-Id\")).to.equal(false));",
               "const body=pm.response.json();",
-              "pm.test(\"Successful tool result\",()=>pm.expect(body.result.isError).not.to.equal(true));",
-              "pm.test(\"Full report-v3 preserved\",()=>pm.expect(body.result.structuredContent.report.schema_version).to.equal(3));"
+              "pm.test(\"Successful RPC\",()=>pm.expect(body).not.to.have.property(\"error\"));",
+              "pm.test(\"JSON scan resource\",()=>pm.expect(body.result.contents[0].mimeType).to.equal(\"application/json\"));",
+              "pm.test(\"Scanner report v3\",()=>pm.expect(JSON.parse(body.result.contents[0].text).report.schema_version).to.equal(3));"
             ]
           }
         }
@@ -475,7 +478,8 @@
               "pm.test(\"No protocol session\",()=>pm.expect(pm.response.headers.has(\"Mcp-Session-Id\")).to.equal(false));",
               "const body=pm.response.json();",
               "pm.test(\"Tool error\",()=>pm.expect(body.result.isError).to.equal(true));",
-              "pm.test(\"No upstream detail leak\",()=>pm.expect(JSON.stringify(body)).not.to.include(\"fixture upstream\"));"
+              "pm.test(\"No upstream detail leak\",()=>pm.expect(JSON.stringify(body)).not.to.include(\"fixture upstream\"));",
+              "pm.test(\"Stable application error code\",()=>pm.expect(body.result.content[0].text).to.include(\"[MOMENTUM_API_ERROR]\"));"
             ]
           }
         }
@@ -567,6 +571,142 @@
               "const body=pm.response.json();",
               "pm.test(\"Successful tool result\",()=>pm.expect(body.result.isError).not.to.equal(true));",
               "pm.test(\"Reader cold start above ten seconds succeeds\",()=>{pm.expect(body.result.structuredContent.result[0].ticker).to.equal(\"SLOW\");pm.expect(pm.response.responseTime).to.be.above(10000);});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Resource catalog",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json, text/event-stream"
+          },
+          {
+            "key": "MCP-Protocol-Version",
+            "value": "2026-07-28"
+          },
+          {
+            "key": "Mcp-Method",
+            "value": "resources/list"
+          }
+        ],
+        "url": "{{mcpUrl}}/",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": \"Resource catalog\",\n  \"method\": \"resources/list\",\n  \"params\": {\n    \"_meta\": {\n      \"io.modelcontextprotocol/protocolVersion\": \"2026-07-28\",\n      \"io.modelcontextprotocol/clientInfo\": {\n        \"name\": \"postman-contract\",\n        \"version\": \"1\"\n      },\n      \"io.modelcontextprotocol/clientCapabilities\": {}\n    }\n  }\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\",()=>pm.response.to.have.status(200));",
+              "pm.test(\"No protocol session\",()=>pm.expect(pm.response.headers.has(\"Mcp-Session-Id\")).to.equal(false));",
+              "const body=pm.response.json();",
+              "pm.test(\"Successful RPC\",()=>pm.expect(body).not.to.have.property(\"error\"));",
+              "pm.test(\"One public resource\",()=>pm.expect(body.result.resources.map(r=>r.uri)).to.eql([\"momentum://market-scans/latest\"]));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Prompt catalog",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json, text/event-stream"
+          },
+          {
+            "key": "MCP-Protocol-Version",
+            "value": "2026-07-28"
+          },
+          {
+            "key": "Mcp-Method",
+            "value": "prompts/list"
+          }
+        ],
+        "url": "{{mcpUrl}}/",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": \"Prompt catalog\",\n  \"method\": \"prompts/list\",\n  \"params\": {\n    \"_meta\": {\n      \"io.modelcontextprotocol/protocolVersion\": \"2026-07-28\",\n      \"io.modelcontextprotocol/clientInfo\": {\n        \"name\": \"postman-contract\",\n        \"version\": \"1\"\n      },\n      \"io.modelcontextprotocol/clientCapabilities\": {}\n    }\n  }\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\",()=>pm.response.to.have.status(200));",
+              "pm.test(\"No protocol session\",()=>pm.expect(pm.response.headers.has(\"Mcp-Session-Id\")).to.equal(false));",
+              "const body=pm.response.json();",
+              "pm.test(\"Successful RPC\",()=>pm.expect(body).not.to.have.property(\"error\"));",
+              "pm.test(\"Ticker prompt\",()=>pm.expect(body.result.prompts.map(p=>p.name)).to.eql([\"analyze_ticker\"]));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Render ticker prompt",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json, text/event-stream"
+          },
+          {
+            "key": "MCP-Protocol-Version",
+            "value": "2026-07-28"
+          },
+          {
+            "key": "Mcp-Method",
+            "value": "prompts/get"
+          },
+          {
+            "key": "Mcp-Name",
+            "value": "analyze_ticker"
+          }
+        ],
+        "url": "{{mcpUrl}}/",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": \"Render ticker prompt\",\n  \"method\": \"prompts/get\",\n  \"params\": {\n    \"_meta\": {\n      \"io.modelcontextprotocol/protocolVersion\": \"2026-07-28\",\n      \"io.modelcontextprotocol/clientInfo\": {\n        \"name\": \"postman-contract\",\n        \"version\": \"1\"\n      },\n      \"io.modelcontextprotocol/clientCapabilities\": {}\n    },\n    \"name\": \"analyze_ticker\",\n    \"arguments\": {\n      \"ticker\": \" aapl \"\n    }\n  }\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\",()=>pm.response.to.have.status(200));",
+              "pm.test(\"No protocol session\",()=>pm.expect(pm.response.headers.has(\"Mcp-Session-Id\")).to.equal(false));",
+              "const body=pm.response.json();",
+              "pm.test(\"Successful RPC\",()=>pm.expect(body).not.to.have.property(\"error\"));",
+              "pm.test(\"Loaded prompt instructions\",()=>{const text=body.result.messages[0].content.text;pm.expect(text).to.include(\"ticker=AAPL\");pm.expect(text).to.include(\"momentum://market-scans/latest\");pm.expect(text).not.to.include(\"{{\");});"
             ]
           }
         }

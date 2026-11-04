@@ -69,6 +69,7 @@ def main():
                     "MOMENTUM_API_USE_IAM": "false",
                     "MOMENTUM_API_TOKEN": "disposable-momentum-token",
                     "MARKET_SCANNER_API_TOKEN": "disposable-scanner-token",
+                    "GOOGLE_CLOUD_PROJECT": "",
                     "SUGGESTION_HASH_SECRET": "disposable-simulation-only",
                 }
                 app = subprocess.Popen(

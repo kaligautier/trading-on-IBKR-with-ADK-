@@ -1,19 +1,22 @@
 """MCP-level contract tests for the public tool allowlist."""
 
+import json
 from datetime import date
 from uuid import UUID
 
 import pytest
 from fastmcp import Client
 
-from momentum_public_mcp.domain import (
-    AnalysisSummaries,
-    AnalysisSummary,
-    MarketScan,
-    Suggestion,
+from momentum_public_mcp.api.market_scanner.dtos.response.market_scan import MarketScan
+from momentum_public_mcp.api.momentum.dtos.response.analyses import AnalysisSummary
+from momentum_public_mcp.api.momentum.dtos.response.suggestions import Suggestion
+from momentum_public_mcp.domain import AnalysisSummaries
+from momentum_public_mcp.mcp.resources.public_resources import (
+    LATEST_MARKET_SCAN_URI,
+    MomentumPublicResources,
 )
+from momentum_public_mcp.mcp.tools.public_tools import MomentumPublicTools
 from momentum_public_mcp.server import PUBLIC_TOOL_NAMES, MomentumPublicMcpServer
-from momentum_public_mcp.tools import MomentumPublicTools
 
 ANALYSIS_ID = UUID("11111111-1111-1111-1111-111111111111")
 SUGGESTION_ID = UUID("22222222-2222-2222-2222-222222222222")
@@ -61,7 +64,9 @@ def gateway() -> StubGateway:
 @pytest.fixture
 def mcp_server(gateway: StubGateway):
     tools = MomentumPublicTools(gateway, StaticFingerprint())
-    return MomentumPublicMcpServer(tools).server
+    return MomentumPublicMcpServer(
+        tools, resources=MomentumPublicResources(gateway)
+    ).server
 
 
 async def test_exposes_only_the_explicit_public_allowlist(mcp_server) -> None:
@@ -105,11 +110,12 @@ async def test_list_tool_returns_structured_validated_data(mcp_server) -> None:
     assert result.data[0].ticker == "AAPL"
 
 
-async def test_latest_market_scan_returns_current_scanner_data(mcp_server) -> None:
+async def test_market_scan_resource_returns_current_scanner_data(mcp_server) -> None:
     async with Client(mcp_server) as client:
-        result = await client.call_tool("latest_market_scan", {})
+        contents = await client.read_resource(LATEST_MARKET_SCAN_URI)
 
-    assert result.data.report["regime"] == "risk-on"
+    assert contents[0].mime_type == "application/json"
+    assert json.loads(contents[0].text)["report"]["regime"] == "risk-on"
 
 
 async def test_suggestion_normalizes_symbol_and_passes_pseudonym(

@@ -28,6 +28,10 @@ run "public_stateless_front_door_private_readers" {
     condition     = google_cloud_run_v2_service.mcp.template[0].scaling[0].max_instance_count == 3
     error_message = "Public scaling must remain bounded."
   }
+  assert {
+    condition     = google_project_iam_member.trace_writer.role == "roles/cloudtrace.agent" && google_project_service.cloud_trace.service == "cloudtrace.googleapis.com"
+    error_message = "The runtime needs trace-write access and the Cloud Trace API."
+  }
 }
 
 run "transfer_only_public_mcp_domain" {
@@ -73,13 +77,4 @@ run "reject_floating_secret" {
     caller_key_version = "latest"
   }
   expect_failures = [var.caller_key_version]
-}
-
-run "reject_invalid_sampling" {
-  command = plan
-  variables {
-    log_success_sample_rate = 1.1
-    log_slow_request_ms     = 0
-  }
-  expect_failures = [var.log_success_sample_rate, var.log_slow_request_ms]
 }
