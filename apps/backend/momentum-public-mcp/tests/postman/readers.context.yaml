@@ -1,0 +1,16 @@
+purpose:
+  stands_in_for: Local Momentum and Scanner REST providers from this repository.
+  unblocks: Public MCP migration to canonical v1 resources without cloud calls.
+assumptions:
+  - id: v1-gateway-contract
+    status: supported
+    claim: The candidate MCP preserves its public tool payloads when the two local stand-ins expose only canonical v1 business paths.
+    reason: The gateway and maintained mocks now use versioned resource URLs; public MCP schemas are unchanged.
+    verification: On 2026-11-05, scripts/simulation.py ran the real MCP over HTTP; all 12 requests and 45 assertions passed, and request logs proved both simulation members were exercised. This is simulation evidence, not a deployed-provider claim.
+    source: src/momentum_public_mcp/gateway.py; tests/test_gateway.py; tests/postman/mocks; scripts/simulation.py
+    updated_at: "2026-11-05"
+fingerprints:
+  - id: rest-versioning-local
+    date: "2026-11-05"
+    commit: "8a4dbb829e7f9d1477c8dd923e66724606d079dd plus uncommitted feat/rest-public-mcp changes"
+    cli: "1.73.0"
