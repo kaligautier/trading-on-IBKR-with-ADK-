@@ -135,6 +135,12 @@ is removed after the run.
   up. Mock-only scanner, injected failure/delay and fixed-cursor scenarios remain
   in the HTTP simulation; they are excluded from this one-analysis DB fixture.
   The complete API suite passed 267 tests against the disposable database.
+- 2026-11-05: After integrating main's versioned suggestion routes, all six
+  Momentum tools advertise native version 1 and call /v1 endpoints. The mock
+  now returns 201 for a new suggestion and 200 for an existing one. Validation:
+  233 MCP tests, 272 API tests, 29 simulation requests / 126 assertions and
+  19 real MCP/API/PostgreSQL requests / 77 assertions passed. Both simulation
+  members received HTTP calls; the disposable database was cleaned up.
 <!-- end:observations -->
 
 ## What didn't work

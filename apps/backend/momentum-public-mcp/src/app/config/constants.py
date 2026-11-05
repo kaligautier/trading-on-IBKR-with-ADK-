@@ -3,7 +3,7 @@
 from mcp.types import ToolAnnotations
 
 from app.api.momentum.config.constants import (
-    MOMENTUM_ANALYSIS_API_VERSION,
+    MOMENTUM_API_VERSION,
 )
 
 NOISY_LOGGERS = ("httpx", "httpcore")
@@ -43,14 +43,11 @@ MODERATED_WRITE = ToolAnnotations(
 CONSULTATION_TOOL_OPTIONS = {
     "annotations": READ_ONLY,
     "timeout": TOOL_TIMEOUT_SECONDS,
-}
-
-ANALYSIS_TOOL_OPTIONS = {
-    **CONSULTATION_TOOL_OPTIONS,
-    "version": MOMENTUM_ANALYSIS_API_VERSION,
+    "version": MOMENTUM_API_VERSION,
 }
 
 SUGGESTION_TOOL_OPTIONS = {
     "annotations": MODERATED_WRITE,
+    "version": MOMENTUM_API_VERSION,
     "timeout": TOOL_TIMEOUT_SECONDS,
 }

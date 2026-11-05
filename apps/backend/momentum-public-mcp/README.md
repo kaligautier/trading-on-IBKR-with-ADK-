@@ -31,7 +31,7 @@ api/
     dtos/
       request/
         analyses.py     # AnalysisPageRequest: HTTP filters and cursor pagination
-        suggestions.py  # SuggestionRequest: POST /suggestions JSON body
+        suggestions.py  # SuggestionRequest: POST /v1/suggestions JSON body
       response/
         analyses.py     # AnalysisSummary, AnalysisDetail, ReaderPage
         suggestions.py  # Suggestion response, including moderation status
@@ -211,12 +211,12 @@ limits remain independent enforcement mechanisms.
 
 ### Tool versions follow upstream routes
 
-The four analysis tools declare FastMCP `version="1"`, matching the `/v1/...`
+All six Momentum tools declare FastMCP `version="1"`, matching the `/v1/...`
 routes they call. `api/momentum/config/constants.py` provides their version and
 HTTP prefix from the same value. Tests check that these routes exist in the
 Momentum OpenAPI contract and that tool discovery advertises that version.
-`momentum_suggest_ticker` and `momentum_get_suggestion_status` remain unversioned because their
-upstream routes are `/suggestions` and `/suggestions/{suggestion_id}`.
+This includes the suggestion intake and status tools, backed by `/v1/suggestions`
+and `/v1/suggestions/{suggestion_id}`.
 
 The MCP server's `0.1.0` and the OpenAPI document's `info.version` are independent
 metadata; neither selects an upstream HTTP route. Do not use one global version
@@ -352,8 +352,8 @@ resource, then summarize the evidence with dates and identifiers.
 
 ## Suggestions through Momentum API
 
-`momentum_suggest_ticker` and `momentum_get_suggestion_status` call `POST /suggestions` and
-`GET /suggestions/{uuid}` on the same `MOMENTUM_API_URL` as the analysis tools,
+`momentum_suggest_ticker` and `momentum_get_suggestion_status` call `POST /v1/suggestions` and
+`GET /v1/suggestions/{uuid}` on the same `MOMENTUM_API_URL` as the analysis tools,
 with the same Cloud Run identity and original HMAC caller assertion. Validation,
 quotas, persistence and moderation belong to Momentum API, as in DeepCopy.
 The MCP has no storage adapter, database credentials or separate moderation URL.

@@ -1,4 +1,4 @@
-"""JSON body sent to POST /suggestions."""
+"""JSON body sent to POST /v1/suggestions."""
 
 from pydantic import BaseModel, ConfigDict
 

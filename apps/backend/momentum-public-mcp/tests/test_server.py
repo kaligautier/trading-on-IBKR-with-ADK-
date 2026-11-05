@@ -10,8 +10,8 @@ from fastmcp import Client
 
 from app.api.market_scanner.dtos.response.market_scan import MarketScan
 from app.api.momentum.config.constants import (
-    MOMENTUM_ANALYSIS_API_PREFIX,
-    MOMENTUM_ANALYSIS_API_VERSION,
+    MOMENTUM_API_PREFIX,
+    MOMENTUM_API_VERSION,
 )
 from app.api.momentum.dtos.response.analyses import (
     AnalysisSummary,
@@ -125,7 +125,7 @@ async def test_tool_versions_follow_the_upstream_routes(mcp_server) -> None:
         "/analyses/{analysis_id}",
         "/recommendations",
     ):
-        assert f"{MOMENTUM_ANALYSIS_API_PREFIX}{suffix}" in paths
+        assert f"{MOMENTUM_API_PREFIX}{suffix}" in paths
     async with Client(mcp_server) as client:
         tools = await client.list_tools()
     for tool in tools:
@@ -139,12 +139,8 @@ async def test_tool_versions_follow_the_upstream_routes(mcp_server) -> None:
         assert operation["operationId"] == expected_operation
         assert "version" not in tool.meta
         metadata = tool.meta["fastmcp"]
-        if tool.name in {"momentum_suggest_ticker", "momentum_get_suggestion_status"}:
-            assert "version" not in metadata
-            assert "versions" not in metadata
-        else:
-            assert metadata["version"] == MOMENTUM_ANALYSIS_API_VERSION
-            assert metadata["versions"] == [MOMENTUM_ANALYSIS_API_VERSION]
+        assert metadata["version"] == MOMENTUM_API_VERSION
+        assert metadata["versions"] == [MOMENTUM_API_VERSION]
 
 
 @pytest.mark.parametrize(
@@ -157,7 +153,7 @@ async def test_tool_versions_follow_the_upstream_routes(mcp_server) -> None:
 )
 async def test_explicit_upstream_version_executes_the_tool(mcp_server, name) -> None:
     async with Client(mcp_server) as client:
-        result = await client.call_tool(name, {}, version=MOMENTUM_ANALYSIS_API_VERSION)
+        result = await client.call_tool(name, {}, version=MOMENTUM_API_VERSION)
     assert not result.is_error
     assert result.data.items[0].ticker == "AAPL"
 

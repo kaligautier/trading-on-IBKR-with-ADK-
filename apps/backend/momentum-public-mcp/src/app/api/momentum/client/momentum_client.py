@@ -9,7 +9,7 @@ from app.api.errors import MomentumApiError
 from app.api.http import ApiHttpClient
 from app.api.momentum.client.signing import SuggestionSigner
 from app.api.momentum.config.constants import (
-    MOMENTUM_ANALYSIS_API_PREFIX,
+    MOMENTUM_API_PREFIX,
 )
 from app.api.momentum.dtos.request.analyses import AnalysisPageRequest
 from app.api.momentum.dtos.request.suggestions import SuggestionRequest
@@ -36,17 +36,13 @@ class MomentumClient:
         await self._http.close()
 
     async def list_analyses(self, request: AnalysisPageRequest) -> ReaderPage:
-        return await self._get_page(f"{MOMENTUM_ANALYSIS_API_PREFIX}/analyses", request)
+        return await self._get_page(f"{MOMENTUM_API_PREFIX}/analyses", request)
 
     async def latest_analyses(self, request: AnalysisPageRequest) -> ReaderPage:
-        return await self._get_page(
-            f"{MOMENTUM_ANALYSIS_API_PREFIX}/analyses/latest", request
-        )
+        return await self._get_page(f"{MOMENTUM_API_PREFIX}/analyses/latest", request)
 
     async def get_recommendations(self, request: AnalysisPageRequest) -> ReaderPage:
-        return await self._get_page(
-            f"{MOMENTUM_ANALYSIS_API_PREFIX}/recommendations", request
-        )
+        return await self._get_page(f"{MOMENTUM_API_PREFIX}/recommendations", request)
 
     async def _get_page(self, path: str, request: AnalysisPageRequest) -> ReaderPage:
         response = await self._http.request(
@@ -56,7 +52,7 @@ class MomentumClient:
 
     async def get_analysis(self, analysis_id: UUID) -> AnalysisDetail:
         response = await self._http.request(
-            "GET", f"{MOMENTUM_ANALYSIS_API_PREFIX}/analyses/{analysis_id}"
+            "GET", f"{MOMENTUM_API_PREFIX}/analyses/{analysis_id}"
         )
         return self._http.model(response, AnalysisDetail)
 
@@ -66,7 +62,7 @@ class MomentumClient:
         try:
             response = await self._http.request(
                 "POST",
-                "/suggestions",
+                f"{MOMENTUM_API_PREFIX}/suggestions",
                 json=request.model_dump(mode="json"),
                 headers=self._signer.headers(caller_fingerprint),
             )
@@ -80,5 +76,7 @@ class MomentumClient:
         return self._http.model(response, Suggestion)
 
     async def get_suggestion_status(self, suggestion_id: UUID) -> Suggestion:
-        response = await self._http.request("GET", f"/suggestions/{suggestion_id}")
+        response = await self._http.request(
+            "GET", f"{MOMENTUM_API_PREFIX}/suggestions/{suggestion_id}"
+        )
         return self._http.model(response, Suggestion)

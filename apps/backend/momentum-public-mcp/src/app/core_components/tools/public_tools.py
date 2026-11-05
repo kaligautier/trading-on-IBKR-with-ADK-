@@ -12,14 +12,13 @@ from fastmcp.server.context import Context
 from fastmcp.tools import tool
 from pydantic import Field, ValidationError, ValidatorFunctionWrapHandler, WrapValidator
 
-from app.api.momentum.config.constants import MOMENTUM_ANALYSIS_API_PREFIX
+from app.api.momentum.config.constants import MOMENTUM_API_PREFIX
 from app.api.momentum.dtos.response.analyses import (
     AnalysisDetail,
     ReaderPage,
 )
 from app.api.momentum.dtos.response.suggestions import Suggestion
 from app.config.constants import (
-    ANALYSIS_TOOL_OPTIONS,
     CONSULTATION_TOOL_OPTIONS,
     SUGGESTION_TOOL_OPTIONS,
 )
@@ -104,10 +103,10 @@ class MomentumPublicTools:
             "upstream": {
                 "api": "momentum",
                 "method": "GET",
-                "path": f"{MOMENTUM_ANALYSIS_API_PREFIX}/analyses",
+                "path": f"{MOMENTUM_API_PREFIX}/analyses",
             }
         },
-        **ANALYSIS_TOOL_OPTIONS,
+        **CONSULTATION_TOOL_OPTIONS,
     )
     async def list_analyses(
         self,
@@ -145,10 +144,10 @@ class MomentumPublicTools:
             "upstream": {
                 "api": "momentum",
                 "method": "GET",
-                "path": f"{MOMENTUM_ANALYSIS_API_PREFIX}/analyses/latest",
+                "path": f"{MOMENTUM_API_PREFIX}/analyses/latest",
             }
         },
-        **ANALYSIS_TOOL_OPTIONS,
+        **CONSULTATION_TOOL_OPTIONS,
     )
     async def latest_analyses(
         self,
@@ -188,10 +187,10 @@ class MomentumPublicTools:
             "upstream": {
                 "api": "momentum",
                 "method": "GET",
-                "path": f"{MOMENTUM_ANALYSIS_API_PREFIX}/analyses/{{analysis_id}}",
+                "path": f"{MOMENTUM_API_PREFIX}/analyses/{{analysis_id}}",
             }
         },
-        **ANALYSIS_TOOL_OPTIONS,
+        **CONSULTATION_TOOL_OPTIONS,
     )
     async def get_analysis(self, analysis_id: str) -> AnalysisDetail:
         """Validate the analysis UUID and retrieve its saved report.
@@ -219,10 +218,10 @@ class MomentumPublicTools:
             "upstream": {
                 "api": "momentum",
                 "method": "GET",
-                "path": f"{MOMENTUM_ANALYSIS_API_PREFIX}/recommendations",
+                "path": f"{MOMENTUM_API_PREFIX}/recommendations",
             }
         },
-        **ANALYSIS_TOOL_OPTIONS,
+        **CONSULTATION_TOOL_OPTIONS,
     )
     async def get_recommendations(
         self,
@@ -255,7 +254,11 @@ class MomentumPublicTools:
         ),
         tags={"public", "momentum", "suggestion", "moderation"},
         meta={
-            "upstream": {"api": "momentum", "method": "POST", "path": "/suggestions"}
+            "upstream": {
+                "api": "momentum",
+                "method": "POST",
+                "path": f"{MOMENTUM_API_PREFIX}/suggestions",
+            }
         },
         **SUGGESTION_TOOL_OPTIONS,
     )
@@ -288,7 +291,7 @@ class MomentumPublicTools:
             "upstream": {
                 "api": "momentum",
                 "method": "GET",
-                "path": "/suggestions/{suggestion_id}",
+                "path": f"{MOMENTUM_API_PREFIX}/suggestions/{{suggestion_id}}",
             }
         },
         **CONSULTATION_TOOL_OPTIONS,

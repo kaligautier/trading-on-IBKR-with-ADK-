@@ -9,7 +9,7 @@
       "value": "http://127.0.0.1:8107"
     },
     {
-      "key": "momentumAnalysisApiVersion",
+      "key": "momentumApiVersion",
       "value": "1"
     }
   ],
@@ -99,8 +99,8 @@
               "pm.test(\"Endpoint-specific page limits\",()=>{const limits={momentum_list_analyses:100,momentum_latest_analyses:100,momentum_get_recommendations:50};for(const [name,maximum] of Object.entries(limits)){pm.expect(body.result.tools.find(t=>t.name===name).inputSchema.properties.page_size.maximum,name).to.equal(maximum);}});",
               "pm.test(\"Accurate tool annotations\",()=>{for(const tool of body.result.tools){pm.expect(tool.annotations.readOnlyHint,tool.name).to.equal(tool.name!==\"momentum_suggest_ticker\");pm.expect(tool.annotations.destructiveHint,tool.name).to.equal(false);pm.expect(tool.annotations.idempotentHint,tool.name).to.equal(true);pm.expect(tool.annotations.openWorldHint,tool.name).to.equal(true);}});",
               "pm.test(\"Documented typed public contracts\",()=>{for(const tool of body.result.tools){pm.expect(tool.title,tool.name).to.be.a(\"string\").and.not.empty;pm.expect(tool._meta.fastmcp.tags,tool.name).to.include(\"public\");pm.expect(tool.inputSchema.additionalProperties,tool.name).to.equal(false);for(const field of Object.values(tool.inputSchema.properties)){pm.expect(field.description,tool.name).to.be.a(\"string\").and.not.empty;}pm.expect(tool.outputSchema.type,tool.name).to.equal(\"object\");}});",
-              "pm.test(\"Tool versions match upstream routes\",()=>{for(const tool of body.result.tools){const meta=tool._meta.fastmcp;if([\"momentum_suggest_ticker\",\"momentum_get_suggestion_status\"].includes(tool.name)){pm.expect(meta).not.to.have.property(\"version\");pm.expect(meta).not.to.have.property(\"versions\");}else{pm.expect(meta.version,tool.name).to.equal(pm.variables.get(\"momentumAnalysisApiVersion\"));pm.expect(meta.versions,tool.name).to.eql([pm.variables.get(\"momentumAnalysisApiVersion\")]);}}});",
-              "pm.test(\"Upstream API metadata\",()=>{const routes={momentum_list_analyses:[\"GET\",\"/v1/analyses\"],momentum_latest_analyses:[\"GET\",\"/v1/analyses/latest\"],momentum_get_analysis:[\"GET\",\"/v1/analyses/{analysis_id}\"],momentum_get_recommendations:[\"GET\",\"/v1/recommendations\"],momentum_suggest_ticker:[\"POST\",\"/suggestions\"],momentum_get_suggestion_status:[\"GET\",\"/suggestions/{suggestion_id}\"]};for(const tool of body.result.tools){const [method,path]=routes[tool.name];pm.expect(tool._meta.upstream,tool.name).to.eql({api:\"momentum\",method,path});pm.expect(tool._meta.fastmcp.tags,tool.name).to.include(\"momentum\");pm.expect(tool._meta).not.to.have.property(\"version\");}});"
+              "pm.test(\"Tool versions match upstream routes\",()=>{for(const tool of body.result.tools){const meta=tool._meta.fastmcp;pm.expect(meta.version,tool.name).to.equal(pm.variables.get(\"momentumApiVersion\"));pm.expect(meta.versions,tool.name).to.eql([pm.variables.get(\"momentumApiVersion\")]);}});",
+              "pm.test(\"Upstream API metadata\",()=>{const routes={momentum_list_analyses:[\"GET\",\"/v1/analyses\"],momentum_latest_analyses:[\"GET\",\"/v1/analyses/latest\"],momentum_get_analysis:[\"GET\",\"/v1/analyses/{analysis_id}\"],momentum_get_recommendations:[\"GET\",\"/v1/recommendations\"],momentum_suggest_ticker:[\"POST\",\"/v1/suggestions\"],momentum_get_suggestion_status:[\"GET\",\"/v1/suggestions/{suggestion_id}\"]};for(const tool of body.result.tools){const [method,path]=routes[tool.name];pm.expect(tool._meta.upstream,tool.name).to.eql({api:\"momentum\",method,path});pm.expect(tool._meta.fastmcp.tags,tool.name).to.include(\"momentum\");pm.expect(tool._meta).not.to.have.property(\"version\");}});"
             ]
           }
         }
@@ -232,7 +232,7 @@
         "url": "{{mcpUrl}}/",
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": \"momentum_list_analyses explicit version\",\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"_meta\": {\n      \"io.modelcontextprotocol/protocolVersion\": \"2026-07-28\",\n      \"io.modelcontextprotocol/clientCapabilities\": {},\n      \"fastmcp\": {\n        \"version\": \"{{momentumAnalysisApiVersion}}\"\n      }\n    },\n    \"name\": \"momentum_list_analyses\",\n    \"arguments\": {\n      \"page_size\": 1\n    }\n  }\n}"
+          "raw": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": \"momentum_list_analyses explicit version\",\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"_meta\": {\n      \"io.modelcontextprotocol/protocolVersion\": \"2026-07-28\",\n      \"io.modelcontextprotocol/clientCapabilities\": {},\n      \"fastmcp\": {\n        \"version\": \"{{momentumApiVersion}}\"\n      }\n    },\n    \"name\": \"momentum_list_analyses\",\n    \"arguments\": {\n      \"page_size\": 1\n    }\n  }\n}"
         },
         "description": "Direct tool call without optional clientInfo; FastMCP handles protocol metadata."
       },
@@ -391,7 +391,7 @@
             "exec": [
               "pm.test(\"HTTP 200\",()=>pm.response.to.have.status(200));",
               "const body=pm.response.json();",
-              "pm.test(\"MCP rejects recommendation pages above 50\",()=>{pm.expect(body.result.isError).to.equal(true);pm.expect(body.result.content[0].text).to.equal(\"page_size doit \u00eatre inf\u00e9rieur ou \u00e9gal \u00e0 50.\");});"
+              "pm.test(\"MCP rejects recommendation pages above 50\",()=>{pm.expect(body.result.isError).to.equal(true);pm.expect(body.result.content[0].text).to.equal(\"page_size doit être inférieur ou égal à 50.\");});"
             ]
           }
         }
