@@ -12,7 +12,7 @@ class ScannerAdmissionMiddleware:
     async def __call__(self, scope, receive, send):
         if scope["type"] not in {"http", "websocket"} or scope["path"] in {
             "/health",
-            "/internal/daily-scan",
+            "/internal/v1/scan-jobs",
         }:
             await self.app(scope, receive, send)
             return
