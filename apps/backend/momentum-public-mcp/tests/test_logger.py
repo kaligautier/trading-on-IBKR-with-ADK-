@@ -3,10 +3,9 @@
 import json
 import logging
 
-from app.observability.logger import TraceInjectFilter, config_logger
-
 from app.config.config import Settings
 from app.config.constants import NOISY_LOGGERS
+from app.observability.logger import TraceInjectFilter, config_logger
 
 
 def test_filter_uses_empty_ids_outside_a_trace():

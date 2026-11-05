@@ -90,6 +90,9 @@ def main():
                 }
             )
         )
+    except Exception:
+        print(docker("logs", name))
+        raise
     finally:
         docker("stop", name)
 

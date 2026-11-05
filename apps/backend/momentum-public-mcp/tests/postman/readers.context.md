@@ -124,6 +124,17 @@ is removed after the run.
 - 2026-10-27: After separating the API clients, `scripts/simulation.py` passed.
   Both `momentum` and `scanner` served requests; neither member stayed silent.
   The write/status flow, sanitized upstream failure and delayed response passed.
+- 2026-11-05: Restoring the JSON/trace logger and recursive argument masking
+  resolved the startup and middleware regressions. The complete MCP suite passed
+  232 tests. The real MCP against both HTTP simulation members passed 29 requests
+  and 126 assertions, including cursor continuation, metadata and error paths.
+  This is local simulation evidence, not live Cloud Trace or IAM verification.
+- 2026-11-05: The real MCP -> Momentum API -> labelled disposable PostgreSQL
+  fixture passed 19 Postman requests and 77 assertions. An independent SQL read
+  confirmed the pending suggestion was persisted, and fixture rows were cleaned
+  up. Mock-only scanner, injected failure/delay and fixed-cursor scenarios remain
+  in the HTTP simulation; they are excluded from this one-analysis DB fixture.
+  The complete API suite passed 267 tests against the disposable database.
 <!-- end:observations -->
 
 ## What didn't work

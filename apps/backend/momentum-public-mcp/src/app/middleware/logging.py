@@ -6,6 +6,31 @@ from fastmcp.server.middleware import MiddlewareContext
 from fastmcp.server.middleware.logging import LoggingMiddleware
 
 
+def _redact_arguments(value):
+    """Copy JSON arguments while masking credentials and opaque cursors."""
+    if isinstance(value, dict):
+        return {
+            key: "[REDACTED]"
+            if any(
+                sensitive in key.casefold().replace("-", "_")
+                for sensitive in (
+                    "token",
+                    "secret",
+                    "password",
+                    "authorization",
+                    "api_key",
+                    "apikey",
+                    "cookie",
+                )
+            )
+            else _redact_arguments(item)
+            for key, item in value.items()
+        }
+    if isinstance(value, list):
+        return [_redact_arguments(item) for item in value]
+    return value
+
+
 class RequestLoggingMiddleware(LoggingMiddleware):
     """Log method, source, outcome and duration through native on_message hooks."""
 
@@ -22,7 +47,7 @@ class RequestLoggingMiddleware(LoggingMiddleware):
             "event=tool_call tool=%s argument_count=%d",
             tool_name,
             len(args),
-            extra={"tool": tool_name, "arguments": (args)},
+            extra={"tool": tool_name, "arguments": _redact_arguments(args)},
         )
         result = await call_next(context)
         return result
