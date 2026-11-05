@@ -239,10 +239,11 @@ A synthetic poisoned environment/dotenv test verifies the injection boundary.
 
 ## Recovered DeepCopy suggestions
 
-`POST /suggestions` and `GET /suggestions/{uuid}` preserve the original MCP
-intake/status contract. Submission returns HTTP 202 with a pending record and
-never starts an analysis. Duplicate symbols return the original record, including
-a previously reviewed record. A current analysis prevents a new suggestion;
+`POST /v1/suggestions` and `GET /v1/suggestions/{uuid}` expose the MCP
+intake/status resources. Creation returns HTTP 201 with a pending record and
+never starts an analysis. Duplicate symbols return HTTP 200 with the original
+record, including a previously reviewed record. Both responses provide its
+canonical `Location`. A current analysis prevents a new suggestion;
 expiry uses UTC dates. Intake is limited to one new suggestion per fifteen minutes
 and five per UTC day per signed caller, atomically across connections.
 
@@ -271,3 +272,14 @@ bash scripts/test_database.sh stop
 This launches real loopback API/MCP processes, runs nine saved Postman requests,
 and independently reads PostgreSQL to prove the pending result was committed.
 It emulates Cloud Run ingress locally; IAM must also be verified after deployment.
+
+
+## Versioned suggestion resources
+
+All business resources use `/v1`. The former `/suggestions` paths have been
+removed and return 404; clients must migrate with this release. A new suggestion
+returns 201; an existing ticker returns 200. Both include `Location` for the
+canonical status resource. The record remains pending moderation. GET/HEAD
+retrieval is safe; POST is not a general-purpose retry guarantee. Payloads,
+caller authentication and quotas are unchanged. See the
+[versioning specification](../../../docs/specs/rest-api-versioning.md).

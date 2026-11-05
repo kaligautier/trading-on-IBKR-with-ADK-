@@ -1,38 +1,31 @@
-# Database runtime reliability implementation plan
+# REST versioning implementation plan
 
-Authorized by the user instruction `implem` after specification PR #178.
-Scope: [specification](../docs/specs/database-runtime-reliability.md).
-The previous consultation plan/checklist is preserved under tasks/archive/.
+User authorized immediate breaking changes on 2026-11-04. Spec:
+[rest-api-versioning](../docs/specs/rest-api-versioning.md).
+No compatibility aliases or repeated phase approvals. Existing task history is
+preserved under tasks/archive/database-runtime-reliability-*.md.
 
-## Dependency order and decisions
+1. Momentum provider in two dependent PRs to respect the 1000-line limit:
+   version suggestion paths and OpenAPI, then 201 created / 200 existing with
+   Location; preserve HTTP policy and test persistence.
+2. Scanner provider: version reads; HEAD, Allow and JSON negotiation; test old
+   paths absent and auth/report/cursor behavior preserved.
+3. Scanner ADK provider: POST /internal/v1/scan-jobs with 202; update admission;
+   preserve SDK routes and test no dispatch through the removed route.
+4. Consumers in separate branches: public MCP, Momentum job, frontend, Scheduler.
+   Update paths, expectations, saved fixtures and documentation in each scope.
+5. Stack component PRs in this order; move the existing MCP/PostgreSQL smoke
+   invocation to the consumer workflow (including provider/database path triggers)
+   so it tests matching contracts, preserving the actual test.
+6. Combined candidate integration: actual providers and consumers on local
+   disposable data. No cloud or model execution. Publish eight scoped PRs and
+   verify their exact-head CI results; no merge or deployment.
 
-1. TLS adapters: explicit verified SSLContext shared between each worker's result
-   and session connection paths. Keep separately packaged apps independent.
-2. Memory migration: private analysis tables, execution-scoped unique key, narrow
-   runtime grants, no reader access; preserve baseline adoption semantics.
-3. Memory repository and orchestration: async bounded queries; use the existing
-   result transaction for decisions/reflections. Stable record IDs disambiguate
-   same-date decisions. External calls run outside transactions.
-4. Capacity: inspect reserved slots and consumers, then encode the global budget,
-   align pools/roles and add cross-process admission before model work. Admission
-   cleanup and revision overlap are test obligations, not documentation assumptions.
-5. Full rehearsal, TLS integration, restart/rollback/isolation/retry tests,
-   constrained-capacity tests, packaging, Terraform mock checks and linked PRs.
+Dependencies: MCP requires Momentum and Scanner API; frontend and Momentum job
+require Scanner API; Scheduler requires Scanner ADK. Providers and consumers
+must be released together because old paths are removed. PR descriptions state
+this dependency explicitly. Branches all originate at origin/main 8a4dbb8.
 
-## Delivery
-
-Keep PR #178 as the specification/plan entry point. Publish dependent slices with
-at most one application component and under 1,000 counted lines per PR. No merge
-or live migration/apply is implied. Local evidence must never imply live rollout.
-
-## Risks and checkpoints
-
-- Old secrets may specify weaker TLS: document the verified URL/CA cutover.
-- New memory tables change current fingerprints: distinguish immutable baseline
-  verification/adoption from the post-migration state and test both.
-- Do not keep transactions or extra pools open during model/market-data calls.
-- Capacity allocation depends on live reserved/provider slots; fail closed when
-  configuration is inconsistent, without increasing paid capacity.
-- Checkpoint after each slice: focused regression passes, review diff, commit.
-- Final checkpoint: every TLS/MEM/CAP/REG criterion has direct evidence; OPS
-  records the deployment prerequisite separately.
+Risks: false 201 on deduplicated suggestions (test real concurrent inserts),
+route-name-specific middleware (exercise full ASGI boundary), SDK route collision
+(test auth/admission), drifted mocks (combined provider/consumer verification).
