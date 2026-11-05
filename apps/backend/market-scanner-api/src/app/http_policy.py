@@ -1,6 +1,9 @@
 """HTTP read semantics shared by the reader's JSON resources."""
 
+import json
+import logging
 from copy import deepcopy
+from time import monotonic
 from typing import Any
 
 from fastapi import FastAPI
@@ -8,6 +11,8 @@ from starlette.datastructures import Headers, MutableHeaders
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from app.negotiation import accepts
+
+logger = logging.getLogger("market_scanner_api")
 
 
 class ReadHTTPPolicy:
@@ -18,7 +23,9 @@ class ReadHTTPPolicy:
         if scope["type"] != "http":
             await self.app(scope, receive, send)
             return
+        start = monotonic()
         head = scope["method"] == "HEAD"
+        routed_scope = {**scope, "method": "GET"} if head else scope
         accept_values = Headers(scope=scope).getlist("accept")
         acceptable = accepts(
             ",".join(accept_values) if accept_values else None, "application/json"
@@ -40,11 +47,25 @@ class ReadHTTPPolicy:
                         headers["content-length"] = "0"
                         del headers["content-type"]
                         suppress = True
+                logger.info(
+                    json.dumps(
+                        {
+                            "event": "http.completed",
+                            "request_id": headers.get("X-Request-ID", ""),
+                            "method": scope["method"],
+                            "route": getattr(
+                                routed_scope.get("route"), "path", "unmatched"
+                            ),
+                            "status": message["status"],
+                            "duration_ms": round((monotonic() - start) * 1000, 2),
+                        }
+                    )
+                )
             elif message["type"] == "http.response.body" and suppress:
                 message = {**message, "body": b""}
             await send(message)
 
-        await self.app({**scope, "method": "GET"} if head else scope, receive, respond)
+        await self.app(routed_scope, receive, respond)
 
 
 def install_head_schema(app: FastAPI) -> None:
