@@ -168,7 +168,7 @@ class MomentumHttpGateway:
         return await self._pages("/v1/analyses", parameters, page.limit, page.offset)
 
     async def latest_market_scan(self) -> MarketScan:
-        response = await self._market_scanner_request("GET", "/market-scans/latest")
+        response = await self._market_scanner_request("GET", "/v1/market-scans/latest")
         return self._model(response, MarketScan)
 
     async def latest_analyses(
@@ -232,12 +232,12 @@ class MomentumHttpGateway:
         payload = {"symbol": symbol.value, "reason": reason.value}
         headers = self._signer.headers(caller_fingerprint)
         response = await self._request(
-            "POST", "/suggestions", json=payload, headers=headers
+            "POST", "/v1/suggestions", json=payload, headers=headers
         )
         return self._model(response, Suggestion)
 
     async def get_suggestion_status(self, suggestion_id: SuggestionId) -> Suggestion:
-        response = await self._request("GET", f"/suggestions/{suggestion_id.value}")
+        response = await self._request("GET", f"/v1/suggestions/{suggestion_id.value}")
         return self._model(response, Suggestion)
 
     async def close(self) -> None:

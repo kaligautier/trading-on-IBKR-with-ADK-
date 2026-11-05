@@ -62,8 +62,8 @@ The removed legacy `session_id` and `recommendation` fields are not fabricated.
 
 ## Suggestions through Momentum API
 
-`suggest_ticker` and `get_suggestion_status` call `POST /suggestions` and
-`GET /suggestions/{uuid}` on the same `MOMENTUM_API_URL` as the analysis tools,
+`suggest_ticker` and `get_suggestion_status` call `POST /v1/suggestions` and
+`GET /v1/suggestions/{uuid}` on the same `MOMENTUM_API_URL` as the analysis tools,
 with the same Cloud Run identity and original HMAC caller assertion. Validation,
 quotas, persistence and moderation belong to Momentum API, as in DeepCopy.
 The MCP has no storage adapter, database credentials or separate moderation URL.

@@ -147,7 +147,7 @@ async def test_latest_market_scan_uses_scanner_consultation_api() -> None:
         raise AssertionError(f"Unexpected request to Momentum API: {request.url}")
 
     async def scanner_handler(request: httpx.Request) -> httpx.Response:
-        assert request.url == "https://scanner.test/market-scans/latest"
+        assert request.url == "https://scanner.test/v1/market-scans/latest"
         return httpx.Response(200, json=market_scan())
 
     momentum_client = httpx.AsyncClient(
@@ -175,13 +175,14 @@ def test_ratings_reject_values_outside_the_public_vocabulary() -> None:
         Ratings.from_csv("Buy,ExecuteAdminTask")
 
 
-async def test_suggestion_keeps_signature_with_cloud_run_identity() -> None:
+@pytest.mark.parametrize("status", [200, 201])
+async def test_suggestion_keeps_signature_with_cloud_run_identity(status) -> None:
     secret = "test-secret"
     caller_fingerprint = "caller-fingerprint"
 
     async def handler(request: httpx.Request) -> httpx.Response:
         payload = json.loads(request.content)
-        assert request.url.path == "/suggestions"
+        assert request.url.path == "/v1/suggestions"
         assert payload == {"symbol": "MSFT", "reason": "Strong fundamentals"}
         assert request.headers["X-Momentum-Caller"] == caller_fingerprint
         assert request.headers["X-Serverless-Authorization"] == (
@@ -193,7 +194,7 @@ async def test_suggestion_keeps_signature_with_cloud_run_identity() -> None:
             hashlib.sha256,
         ).hexdigest()
         assert request.headers["X-Momentum-Signature"] == expected_signature
-        return httpx.Response(202, json=suggestion())
+        return httpx.Response(status, json=suggestion())
 
     identity_headers = CloudRunIdentityHeaders(StaticIdentityTokenProvider())
     gateway = gateway_with(handler, secret, identity_headers)
@@ -222,7 +223,7 @@ async def test_not_found_is_a_sanitized_gateway_error() -> None:
 
 async def test_current_analysis_conflict_is_explained_to_mcp_user() -> None:
     async def handler(request: httpx.Request) -> httpx.Response:
-        assert request.url.path == "/suggestions"
+        assert request.url.path == "/v1/suggestions"
         return httpx.Response(
             409,
             json={"detail": "NVDA already has a current Momentum analysis."},
@@ -240,7 +241,7 @@ async def test_current_analysis_conflict_is_explained_to_mcp_user() -> None:
 
 async def test_suggestion_status_uses_the_public_status_route() -> None:
     async def handler(request: httpx.Request) -> httpx.Response:
-        assert request.url.path == f"/suggestions/{SUGGESTION_ID}"
+        assert request.url.path == f"/v1/suggestions/{SUGGESTION_ID}"
         return httpx.Response(200, json=suggestion())
 
     gateway = gateway_with(handler)
@@ -347,7 +348,7 @@ async def test_scanner_uses_its_own_identity_headers():
 
 async def test_missing_momentum_suggestions_route_is_a_sanitized_error():
     async def handler(request):
-        assert request.url == "https://momentum.test/suggestions"
+        assert request.url == "https://momentum.test/v1/suggestions"
         return httpx.Response(404, text="private upstream details")
 
     gateway = gateway_with(handler)
