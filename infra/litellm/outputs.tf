@@ -1,6 +1,6 @@
 output "ui_url" {
   value       = local.runtime_enabled ? "${local.base_url}/ui" : null
-  description = "Protected by Google IAP; LiteLLM also requires its own admin login."
+  description = "Protected by Google IAP; LiteLLM signs in with Google when google_sso is configured, otherwise its admin login."
 }
 
 output "migration_job" {
