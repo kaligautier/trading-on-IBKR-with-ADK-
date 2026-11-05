@@ -10,9 +10,9 @@ All data and documentation routes require authentication.
 
 | Method and path | Result |
 | --- | --- |
-| `GET /market-scans/latest` | Most recently persisted run, ordered by `created_at DESC, id DESC` |
-| `GET /market-scans?page_size=20&page_token=…` | Run summaries and `next_page_token` |
-| `GET /market-scans/{scan_id}` | One persisted run by UUID |
+| `GET /v1/market-scans/latest` | Most recently persisted run, ordered by `created_at DESC, id DESC` |
+| `GET /v1/market-scans?page_size=20&page_token=…` | Run summaries and `next_page_token` |
+| `GET /v1/market-scans/{scan_id}` | One persisted run by UUID |
 | `GET /schemas/report-v3.json` | Canonical JSON schema for the `report` field |
 | `GET /openapi.json` | API schema |
 | `GET /health` | Public process liveness, no database call |
@@ -89,7 +89,7 @@ placeholder token/password, then run:
 ```sh
 uv sync --frozen --python 3.12
 uv run --frozen uvicorn app.main:create_app --factory --host 127.0.0.1 --port 8080 --no-access-log
-curl -H "Authorization: Bearer $API_TOKEN" http://127.0.0.1:8080/market-scans/latest
+curl -H "Authorization: Bearer $API_TOKEN" http://127.0.0.1:8080/v1/market-scans/latest
 ```
 
 The curl command expects `API_TOKEN` in your shell environment. For Aiven, also
@@ -157,3 +157,14 @@ only after reviewing compatibility and updating the reader tests.
 Design references: [FastAPI lifespan](https://fastapi.tiangolo.com/advanced/events/),
 [Google AIP-158 pagination](https://google.aip.dev/158) (inspiration, not a claim of
 full AIP conformance), and [Aiven TLS verification](https://aiven.io/docs/platform/concepts/tls-ssl-certificates).
+
+
+## REST versioning
+
+Business resources are under `/v1/market-scans`. The old `/market-scans` paths
+return 404 without redirects; migrate every consumer with this release. GET and
+HEAD share authorization and representation metadata; HEAD has no body. Invalid
+methods return 405 with `Allow: GET, HEAD`. Successful reads select JSON using
+Accept (406 if explicitly excluded), with `Vary: Accept` and `Cache-Control: no-store`.
+Report schema version 3 is independent of the URL major version. Operational and
+documentation paths remain unversioned.
