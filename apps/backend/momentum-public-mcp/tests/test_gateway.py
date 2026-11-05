@@ -9,17 +9,18 @@ from uuid import UUID
 import httpx
 import pytest
 
-from momentum_public_mcp.api.auth import (
+from app.api.auth import (
     CloudRunIdentityHeaders,
     MetadataIdentityTokenProvider,
 )
-from momentum_public_mcp.api.errors import MarketScannerApiError, MomentumApiError
-from momentum_public_mcp.api.market_scanner.client.market_scanner_client import (
+from app.api.errors import MarketScannerApiError, MomentumApiError
+from app.api.market_scanner.client.market_scanner_client import (
     MarketScannerClient,
 )
-from momentum_public_mcp.api.momentum.client.momentum_client import MomentumClient
-from momentum_public_mcp.api.momentum.client.signing import SuggestionSigner
-from momentum_public_mcp.domain import (
+from app.api.momentum.client.momentum_client import MomentumClient
+from app.api.momentum.client.signing import SuggestionSigner
+from app.core_components.gateway import MomentumHttpGateway
+from app.domain import (
     AnalysisId,
     AnalysisPage,
     Ratings,
@@ -27,7 +28,6 @@ from momentum_public_mcp.domain import (
     SuggestionReason,
     TickerSymbol,
 )
-from momentum_public_mcp.mcp.gateway import MomentumHttpGateway
 
 ANALYSIS_ID = UUID("11111111-1111-1111-1111-111111111111")
 SUGGESTION_ID = UUID("22222222-2222-2222-2222-222222222222")
@@ -89,7 +89,7 @@ async def test_list_analyses_calls_only_the_public_route() -> None:
 
     analyses = await gateway.list_analyses(
         TickerSymbol("aapl"),
-        AnalysisPage(limit=20, offset=0),
+        AnalysisPage(page_size=20),
     )
 
     assert analyses.items[0].ticker == "AAPL"
@@ -107,7 +107,7 @@ async def test_momentum_requests_include_cloud_run_identity_when_enabled() -> No
     identity_headers = CloudRunIdentityHeaders(StaticIdentityTokenProvider())
     gateway = gateway_with(handler, identity_headers=identity_headers)
 
-    result = await gateway.latest_analyses(None, None)
+    result = await gateway.latest_analyses(None, None, AnalysisPage())
 
     assert result.items[0].ticker == "AAPL"
 
@@ -140,7 +140,7 @@ async def test_recommendations_send_normalized_ratings() -> None:
 
     analyses = await gateway.get_recommendations(
         Ratings.from_csv(" buy, OVERWEIGHT "),
-        10,
+        AnalysisPage(page_size=10),
     )
 
     assert len(analyses.items) == 1
@@ -266,62 +266,6 @@ def gateway_with(
     )
 
 
-async def test_original_offset_window_traverses_reader_cursors():
-    calls = []
-
-    async def handler(request):
-        calls.append(dict(request.url.params))
-        if not request.url.params["page_token"]:
-            return httpx.Response(
-                200, json={"items": [analysis_summary()], "next_page_token": "page2"}
-            )
-        return httpx.Response(
-            200,
-            json={
-                "items": [{**analysis_summary(), "ticker": "MSFT"}],
-                "next_page_token": "page3",
-            },
-        )
-
-    gateway = gateway_with(handler)
-    result = await gateway.list_analyses(None, AnalysisPage(limit=1, offset=1))
-    assert [item.ticker for item in result.items] == ["MSFT"]
-    assert calls == [
-        {"page_size": "2", "page_token": ""},
-        {"page_size": "1", "page_token": "page2"},
-    ]
-    await gateway.close()
-
-
-async def test_latest_does_not_drop_reader_pages():
-    async def handler(request):
-        first = not request.url.params["page_token"]
-        return httpx.Response(
-            200,
-            json={
-                "items": [
-                    {**analysis_summary(), "ticker": "AAPL" if first else "MSFT"}
-                ],
-                "next_page_token": "page2" if first else "",
-            },
-        )
-
-    gateway = gateway_with(handler)
-    result = await gateway.latest_analyses(None, None)
-    assert [item.ticker for item in result.items] == ["AAPL", "MSFT"]
-    await gateway.close()
-
-
-async def test_repeated_cursor_fails_instead_of_looping():
-    async def handler(request):
-        return httpx.Response(200, json={"items": [], "next_page_token": "same"})
-
-    gateway = gateway_with(handler)
-    with pytest.raises(MomentumApiError, match="repeated cursor"):
-        await gateway.latest_analyses(None, None)
-    await gateway.close()
-
-
 async def test_scanner_uses_its_own_identity_headers():
     class ScannerIdentity:
         async def token(self):
@@ -387,9 +331,18 @@ async def test_latest_analysis_query_preserves_filters_across_reader_pages(filte
         result = await gateway.latest_analyses(
             TickerSymbol("aapl") if filtered else None,
             Ratings.from_csv("buy, overweight") if filtered else None,
+            AnalysisPage(page_size=100),
+        )
+        assert len(calls) == 1
+        assert len(result.items) == 1
+        result = await gateway.latest_analyses(
+            TickerSymbol("aapl") if filtered else None,
+            Ratings.from_csv("buy, overweight") if filtered else None,
+            AnalysisPage(page_size=100, page_token=result.next_page_token),
         )
         assert len(calls) == 2
-        assert len(result.items) == 2
+        assert len(result.items) == 1
+        assert result.next_page_token == ""
     finally:
         await gateway.close()
 

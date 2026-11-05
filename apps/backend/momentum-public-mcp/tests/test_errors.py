@@ -5,24 +5,26 @@ import json
 import httpx
 import pytest
 
-from momentum_public_mcp.api.auth import MetadataIdentityTokenProvider
-from momentum_public_mcp.api.errors import (
+from app.api.auth import MetadataIdentityTokenProvider
+from app.api.errors import (
     MarketScannerApiError,
     MomentumApiError,
     ServiceIdentityError,
 )
-from momentum_public_mcp.api.market_scanner.client.market_scanner_client import (
+from app.api.market_scanner.client.market_scanner_client import (
     MarketScannerClient,
 )
-from momentum_public_mcp.api.momentum.client.momentum_client import MomentumClient
-from momentum_public_mcp.api.momentum.client.signing import SuggestionSigner
-from momentum_public_mcp.api.momentum.dtos.request.analyses import AnalysisPageRequest
-from momentum_public_mcp.errors import ErrorCode, InstructionError
-from momentum_public_mcp.mcp.prompts.instructions import get_instruction
+from app.api.momentum.client.momentum_client import MomentumClient
+from app.api.momentum.client.signing import SuggestionSigner
+from app.api.momentum.dtos.request.analyses import AnalysisPageRequest
+from app.core_components.prompts.instructions import get_instruction
+from app.errors import ErrorCode, InstructionError
 
 
 @pytest.mark.parametrize("api", ["momentum", "scanner"])
-@pytest.mark.parametrize("failure", [404, 422, 429, 503, "timeout", "invalid_json"])
+@pytest.mark.parametrize(
+    "failure", [400, 404, 409, 422, 429, 503, "timeout", "invalid_json"]
+)
 async def test_api_failures_keep_their_origin_status_and_public_message(api, failure):
     def handler(request):
         if failure == "timeout":

@@ -64,17 +64,21 @@ def main():
     args = parser.parse_args()
     url = args.url.rstrip("/") + "/"
     # First ever request is a business call; no discover/initialize/cookies.
-    summaries = tool(url, "list_analyses", {"limit": 1})["result"]
+    summaries = tool(url, "momentum_list_analyses", {"page_size": 1})["items"]
     assert summaries, "No persisted analysis available to verify get_analysis"
-    detail = tool(url, "get_analysis", {"analysis_id": summaries[0]["id"]})
+    detail = tool(url, "momentum_get_analysis", {"analysis_id": summaries[0]["id"]})
     assert detail["id"] == summaries[0]["id"]
     assert detail["ticker"] == summaries[0]["ticker"]
     assert "portfolio_decision" in detail and "technical_indicators" in detail
-    latest = tool(url, "latest_analyses", {"ticker": summaries[0]["ticker"]})["result"]
+    latest = tool(url, "momentum_latest_analyses", {"ticker": summaries[0]["ticker"]})[
+        "items"
+    ]
     assert len(latest) == 1
-    recommendations = tool(url, "get_recommendations", {"limit": 1})["result"]
+    recommendations = tool(url, "momentum_get_recommendations", {"page_size": 1})[
+        "items"
+    ]
     assert all(item["rating"] in {"Buy", "Overweight"} for item in recommendations)
-    scan_uri = "momentum://market-scans/latest"
+    scan_uri = "momentum://market_scanner/market-scans/latest"
     resources = rpc(url, "resources/list")["resources"]
     assert {item["uri"] for item in resources} == {scan_uri}
     contents = rpc(url, "resources/read", {"uri": scan_uri})["contents"]
@@ -86,17 +90,19 @@ def main():
     assert VERSION in discovery["supportedVersions"]
     tools = rpc(url, "tools/list")["tools"]
     assert {item["name"] for item in tools} == {
-        "list_analyses",
-        "latest_analyses",
-        "get_analysis",
-        "get_recommendations",
-        "suggest_ticker",
-        "get_suggestion_status",
+        "momentum_list_analyses",
+        "momentum_latest_analyses",
+        "momentum_get_analysis",
+        "momentum_get_recommendations",
+        "momentum_suggest_ticker",
+        "momentum_get_suggestion_status",
     }
     prompts = rpc(url, "prompts/list")["prompts"]
-    assert {item["name"] for item in prompts} == {"analyze_ticker"}
+    assert {item["name"] for item in prompts} == {"momentum_analyze_ticker"}
     rendered = rpc(
-        url, "prompts/get", {"name": "analyze_ticker", "arguments": {"ticker": "AAPL"}}
+        url,
+        "prompts/get",
+        {"name": "momentum_analyze_ticker", "arguments": {"ticker": "AAPL"}},
     )
     assert "AAPL" in rendered["messages"][0]["content"]["text"]
     assert scan_uri in rendered["messages"][0]["content"]["text"]
@@ -107,7 +113,7 @@ def main():
     if args.suggestion_symbol:
         submitted = tool(
             url,
-            "suggest_ticker",
+            "momentum_suggest_ticker",
             {
                 "symbol": args.suggestion_symbol,
                 "reason": "MCP migration verification; test only, do not approve.",
@@ -115,9 +121,13 @@ def main():
         )
         assert submitted["status"] == "pending"
         identifier = submitted["id"]
-        reread = tool(url, "get_suggestion_status", {"suggestion_id": identifier})
+        reread = tool(
+            url, "momentum_get_suggestion_status", {"suggestion_id": identifier}
+        )
         assert reread["id"] == identifier and reread["status"] == "pending"
-        repeated = tool(url, "suggest_ticker", {"symbol": args.suggestion_symbol})
+        repeated = tool(
+            url, "momentum_suggest_ticker", {"symbol": args.suggestion_symbol}
+        )
         assert repeated["id"] == identifier
         suggestion_check = {
             "id": identifier,

@@ -21,3 +21,11 @@ check: test lint
 
 run:
     uv run --frozen momentum-public-mcp
+
+# Start Momentum (8000), Market Scanner (8003), and MCP (8080).
+up:
+    uv run --frozen python scripts/local_stack.py
+
+# Start only the two APIs when MCP is already running separately.
+apis:
+    uv run --frozen python scripts/local_stack.py --apis-only

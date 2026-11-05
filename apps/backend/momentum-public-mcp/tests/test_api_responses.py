@@ -3,9 +3,9 @@
 import pytest
 from test_gateway import analysis_summary, market_scan, suggestion
 
-from momentum_public_mcp.api.market_scanner.dtos.response.market_scan import MarketScan
-from momentum_public_mcp.api.momentum.dtos.response.analyses import AnalysisSummary
-from momentum_public_mcp.api.momentum.dtos.response.suggestions import Suggestion
+from app.api.market_scanner.dtos.response.market_scan import MarketScan
+from app.api.momentum.dtos.response.analyses import AnalysisSummary
+from app.api.momentum.dtos.response.suggestions import Suggestion
 
 
 @pytest.mark.parametrize(

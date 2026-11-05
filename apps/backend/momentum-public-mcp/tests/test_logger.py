@@ -3,9 +3,10 @@
 import json
 import logging
 
-from momentum_public_mcp.config.config import Settings
-from momentum_public_mcp.config.constants import NOISY_LOGGERS
-from momentum_public_mcp.observability.logger import TraceInjectFilter, config_logger
+from app.observability.logger import TraceInjectFilter, config_logger
+
+from app.config.config import Settings
+from app.config.constants import NOISY_LOGGERS
 
 
 def test_filter_uses_empty_ids_outside_a_trace():
@@ -34,7 +35,7 @@ def test_configured_handler_preserves_message_and_active_trace(monkeypatch, trac
     provider, _ = tracing
     with provider.get_tracer("test").start_as_current_span("log-check") as span:
         record = logging.LogRecord(
-            "momentum_public_mcp.test",
+            "app.test",
             logging.INFO,
             "test.py",
             1,

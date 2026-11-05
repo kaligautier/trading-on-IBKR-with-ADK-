@@ -4,14 +4,14 @@ import httpx
 import pytest
 from test_gateway import analysis_summary, market_scan
 
-from momentum_public_mcp.api.market_scanner.config.client_config import (
+from app.api.market_scanner.config.client_config import (
     create_market_scanner_client,
 )
-from momentum_public_mcp.api.momentum.client.momentum_client import MomentumClient
-from momentum_public_mcp.api.momentum.client.signing import SuggestionSigner
-from momentum_public_mcp.api.momentum.config.client_config import create_momentum_client
-from momentum_public_mcp.api.momentum.dtos.request.analyses import AnalysisPageRequest
-from momentum_public_mcp.config.config import Settings
+from app.api.momentum.client.momentum_client import MomentumClient
+from app.api.momentum.client.signing import SuggestionSigner
+from app.api.momentum.config.client_config import create_momentum_client
+from app.api.momentum.dtos.request.analyses import AnalysisPageRequest
+from app.config.config import Settings
 
 
 async def test_reader_client_returns_one_page_without_following_the_cursor():

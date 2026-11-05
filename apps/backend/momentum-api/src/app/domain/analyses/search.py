@@ -7,10 +7,11 @@ import re
 from typing import Literal, Self
 from uuid import UUID
 
-from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
+from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, model_validator
 
 View = Literal["history", "latest", "recommendations"]
 RATINGS = ("Buy", "Overweight", "Hold", "Underweight", "Sell")
+MAX_RECOMMENDATION_PAGE_SIZE = 50
 
 
 class Cursor(BaseModel):
@@ -43,6 +44,15 @@ class AnalysisSearchParams(BaseModel):
     ratings: tuple[str, ...] | None
     page_size: int = Field(ge=1, le=100)
     cursor: Cursor | None = None
+
+    @model_validator(mode="after")
+    def validate_recommendation_page_size(self) -> Self:
+        if (
+            self.view == "recommendations"
+            and self.page_size > MAX_RECOMMENDATION_PAGE_SIZE
+        ):
+            raise ValueError("Recommendations page size must be at most 50")
+        return self
 
     @property
     def scope(self) -> str:

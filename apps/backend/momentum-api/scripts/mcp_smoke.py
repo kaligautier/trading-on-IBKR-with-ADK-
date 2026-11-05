@@ -155,8 +155,8 @@ def main() -> None:
                 [
                     str(MCP / ".venv/bin/python"),
                     "-c",
-                    "from momentum_public_mcp.main import application; "
-                    "from momentum_public_mcp.protocol import create_http_app; "
+                    "from app.main import application; "
+                    "from app.protocol import create_http_app; "
                     "import uvicorn; uvicorn.run(create_http_app(application.mcp), "
                     "host='127.0.0.1', port=8185, proxy_headers=False)",
                 ],

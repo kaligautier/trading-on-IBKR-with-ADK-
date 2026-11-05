@@ -3,8 +3,8 @@
 import httpx
 import pytest
 
-from momentum_public_mcp.application import MomentumPublicApplication
-from momentum_public_mcp.config.config import Settings
+from app.application import MomentumPublicApplication
+from app.config.config import Settings
 
 
 @pytest.mark.parametrize("iam", [False, True])

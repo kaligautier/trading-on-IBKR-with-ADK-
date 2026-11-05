@@ -8,10 +8,10 @@ from starlette.testclient import TestClient
 from test_gateway import analysis_summary, market_scan
 from test_stateless_http import envelope, headers
 
-from momentum_public_mcp.application import MomentumPublicApplication
-from momentum_public_mcp.config.config import Settings
-from momentum_public_mcp.mcp.resources.public_resources import LATEST_MARKET_SCAN_URI
-from momentum_public_mcp.protocol import create_http_app
+from app.application import MomentumPublicApplication
+from app.config.config import Settings
+from app.core_components.resources.public_resources import LATEST_MARKET_SCAN_URI
+from app.protocol import create_http_app
 
 
 @pytest.mark.parametrize("upstream_status", [200, 503])
@@ -49,11 +49,13 @@ def test_exported_span_tree_matches_http_calls(tracing, monkeypatch, upstream_st
         response = client.post(
             "/",
             headers={
-                **headers("tools/call", "list_analyses"),
+                **headers("tools/call", "momentum_list_analyses"),
                 "traceparent": f"00-{parent_trace}-{'2' * 16}-01",
             },
             json=envelope(
-                "tools/call", name="list_analyses", arguments={"ticker": "AAPL"}
+                "tools/call",
+                name="momentum_list_analyses",
+                arguments={"ticker": "AAPL"},
             ),
         )
         assert response.status_code == 200
@@ -64,8 +66,8 @@ def test_exported_span_tree_matches_http_calls(tracing, monkeypatch, upstream_st
             ("resources/read", LATEST_MARKET_SCAN_URI, {"uri": LATEST_MARKET_SCAN_URI}),
             (
                 "prompts/get",
-                "analyze_ticker",
-                {"name": "analyze_ticker", "arguments": {"ticker": "AAPL"}},
+                "momentum_analyze_ticker",
+                {"name": "momentum_analyze_ticker", "arguments": {"ticker": "AAPL"}},
             ),
         ]:
             assert (
@@ -134,7 +136,7 @@ def test_cloud_exporter_configuration_flushes_on_shutdown(monkeypatch):
         InMemorySpanExporter,
     )
 
-    from momentum_public_mcp.observability import telemetry
+    from app.observability import telemetry
 
     exporter = InMemorySpanExporter()
     projects = []
