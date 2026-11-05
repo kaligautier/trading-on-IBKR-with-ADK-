@@ -1,0 +1,7 @@
+# Google OAuth web application; register the google_sso_callback_url output.
+# The client secret value belongs only in Secret Manager, never in this file.
+google_sso = {
+  client_id             = "123456789012-example.apps.googleusercontent.com"
+  client_secret_version = "1"
+  admin_id              = "b69789fa-bb16-41b3-bd9e-19bb3a511070" # Copy User ID from the LiteLLM account menu after Google login.
+}

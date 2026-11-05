@@ -113,9 +113,10 @@ Never apply a saved plan from a previous checkout.
 
 IAP protects the admin service, including its `run.app` URL. Cloud Run IAM checks
 remain enabled; only the IAP service agent gets invocation access. Allowlisted
-users still sign in to LiteLLM as `admin` with the separate UI password. IAP
-does not create LiteLLM users. Keep the bootstrap login until a named admin has
-been created and tested, then consider `disable_env_credential_login=true`.
+users sign in to LiteLLM separately, using Google SSO when configured below or
+the bootstrap `admin` password otherwise. IAP does not create LiteLLM users.
+Keep the bootstrap login until a named admin has been created and tested, then
+consider `disable_env_credential_login=true`.
 
 For projects requiring a custom OAuth client, complete the Google console setup
 and register `https://iap.googleapis.com/v1/oauth/clientIds/CLIENT_ID:handleRedirect`.
@@ -129,6 +130,78 @@ python3 infra/litellm/scripts/configure_iap_oauth.py /PROTECTED_PATH/client.json
 
 This updates project-level IAP OAuth credentials, preserves other settings, and
 refuses to replace a different client. It does not store credentials in state.
+
+### Google SSO inside the admin UI
+
+IAP and LiteLLM are separate OAuth consumers. Enabling IAP alone still leaves
+LiteLLM's password screen. The optional `google_sso` object enables native
+[Google SSO](https://docs.litellm.ai/docs/proxy/admin_ui_sso); the documented free
+allowance is up to five SSO users, with an Enterprise license required beyond it.
+
+Terraform manages the secret container, its runtime accessor permission, the
+pinned secret reference, the admin container's SSO settings and callback output.
+The OAuth web client, consent/audience settings and authorized redirect URIs are
+external prerequisites managed in Google Auth Platform. Google has
+[retired the IAP OAuth Admin API](https://docs.cloud.google.com/iap/docs/deprecations/migrate-oauth-client),
+so this setup consumes a pre-created client instead of using the deprecated
+`google_iap_client` resource. Uploading the secret value stays outside Terraform
+to keep it out of plans and state; only its version is an input.
+
+1. For first-time setup, prepare the empty `litellm-google-client-secret` Secret
+   Manager container by applying a reviewed plan with the existing release files
+   and `google_sso` unset. Preserve the running service stage. This also creates
+   the callback output in state; do not use this bootstrap step to update an
+   already enabled SSO configuration.
+2. Read `terraform -chdir=infra/litellm output -raw google_sso_callback_url`
+   after that apply. Register this exact URL as an authorized
+   redirect URI on a Google OAuth **web application**. If reusing the IAP client,
+   preserve its existing IAP redirect URI. Keep the OAuth audience/test users
+   consistent with `iap_members`.
+3. Upload the client secret outside Terraform, for example from a protected
+   file containing only its value:
+
+   ```sh
+   gcloud secrets versions add litellm-google-client-secret \
+     --project=YOUR_PROJECT --data-file=/PROTECTED_PATH/client-secret.txt
+   ```
+
+4. Copy `config/sso.local.tfvars.example` to `config/sso.local.tfvars`. Set the
+   client ID, the uploaded numeric secret version, and the administrator's
+   LiteLLM **User ID**, copied from the account menu after signing in with Google.
+   If the ID is not yet known, omit `admin_id` for the first deployment, sign in,
+   then add the observed ID and apply again. The fallback admin remains available.
+   An existing account matched by email can retain a UUID instead of the Google
+   subject (`sub`); do not infer this ID from a Google token or email address.
+   `PROXY_ADMIN_ID` grants that account the LiteLLM admin role. Keep the account
+   explicitly allowed in IAP, then sign in again after applying the correct ID.
+5. Add `-var-file=config/sso.local.tfvars` to the normal **service-stage** plan,
+   keeping every existing release/provider variable file. Review and apply the
+   new plan; retain this file in future deployments. No image upgrade or database
+   migration is required by this configuration change.
+
+   ```sh
+   terraform -chdir=infra/litellm plan -var-file=config/preprod.local.tfvars \
+     -var-file=config/release.local.tfvars -var-file=config/sso.local.tfvars \
+     -var=stage=service -out=sso.tfplan
+   terraform -chdir=infra/litellm apply sso.tfplan
+   ```
+
+   Include any existing provider/Redis/client variable files in this command too.
+   Stop if the plan proposes unrelated replacements or deletions; reconcile the
+   checkout, release inputs and state before applying.
+6. Open the `ui_url`, complete Google sign-in and verify the named account has
+   admin access. Test sign-out/sign-in, anonymous IAP denial and the existing
+   fallback at `/fallback/login`. A successful Terraform plan or redirect alone
+   is not proof of a completed SSO login.
+
+Only the admin container receives `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` and
+`PROXY_ADMIN_ID`; the private inference gateway continues using virtual keys.
+The OAuth secret payload never enters Terraform. The existing bootstrap login
+remains available during rollout; to revert to it, set `google_sso = null` and
+apply a reviewed plan. The OAuth secret container is retained.
+The admin role granted by `PROXY_ADMIN_ID` persists in LiteLLM's database:
+changing or removing `admin_id` does not revoke a previous administrator.
+Manage that user's role explicitly through Internal Users or `/user/update`.
 
 ## Optional API-key providers
 
