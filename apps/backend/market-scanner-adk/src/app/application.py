@@ -133,7 +133,7 @@ def create_app() -> FastAPI:
             status_code=200,
         )
 
-    @app.post("/internal/daily-scan", tags=["Operations"])
+    @app.post("/internal/v1/scan-jobs", tags=["Operations"], status_code=202)
     async def daily_scan() -> JSONResponse:
         """Acknowledge job submission without waiting for the scan."""
         if not settings.MARKET_SCANNER_JOB:
@@ -159,7 +159,11 @@ def create_app() -> FastAPI:
             "scheduled scan accepted",
             extra={"event": "scheduled_scan.accepted", "operation": operation},
         )
-        return JSONResponse({"status": "accepted", "operation": operation})
+        return JSONResponse(
+            {"status": "accepted", "operation": operation},
+            status_code=202,
+            headers={"Cache-Control": "no-store"},
+        )
 
     logger.info(
         "application created",
