@@ -15,12 +15,13 @@ from app.dto.response.market_scan_response_assembler import (
 from app.services.market_scan_service import MarketScanService
 
 router = APIRouter(
-    prefix="/market-scans",
+    prefix="/v1/market-scans",
     tags=["market-scans"],
     dependencies=[Depends(HTTPBearer(auto_error=False))],
     responses={
         401: {"model": ErrorResponse, "description": "Authentication required"},
         404: {"model": ErrorResponse, "description": "Scan not found"},
+        406: {"description": "JSON representation excluded by Accept; no body"},
         422: {"model": ErrorResponse, "description": "Invalid request parameters"},
         500: {
             "model": ErrorResponse,

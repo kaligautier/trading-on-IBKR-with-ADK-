@@ -21,6 +21,7 @@ from app.dto.response.market_scan_response_assembler import (
     REPORT_SCHEMA,
     InvalidStoredReportError,
 )
+from app.http_policy import ReadHTTPPolicy, install_head_schema
 from app.models.cursor import InvalidCursorError
 from app.repositories.market_scan_repository import MarketScanRepository
 from app.repositories.scan_reader import ScanReader, StoreUnavailableError
@@ -79,6 +80,8 @@ def create_app(
     async def report_schema() -> JSONResponse:
         return JSONResponse(REPORT_SCHEMA)
 
+    application.add_middleware(ReadHTTPPolicy)
+    install_head_schema(application)
     return application
 
 
