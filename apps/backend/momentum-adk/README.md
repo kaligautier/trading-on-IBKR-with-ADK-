@@ -102,3 +102,8 @@ serves memory reads and atomic completion, with no transaction held during model
 calls. Sessions close before admission is released. Cancellation and process death
 release the physical database session and its lock. This fits the global budget
 in `docs/database-connection-capacity.md`; apply its role limits and rollout gate.
+
+
+The Scanner consumer uses `GET /v1/market-scans/latest` on
+`TA_MARKET_SCANNER_API_URL`. Release it with the versioned Scanner API; the
+removed unversioned path is never retried as a fallback.
