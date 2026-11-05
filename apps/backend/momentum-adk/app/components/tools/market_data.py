@@ -113,7 +113,7 @@ def get_latest_market_scan() -> str:
     if not base_url:
         return "Market scanner API is not configured."
     try:
-        response = requests.get(f"{base_url}/market-scans/latest", timeout=12)
+        response = requests.get(f"{base_url}/v1/market-scans/latest", timeout=12)
         response.raise_for_status()
         return response.text
     except requests.RequestException as error:

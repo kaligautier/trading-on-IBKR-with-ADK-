@@ -6,7 +6,6 @@ import re
 import secrets
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
-from time import monotonic
 from uuid import uuid4
 
 from fastapi import FastAPI, Request
@@ -21,6 +20,7 @@ from app.dto.response.market_scan_response_assembler import (
     REPORT_SCHEMA,
     InvalidStoredReportError,
 )
+from app.http_policy import ReadHTTPPolicy, install_head_schema
 from app.models.cursor import InvalidCursorError
 from app.repositories.market_scan_repository import MarketScanRepository
 from app.repositories.scan_reader import ScanReader, StoreUnavailableError
@@ -79,12 +79,14 @@ def create_app(
     async def report_schema() -> JSONResponse:
         return JSONResponse(REPORT_SCHEMA)
 
+    application.add_middleware(ReadHTTPPolicy)
+    install_head_schema(application)
     return application
 
 
 def _install_middleware(application: FastAPI, configuration: Settings) -> None:
     @application.middleware("http")
-    async def observe_and_authorize(
+    async def authorize_and_correlate(
         request: Request, call_next: Callable[[Request], Awaitable[Response]]
     ) -> Response:
         supplied = request.headers.get("X-Request-ID", "")
@@ -92,7 +94,6 @@ def _install_middleware(application: FastAPI, configuration: Settings) -> None:
             supplied if re.fullmatch(r"[a-zA-Z0-9_-]{1,64}", supplied) else uuid4().hex
         )
         request.state.request_id = request_id
-        start = monotonic()
         expected = "Bearer " + configuration.API_TOKEN.get_secret_value()
         if (
             request.url.path != "/health"
@@ -124,18 +125,6 @@ def _install_middleware(application: FastAPI, configuration: Settings) -> None:
                 )
         response.headers["X-Request-ID"] = request_id
         response.headers["Cache-Control"] = "no-store"
-        logger.info(
-            json.dumps(
-                {
-                    "event": "http.completed",
-                    "request_id": request_id,
-                    "method": request.method,
-                    "route": getattr(request.scope.get("route"), "path", "unmatched"),
-                    "status": response.status_code,
-                    "duration_ms": round((monotonic() - start) * 1000, 2),
-                }
-            )
-        )
         return response
 
 

@@ -8,12 +8,12 @@ http.createServer(async (req,res) => {
  const summary={"id": "11111111-1111-1111-1111-111111111111", "ticker": "AAPL", "analysis_date": "2026-10-23", "created_at": "2026-10-23T12:00:00Z", "llm_provider": "google", "next_analysis_date": null, "rating": "Buy"};
  const detail={"id": "11111111-1111-1111-1111-111111111111", "ticker": "AAPL", "analysis_date": "2026-10-23", "created_at": "2026-10-23T12:00:00Z", "llm_provider": "google", "next_analysis_date": null, "rating": "Buy", "deep_think_llm": "fixture", "quick_think_llm": "fixture", "next_analysis_desc": null, "technical_indicators": null, "fundamentals": null, "sentiment": null, "news": null, "research_plan": null, "trader_proposal": null, "portfolio_decision": null, "debate_arguments": [], "run_stats": null};
  const suggestion={"id": "22222222-2222-2222-2222-222222222222", "symbol": "MSFT", "reason": "MCP migration test", "status": "pending", "source": "mcp", "created_at": "2026-10-24T00:00:00Z", "reviewed_at": null, "review_reason": null};
- if(req.method==="POST" && url.pathname==="/suggestions") {
+ if(req.method==="POST" && url.pathname==="/v1/suggestions") {
   if(!req.headers["x-momentum-signature"] || !req.headers["x-momentum-caller"]) return send(403,{});
   await pm.state.set("suggestions.record",{...suggestion,symbol:req.body.symbol,reason:req.body.reason});
-  return send(202,await pm.state.get("suggestions.record"));
+  return send(201,await pm.state.get("suggestions.record"));
  }
- if(req.method==="GET" && url.pathname===`/suggestions/${suggestion.id}`) {
+ if(req.method==="GET" && url.pathname===`/v1/suggestions/${suggestion.id}`) {
   const stored=await pm.state.get("suggestions.record");
   return stored ? send(200,stored) : send(404,{});
  }

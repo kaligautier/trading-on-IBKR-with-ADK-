@@ -37,7 +37,7 @@ revision overlap still apply; these settings are not a global spending cap.
 
 After deployment, verify an unauthenticated request is rejected by Cloud Run,
 then use an authorized caller identity token (audience = service URL) to check
-`/ready`, `/market-scans/latest`, history pagination and detail. Compare the latest
+`/ready`, `/v1/market-scans/latest`, history pagination and detail. Compare the latest
 report with a separate read-only SQL query. Liveness alone is not functional proof.
 No live deployment or Terraform apply is performed by the PR checks.
 

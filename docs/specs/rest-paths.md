@@ -39,5 +39,6 @@ see matching providers. Move the existing MCP/PostgreSQL CI invocation to the MC
 workflow with provider/database triggers; preserve its test. Publish PRs with
 checks, without merging or deploying. Always preserve dirty worktrees and use
 local disposable fixtures; never commit secrets or execute real scans. No DB
-schema, dependency or unrelated CI changes. The full target specification and
+schema or unrelated CI changes. CI-required patch updates to existing
+lockfile packages are recorded in the delivery evidence. The full target specification and
 reviewed implementation tasks accompany the Momentum semantics slice.

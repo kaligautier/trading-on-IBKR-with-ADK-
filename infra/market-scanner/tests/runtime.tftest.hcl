@@ -106,6 +106,13 @@ run "reject_mutable_secret" {
 
 run "daily_scan_at_seven_paris" {
   command = plan
+  override_resource {
+    target          = google_cloud_run_v2_service.scanner
+    override_during = plan
+    values = {
+      uri = "https://scanner.test.run.app"
+    }
+  }
   assert {
     condition = (
       google_cloud_scheduler_job.daily_scan.schedule == "0 7 * * *" &&
@@ -116,6 +123,8 @@ run "daily_scan_at_seven_paris" {
   }
   assert {
     condition = (
+      google_cloud_scheduler_job.daily_scan.http_target[0].uri == "${google_cloud_run_v2_service.scanner.uri}/internal/v1/scan-jobs" &&
+      google_cloud_scheduler_job.daily_scan.http_target[0].http_method == "POST" &&
       length(google_cloud_scheduler_job.daily_scan.http_target[0].oidc_token) == 1 &&
       google_cloud_run_v2_service_iam_member.scheduled_scanner.role == "roles/run.invoker" &&
       google_cloud_scheduler_job.daily_scan.attempt_deadline == "60s" &&
