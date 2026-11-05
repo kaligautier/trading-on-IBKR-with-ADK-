@@ -323,3 +323,42 @@ def test_head_errors_are_bodyless_and_keep_status_and_allow():
         )
     assert missing.status_code == 422 and not missing.content
     assert unacceptable.status_code == 406 and not unacceptable.content
+
+
+@pytest.mark.parametrize("method", ["GET", "HEAD"])
+@pytest.mark.parametrize(
+    "accept,authenticated,status",
+    [
+        ("application/json", True, 200),
+        ("text/plain", True, 406),
+        ("text/plain", False, 401),
+    ],
+)
+def test_completion_logs_match_the_wire_response(
+    caplog, method, accept, authenticated, status
+):
+    import logging
+
+    headers = {
+        **(HEADERS if authenticated else {}),
+        "Accept": accept,
+        "X-Request-ID": "completion-test",
+    }
+    with caplog.at_level(logging.INFO, logger="market_scanner_api"), client() as api:
+        response = api.request(method, "/v1/market-scans/latest", headers=headers)
+    events = [
+        json.loads(record.getMessage())
+        for record in caplog.records
+        if record.name == "market_scanner_api"
+    ]
+    completed = [event for event in events if event["event"] == "http.completed"]
+    assert response.status_code == status
+    assert len(completed) == 1
+    assert completed[0]["status"] == response.status_code
+    assert completed[0]["method"] == method
+    assert completed[0]["request_id"] == response.headers["X-Request-ID"]
+    assert completed[0]["route"] == (
+        "/v1/market-scans/latest" if authenticated else "unmatched"
+    )
+    assert completed[0]["duration_ms"] >= 0
+    assert "local-test-token" not in caplog.text
