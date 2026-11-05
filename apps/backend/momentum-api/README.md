@@ -239,7 +239,7 @@ A synthetic poisoned environment/dotenv test verifies the injection boundary.
 
 ## Recovered DeepCopy suggestions
 
-`POST /suggestions` and `GET /suggestions/{uuid}` preserve the original MCP
+`POST /v1/suggestions` and `GET /v1/suggestions/{uuid}` preserve the original MCP
 intake/status contract. Submission returns HTTP 202 with a pending record and
 never starts an analysis. Duplicate symbols return the original record, including
 a previously reviewed record. A current analysis prevents a new suggestion;

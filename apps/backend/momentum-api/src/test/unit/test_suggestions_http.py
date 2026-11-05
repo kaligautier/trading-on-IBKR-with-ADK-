@@ -64,7 +64,9 @@ async def client():
 async def test_original_intake_contract(client):
     connection, store = client
     response = await connection.post(
-        "/suggestions", json={"symbol": " msft ", "reason": " test "}, headers=HEADERS
+        "/v1/suggestions",
+        json={"symbol": " msft ", "reason": " test "},
+        headers=HEADERS,
     )
     assert response.status_code == 202, response.text
     assert response.json()["symbol"] == "MSFT"
@@ -89,7 +91,7 @@ async def test_original_intake_contract(client):
 async def test_rejections_do_not_write(client, headers, status):
     connection, store = client
     response = await connection.post(
-        "/suggestions", json={"symbol": "MSFT"}, headers={**HEADERS, **headers}
+        "/v1/suggestions", json={"symbol": "MSFT"}, headers={**HEADERS, **headers}
     )
     assert response.status_code == status
     assert not store.calls
@@ -98,13 +100,15 @@ async def test_rejections_do_not_write(client, headers, status):
 async def test_body_limit_and_unknown_fields(client):
     connection, store = client
     response = await connection.post(
-        "/suggestions",
+        "/v1/suggestions",
         content=b" " * 4097,
         headers={**HEADERS, "Content-Type": "application/json"},
     )
     assert response.status_code == 413
     response = await connection.post(
-        "/suggestions", json={"symbol": "MSFT", "status": "approved"}, headers=HEADERS
+        "/v1/suggestions",
+        json={"symbol": "MSFT", "status": "approved"},
+        headers=HEADERS,
     )
     assert response.status_code == 400
     assert not store.calls
@@ -112,10 +116,19 @@ async def test_body_limit_and_unknown_fields(client):
 
 async def test_intake_method_allowlist(client):
     connection, store = client
-    response = await connection.options("/suggestions", headers=HEADERS)
+    response = await connection.options("/v1/suggestions", headers=HEADERS)
     assert response.status_code == 204
     assert response.headers["allow"] == "POST, OPTIONS"
-    response = await connection.get("/suggestions", headers=HEADERS)
+    response = await connection.get("/v1/suggestions", headers=HEADERS)
     assert response.status_code == 405
     assert response.headers["allow"] == "POST, OPTIONS"
+    assert not store.calls
+
+
+async def test_unversioned_intake_is_removed(client):
+    connection, store = client
+    response = await connection.post(
+        "/suggestions", json={"symbol": "MSFT"}, headers=HEADERS
+    )
+    assert response.status_code == 404
     assert not store.calls
