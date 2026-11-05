@@ -3,7 +3,7 @@
 import ipaddress
 from types import SimpleNamespace
 
-from momentum_public_mcp.security import (
+from app.security import (
     CallerFingerprint,
     ClientAddressResolver,
     TrustedProxyNetworks,

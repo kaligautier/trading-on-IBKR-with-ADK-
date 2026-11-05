@@ -77,7 +77,7 @@ HEAD returns the GET metadata without content, and OPTIONS describes allowed
 methods. These operations preserve the route's authentication requirement.
 
 History and latest use `page_size=20`, recommendations uses `page_size=10`;
-all accept 1–100 and optional `page_token` (maximum 512
+history/latest accept 1–100, recommendations accepts 1–50. All accept optional `page_token` (maximum 512
 characters). Response: `{ "items": [...], "next_page_token": "..." }`, with
 an empty string at the end. The page size limits each response, not the total
 number of accessible results. History includes every retained run since the

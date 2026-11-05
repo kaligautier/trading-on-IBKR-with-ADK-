@@ -7,7 +7,8 @@ Independent Terraform roots in `preprod-deep-copy/europe-west1`:
   and Artifact Registry remain owned by their existing roots.
 - This root: public `momentum-public-mcp`, dedicated runtime, additive invocation
   rights on the private `momentum-api` and `market-scanner-api`, and access to a
-  single pinned caller-key secret version. No database or ADK permissions.
+  single pinned caller-key secret version. Cloud Trace API activation and the
+  runtime trace-writer role are managed here. No database or ADK permissions.
 
 The Cloud Run `run.app` HTTPS URL remains available. Preprod configuration enables
 the explicit transfer of `mcp.deepcopy.fr` to this service; other configurations
@@ -75,8 +76,8 @@ python3 infra/momentum-public-mcp/deploy.py "$IMAGE_WITH_SHA256"
 `deploy.py` validates the release inputs, saves and applies a Terraform plan, then
 runs `verify_live.py` against the resulting URL. Verification calls the five
 consultation tools, `server/discover` and `tools/list` without initialization or
-sessions. It validates persisted analysis/report fields, tool errors, correlation
-headers and rejection of legacy handshakes. It never submits a suggestion.
+sessions. It validates persisted analysis/report fields, tool errors and
+rejection of removed RPCs under the modern protocol. It never submits a suggestion.
 An existing analysis and nonempty scanner report are required to pass.
 
 Only after verification succeeds does the wrapper write `.local/mcp-release.json`
@@ -89,12 +90,15 @@ Keep API versions compatible with that image. Direct `terraform apply` bypasses
 the gate, so use the wrapper for application releases.
 
 Separately verify both private reader URLs reject unauthenticated requests.
-For runtime diagnosis, use `X-Request-ID` to find the canonical
-`request_completed` event in Cloud Logging. It includes HTTP, tool, business and
-upstream outcomes, as described in the application README. Optional tfvars
-`log_success_sample_rate` (default 1) and `log_slow_request_ms` (default 2000)
-control tail sampling; errors and slow requests are always retained. Cloud Run
-supplies `K_SERVICE` and `K_REVISION` for deployment attribution.
+For runtime diagnosis, correlate application logs and spans by OpenTelemetry
+`trace_id`. All instrumented requests are recorded; no trace sampling ratio is
+configured. The runtime exports
+native MCP, ASGI and outbound HTTPX spans to the configured GCP project using
+`roles/cloudtrace.agent`. `/health` is excluded from tracing and never probes
+upstream APIs. After deployment, find the `jsonPayload.trace_id` of a request in
+Cloud Logging, then locate that trace in Cloud Trace and verify both the MCP
+and outgoing API spans.
+Local in-memory exporter tests do not establish live Cloud Trace ingestion.
 
 The recovered suggestion routes run in Momentum API using its existing pool and
 isolated `_suggestions` schema. Both tools target that same API; the MCP has no

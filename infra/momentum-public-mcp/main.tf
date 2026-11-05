@@ -43,6 +43,18 @@ resource "google_secret_manager_secret_iam_member" "caller_key" {
   member    = "serviceAccount:${google_service_account.mcp.email}"
 }
 
+resource "google_project_service" "cloud_trace" {
+  project            = var.project_id
+  service            = "cloudtrace.googleapis.com"
+  disable_on_destroy = false
+}
+
+resource "google_project_iam_member" "trace_writer" {
+  project = var.project_id
+  role    = "roles/cloudtrace.agent"
+  member  = "serviceAccount:${google_service_account.mcp.email}"
+}
+
 resource "google_cloud_run_v2_service" "mcp" {
   project              = var.project_id
   name                 = "momentum-public-mcp"
@@ -70,13 +82,11 @@ resource "google_cloud_run_v2_service" "mcp" {
       }
       dynamic "env" {
         for_each = {
-          MOMENTUM_API_URL        = data.google_cloud_run_v2_service.reader["momentum-api"].uri
-          MARKET_SCANNER_API_URL  = data.google_cloud_run_v2_service.reader["market-scanner-api"].uri
-          MOMENTUM_API_USE_IAM    = "true"
-          GOOGLE_CLOUD_PROJECT    = var.project_id
-          LOG_SUCCESS_SAMPLE_RATE = tostring(var.log_success_sample_rate)
-          LOG_SLOW_REQUEST_MS     = tostring(var.log_slow_request_ms)
-          TRUSTED_PROXIES         = var.trusted_proxies
+          MOMENTUM_API_URL       = data.google_cloud_run_v2_service.reader["momentum-api"].uri
+          MARKET_SCANNER_API_URL = data.google_cloud_run_v2_service.reader["market-scanner-api"].uri
+          MOMENTUM_API_USE_IAM   = "true"
+          GOOGLE_CLOUD_PROJECT   = var.project_id
+          TRUSTED_PROXIES        = var.trusted_proxies
         }
         content {
           name  = env.key
@@ -107,7 +117,7 @@ resource "google_cloud_run_v2_service" "mcp" {
     type    = "TRAFFIC_TARGET_ALLOCATION_TYPE_LATEST"
     percent = 100
   }
-  depends_on = [google_cloud_run_v2_service_iam_member.reader, google_secret_manager_secret_iam_member.caller_key]
+  depends_on = [google_cloud_run_v2_service_iam_member.reader, google_secret_manager_secret_iam_member.caller_key, google_project_service.cloud_trace, google_project_iam_member.trace_writer]
 }
 
 output "service_url" { value = google_cloud_run_v2_service.mcp.uri }

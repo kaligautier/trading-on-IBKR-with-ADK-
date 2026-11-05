@@ -123,7 +123,13 @@ def main() -> None:
         (Path(directory) / "servers.log").open("w") as log,
     ):
         try:
-            shared = {**os.environ, "SUGGESTION_HASH_SECRET": "loopback-smoke-only"}
+            shared = {
+                **os.environ,
+                "SUGGESTION_HASH_SECRET": "loopback-smoke-only",
+                "GOOGLE_CLOUD_PROJECT": "",
+                "MOMENTUM_API_TOKEN": "",
+                "MARKET_SCANNER_API_TOKEN": "",
+            }
             api = subprocess.Popen(
                 [
                     str(API / ".venv/bin/python"),
@@ -155,8 +161,8 @@ def main() -> None:
                 [
                     str(MCP / ".venv/bin/python"),
                     "-c",
-                    "from momentum_public_mcp.main import application; "
-                    "from momentum_public_mcp.protocol import create_http_app; "
+                    "from app.main import application; "
+                    "from app.protocol import create_http_app; "
                     "import uvicorn; uvicorn.run(create_http_app(application.mcp), "
                     "host='127.0.0.1', port=8185, proxy_headers=False)",
                 ],
@@ -178,12 +184,19 @@ def main() -> None:
                 (MCP / "tests/postman/mcp.postman_collection.json").read_text()
             )
             omitted = {
-                "latest_market_scan",
+                "Latest scan resource",
                 "Sanitized upstream failure",
                 "Cold-start latency",
+                "Exactly one upstream request per pagination call",
             }
+            # Short pages with fixed cursor bytes belong to the three-row HTTP
+            # simulation. This database fixture contains one analysis; its API
+            # cursor encoding and keyset traversal have separate database tests.
             collection["item"] = [
-                i for i in collection["item"] if i["name"] not in omitted
+                item
+                for item in collection["item"]
+                if item["name"] not in omitted
+                and not item["name"].endswith((" page 1", " page 2"))
             ]
             path = Path(directory) / "collection.json"
             path.write_text(json.dumps(collection))
@@ -200,6 +213,10 @@ def main() -> None:
                 check=True,
             )
             success = True
+        except Exception:
+            log.flush()
+            print((Path(directory) / "servers.log").read_text())
+            raise
         finally:
             for process in reversed(processes):
                 if process.poll() is None:

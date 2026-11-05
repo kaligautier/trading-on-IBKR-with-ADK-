@@ -7,6 +7,10 @@
     {
       "key": "mcpUrl",
       "value": "http://127.0.0.1:8107"
+    },
+    {
+      "key": "momentumApiVersion",
+      "value": "1"
     }
   ],
   "item": [
@@ -47,7 +51,8 @@
               "pm.test(\"HTTP 200\",()=>pm.response.to.have.status(200));",
               "pm.test(\"No protocol session\",()=>pm.expect(pm.response.headers.has(\"Mcp-Session-Id\")).to.equal(false));",
               "const body=pm.response.json();",
-              "pm.test(\"Modern protocol\",()=>pm.expect(body.result.supportedVersions).to.include(\"2026-07-28\"));"
+              "pm.test(\"Modern protocol\",()=>pm.expect(body.result.supportedVersions).to.include(\"2026-07-28\"));",
+              "pm.test(\"Resource and prompt capabilities\",()=>{pm.expect(body.result.capabilities).to.have.property(\"resources\");pm.expect(body.result.capabilities).to.have.property(\"prompts\");});"
             ]
           }
         }
@@ -90,14 +95,19 @@
               "pm.test(\"HTTP 200\",()=>pm.response.to.have.status(200));",
               "pm.test(\"No protocol session\",()=>pm.expect(pm.response.headers.has(\"Mcp-Session-Id\")).to.equal(false));",
               "const body=pm.response.json();",
-              "pm.test(\"Seven migrated tools\",()=>pm.expect(body.result.tools.map(t=>t.name).sort()).to.eql([\"list_analyses\",\"latest_analyses\",\"get_analysis\",\"get_recommendations\",\"latest_market_scan\",\"suggest_ticker\",\"get_suggestion_status\"].sort()));"
+              "pm.test(\"Six public tools\",()=>pm.expect(body.result.tools.map(t=>t.name).sort()).to.eql([\"momentum_list_analyses\",\"momentum_latest_analyses\",\"momentum_get_analysis\",\"momentum_get_recommendations\",\"momentum_suggest_ticker\",\"momentum_get_suggestion_status\"].sort()));",
+              "pm.test(\"Endpoint-specific page limits\",()=>{const limits={momentum_list_analyses:100,momentum_latest_analyses:100,momentum_get_recommendations:50};for(const [name,maximum] of Object.entries(limits)){pm.expect(body.result.tools.find(t=>t.name===name).inputSchema.properties.page_size.maximum,name).to.equal(maximum);}});",
+              "pm.test(\"Accurate tool annotations\",()=>{for(const tool of body.result.tools){pm.expect(tool.annotations.readOnlyHint,tool.name).to.equal(tool.name!==\"momentum_suggest_ticker\");pm.expect(tool.annotations.destructiveHint,tool.name).to.equal(false);pm.expect(tool.annotations.idempotentHint,tool.name).to.equal(true);pm.expect(tool.annotations.openWorldHint,tool.name).to.equal(true);}});",
+              "pm.test(\"Documented typed public contracts\",()=>{for(const tool of body.result.tools){pm.expect(tool.title,tool.name).to.be.a(\"string\").and.not.empty;pm.expect(tool._meta.fastmcp.tags,tool.name).to.include(\"public\");pm.expect(tool.inputSchema.additionalProperties,tool.name).to.equal(false);for(const field of Object.values(tool.inputSchema.properties)){pm.expect(field.description,tool.name).to.be.a(\"string\").and.not.empty;}pm.expect(tool.outputSchema.type,tool.name).to.equal(\"object\");}});",
+              "pm.test(\"Tool versions match upstream routes\",()=>{for(const tool of body.result.tools){const meta=tool._meta.fastmcp;pm.expect(meta.version,tool.name).to.equal(pm.variables.get(\"momentumApiVersion\"));pm.expect(meta.versions,tool.name).to.eql([pm.variables.get(\"momentumApiVersion\")]);}});",
+              "pm.test(\"Upstream API metadata\",()=>{const routes={momentum_list_analyses:[\"GET\",\"/v1/analyses\"],momentum_latest_analyses:[\"GET\",\"/v1/analyses/latest\"],momentum_get_analysis:[\"GET\",\"/v1/analyses/{analysis_id}\"],momentum_get_recommendations:[\"GET\",\"/v1/recommendations\"],momentum_suggest_ticker:[\"POST\",\"/v1/suggestions\"],momentum_get_suggestion_status:[\"GET\",\"/v1/suggestions/{suggestion_id}\"]};for(const tool of body.result.tools){const [method,path]=routes[tool.name];pm.expect(tool._meta.upstream,tool.name).to.eql({api:\"momentum\",method,path});pm.expect(tool._meta.fastmcp.tags,tool.name).to.include(\"momentum\");pm.expect(tool._meta).not.to.have.property(\"version\");}});"
             ]
           }
         }
       ]
     },
     {
-      "name": "list_analyses",
+      "name": "momentum_list_analyses",
       "request": {
         "method": "POST",
         "header": [
@@ -119,13 +129,160 @@
           },
           {
             "key": "Mcp-Name",
-            "value": "list_analyses"
+            "value": "momentum_list_analyses"
           }
         ],
         "url": "{{mcpUrl}}/",
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": \"list_analyses\",\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"_meta\": {\n      \"io.modelcontextprotocol/protocolVersion\": \"2026-07-28\",\n      \"io.modelcontextprotocol/clientInfo\": {\n        \"name\": \"postman-contract\",\n        \"version\": \"1\"\n      },\n      \"io.modelcontextprotocol/clientCapabilities\": {}\n    },\n    \"name\": \"list_analyses\",\n    \"arguments\": {\n      \"limit\": 1\n    }\n  }\n}"
+          "raw": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": \"momentum_list_analyses\",\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"_meta\": {\n      \"io.modelcontextprotocol/protocolVersion\": \"2026-07-28\",\n      \"io.modelcontextprotocol/clientCapabilities\": {}\n    },\n    \"name\": \"momentum_list_analyses\",\n    \"arguments\": {\n      \"page_size\": 1\n    }\n  }\n}"
+        },
+        "description": "Direct tool call without optional clientInfo; FastMCP handles protocol metadata."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\",()=>pm.response.to.have.status(200));",
+              "pm.test(\"No protocol session\",()=>pm.expect(pm.response.headers.has(\"Mcp-Session-Id\")).to.equal(false));",
+              "const body=pm.response.json();",
+              "pm.test(\"Successful tool result\",()=>pm.expect(body.result.isError).not.to.equal(true));",
+              "pm.test(\"Summary survived reader adapter\",()=>pm.expect(body.result.structuredContent.items[0].ticker).to.equal(\"AAPL\"));",
+              "pm.test(\"End cursor is explicit\",()=>pm.expect(body.result.structuredContent.next_page_token).to.equal(\"\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "momentum_list_analyses unavailable version",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json, text/event-stream"
+          },
+          {
+            "key": "MCP-Protocol-Version",
+            "value": "2026-07-28"
+          },
+          {
+            "key": "Mcp-Method",
+            "value": "tools/call"
+          },
+          {
+            "key": "Mcp-Name",
+            "value": "momentum_list_analyses"
+          }
+        ],
+        "url": "{{mcpUrl}}/",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": \"momentum_list_analyses unavailable version\",\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"_meta\": {\n      \"io.modelcontextprotocol/protocolVersion\": \"2026-07-28\",\n      \"io.modelcontextprotocol/clientCapabilities\": {},\n      \"fastmcp\": {\n        \"version\": \"2\"\n      }\n    },\n    \"name\": \"momentum_list_analyses\",\n    \"arguments\": {\n      \"page_size\": 1\n    }\n  }\n}"
+        },
+        "description": "Direct tool call without optional clientInfo; FastMCP handles protocol metadata."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\",()=>pm.response.to.have.status(200));",
+              "const body=pm.response.json();",
+              "pm.test(\"Unavailable version does not fall back\",()=>{pm.expect(body.result.isError).to.equal(true);pm.expect(body.result.content[0].text).to.include(\"Unknown tool\");});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "momentum_list_analyses explicit version",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json, text/event-stream"
+          },
+          {
+            "key": "MCP-Protocol-Version",
+            "value": "2026-07-28"
+          },
+          {
+            "key": "Mcp-Method",
+            "value": "tools/call"
+          },
+          {
+            "key": "Mcp-Name",
+            "value": "momentum_list_analyses"
+          }
+        ],
+        "url": "{{mcpUrl}}/",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": \"momentum_list_analyses explicit version\",\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"_meta\": {\n      \"io.modelcontextprotocol/protocolVersion\": \"2026-07-28\",\n      \"io.modelcontextprotocol/clientCapabilities\": {},\n      \"fastmcp\": {\n        \"version\": \"{{momentumApiVersion}}\"\n      }\n    },\n    \"name\": \"momentum_list_analyses\",\n    \"arguments\": {\n      \"page_size\": 1\n    }\n  }\n}"
+        },
+        "description": "Direct tool call without optional clientInfo; FastMCP handles protocol metadata."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\",()=>pm.response.to.have.status(200));",
+              "pm.test(\"No protocol session\",()=>pm.expect(pm.response.headers.has(\"Mcp-Session-Id\")).to.equal(false));",
+              "const body=pm.response.json();",
+              "pm.test(\"Successful tool result\",()=>pm.expect(body.result.isError).not.to.equal(true));",
+              "pm.test(\"Summary survived reader adapter\",()=>pm.expect(body.result.structuredContent.items[0].ticker).to.equal(\"AAPL\"));",
+              "pm.test(\"End cursor is explicit\",()=>pm.expect(body.result.structuredContent.next_page_token).to.equal(\"\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "momentum_latest_analyses",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json, text/event-stream"
+          },
+          {
+            "key": "MCP-Protocol-Version",
+            "value": "2026-07-28"
+          },
+          {
+            "key": "Mcp-Method",
+            "value": "tools/call"
+          },
+          {
+            "key": "Mcp-Name",
+            "value": "momentum_latest_analyses"
+          }
+        ],
+        "url": "{{mcpUrl}}/",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": \"momentum_latest_analyses\",\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"_meta\": {\n      \"io.modelcontextprotocol/protocolVersion\": \"2026-07-28\",\n      \"io.modelcontextprotocol/clientInfo\": {\n        \"name\": \"postman-contract\",\n        \"version\": \"1\"\n      },\n      \"io.modelcontextprotocol/clientCapabilities\": {}\n    },\n    \"name\": \"momentum_latest_analyses\",\n    \"arguments\": {}\n  }\n}"
         }
       },
       "event": [
@@ -138,14 +295,15 @@
               "pm.test(\"No protocol session\",()=>pm.expect(pm.response.headers.has(\"Mcp-Session-Id\")).to.equal(false));",
               "const body=pm.response.json();",
               "pm.test(\"Successful tool result\",()=>pm.expect(body.result.isError).not.to.equal(true));",
-              "pm.test(\"Summary survived reader adapter\",()=>pm.expect(body.result.structuredContent.result[0].ticker).to.equal(\"AAPL\"));"
+              "pm.test(\"Summary survived reader adapter\",()=>pm.expect(body.result.structuredContent.items[0].ticker).to.equal(\"AAPL\"));",
+              "pm.test(\"End cursor is explicit\",()=>pm.expect(body.result.structuredContent.next_page_token).to.equal(\"\"));"
             ]
           }
         }
       ]
     },
     {
-      "name": "latest_analyses",
+      "name": "momentum_get_recommendations",
       "request": {
         "method": "POST",
         "header": [
@@ -167,13 +325,13 @@
           },
           {
             "key": "Mcp-Name",
-            "value": "latest_analyses"
+            "value": "momentum_get_recommendations"
           }
         ],
         "url": "{{mcpUrl}}/",
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": \"latest_analyses\",\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"_meta\": {\n      \"io.modelcontextprotocol/protocolVersion\": \"2026-07-28\",\n      \"io.modelcontextprotocol/clientInfo\": {\n        \"name\": \"postman-contract\",\n        \"version\": \"1\"\n      },\n      \"io.modelcontextprotocol/clientCapabilities\": {}\n    },\n    \"name\": \"latest_analyses\",\n    \"arguments\": {}\n  }\n}"
+          "raw": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": \"momentum_get_recommendations\",\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"_meta\": {\n      \"io.modelcontextprotocol/protocolVersion\": \"2026-07-28\",\n      \"io.modelcontextprotocol/clientInfo\": {\n        \"name\": \"postman-contract\",\n        \"version\": \"1\"\n      },\n      \"io.modelcontextprotocol/clientCapabilities\": {}\n    },\n    \"name\": \"momentum_get_recommendations\",\n    \"arguments\": {}\n  }\n}"
         }
       },
       "event": [
@@ -186,14 +344,15 @@
               "pm.test(\"No protocol session\",()=>pm.expect(pm.response.headers.has(\"Mcp-Session-Id\")).to.equal(false));",
               "const body=pm.response.json();",
               "pm.test(\"Successful tool result\",()=>pm.expect(body.result.isError).not.to.equal(true));",
-              "pm.test(\"Summary survived reader adapter\",()=>pm.expect(body.result.structuredContent.result[0].ticker).to.equal(\"AAPL\"));"
+              "pm.test(\"Summary survived reader adapter\",()=>pm.expect(body.result.structuredContent.items[0].ticker).to.equal(\"AAPL\"));",
+              "pm.test(\"End cursor is explicit\",()=>pm.expect(body.result.structuredContent.next_page_token).to.equal(\"\"));"
             ]
           }
         }
       ]
     },
     {
-      "name": "get_recommendations",
+      "name": "momentum_get_recommendations page_size 51",
       "request": {
         "method": "POST",
         "header": [
@@ -215,13 +374,200 @@
           },
           {
             "key": "Mcp-Name",
-            "value": "get_recommendations"
+            "value": "momentum_get_recommendations"
           }
         ],
         "url": "{{mcpUrl}}/",
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": \"get_recommendations\",\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"_meta\": {\n      \"io.modelcontextprotocol/protocolVersion\": \"2026-07-28\",\n      \"io.modelcontextprotocol/clientInfo\": {\n        \"name\": \"postman-contract\",\n        \"version\": \"1\"\n      },\n      \"io.modelcontextprotocol/clientCapabilities\": {}\n    },\n    \"name\": \"get_recommendations\",\n    \"arguments\": {}\n  }\n}"
+          "raw": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": \"momentum_get_recommendations page_size 51\",\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"_meta\": {\n      \"io.modelcontextprotocol/protocolVersion\": \"2026-07-28\",\n      \"io.modelcontextprotocol/clientInfo\": {\n        \"name\": \"postman-contract\",\n        \"version\": \"1\"\n      },\n      \"io.modelcontextprotocol/clientCapabilities\": {}\n    },\n    \"name\": \"momentum_get_recommendations\",\n    \"arguments\": {\n      \"page_size\": 51\n    }\n  }\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\",()=>pm.response.to.have.status(200));",
+              "const body=pm.response.json();",
+              "pm.test(\"MCP rejects recommendation pages above 50\",()=>{pm.expect(body.result.isError).to.equal(true);pm.expect(body.result.content[0].text).to.equal(\"page_size doit être inférieur ou égal à 50.\");});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Rejected API pagination cursor",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json, text/event-stream"
+          },
+          {
+            "key": "MCP-Protocol-Version",
+            "value": "2026-07-28"
+          },
+          {
+            "key": "Mcp-Method",
+            "value": "tools/call"
+          },
+          {
+            "key": "Mcp-Name",
+            "value": "momentum_list_analyses"
+          }
+        ],
+        "url": "{{mcpUrl}}/",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": \"Rejected API pagination cursor\",\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"_meta\": {\n      \"io.modelcontextprotocol/protocolVersion\": \"2026-07-28\",\n      \"io.modelcontextprotocol/clientInfo\": {\n        \"name\": \"postman-contract\",\n        \"version\": \"1\"\n      },\n      \"io.modelcontextprotocol/clientCapabilities\": {}\n    },\n    \"name\": \"momentum_list_analyses\",\n    \"arguments\": {\n      \"page_size\": 10,\n      \"page_token\": \"invalid-cursor\"\n    }\n  }\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\",()=>pm.response.to.have.status(200));",
+              "const body=pm.response.json();",
+              "pm.test(\"Actionable ToolError\",()=>{pm.expect(body.result.isError).to.equal(true);pm.expect(body.result.content[0].text).to.equal(\"[MOMENTUM_API_ERROR] Momentum rejected the public input. Check arguments and cursors.\");});",
+              "pm.test(\"No validation or upstream detail leak\",()=>{const text=JSON.stringify(body);pm.expect(text).not.to.include(\"errors.pydantic.dev\");pm.expect(text).not.to.include(\"fixture cursor rejected\");});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Invalid suggestion rationale",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json, text/event-stream"
+          },
+          {
+            "key": "MCP-Protocol-Version",
+            "value": "2026-07-28"
+          },
+          {
+            "key": "Mcp-Method",
+            "value": "tools/call"
+          },
+          {
+            "key": "Mcp-Name",
+            "value": "momentum_suggest_ticker"
+          }
+        ],
+        "url": "{{mcpUrl}}/",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": \"Invalid suggestion rationale\",\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"_meta\": {\n      \"io.modelcontextprotocol/protocolVersion\": \"2026-07-28\",\n      \"io.modelcontextprotocol/clientInfo\": {\n        \"name\": \"postman-contract\",\n        \"version\": \"1\"\n      },\n      \"io.modelcontextprotocol/clientCapabilities\": {}\n    },\n    \"name\": \"momentum_suggest_ticker\",\n    \"arguments\": {\n      \"symbol\": \"MSFT\",\n      \"reason\": \"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\"\n    }\n  }\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\",()=>pm.response.to.have.status(200));",
+              "const body=pm.response.json();",
+              "pm.test(\"Actionable ToolError\",()=>{pm.expect(body.result.isError).to.equal(true);pm.expect(body.result.content[0].text).to.equal(\"Suggestion reason must contain at most 500 characters.\");});",
+              "pm.test(\"No validation or upstream detail leak\",()=>{const text=JSON.stringify(body);pm.expect(text).not.to.include(\"errors.pydantic.dev\");pm.expect(text).not.to.include(\"fixture cursor rejected\");});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Invalid analysis UUID",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json, text/event-stream"
+          },
+          {
+            "key": "MCP-Protocol-Version",
+            "value": "2026-07-28"
+          },
+          {
+            "key": "Mcp-Method",
+            "value": "tools/call"
+          },
+          {
+            "key": "Mcp-Name",
+            "value": "momentum_get_analysis"
+          }
+        ],
+        "url": "{{mcpUrl}}/",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": \"Invalid analysis UUID\",\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"_meta\": {\n      \"io.modelcontextprotocol/protocolVersion\": \"2026-07-28\",\n      \"io.modelcontextprotocol/clientInfo\": {\n        \"name\": \"postman-contract\",\n        \"version\": \"1\"\n      },\n      \"io.modelcontextprotocol/clientCapabilities\": {}\n    },\n    \"name\": \"momentum_get_analysis\",\n    \"arguments\": {\n      \"analysis_id\": \"bad\"\n    }\n  }\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\",()=>pm.response.to.have.status(200));",
+              "const body=pm.response.json();",
+              "pm.test(\"Actionable ToolError\",()=>{pm.expect(body.result.isError).to.equal(true);pm.expect(body.result.content[0].text).to.equal(\"Analysis id must be a valid UUID.\");});",
+              "pm.test(\"No validation or upstream detail leak\",()=>{const text=JSON.stringify(body);pm.expect(text).not.to.include(\"errors.pydantic.dev\");pm.expect(text).not.to.include(\"fixture cursor rejected\");});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "momentum_get_recommendations page_size 50",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json, text/event-stream"
+          },
+          {
+            "key": "MCP-Protocol-Version",
+            "value": "2026-07-28"
+          },
+          {
+            "key": "Mcp-Method",
+            "value": "tools/call"
+          },
+          {
+            "key": "Mcp-Name",
+            "value": "momentum_get_recommendations"
+          }
+        ],
+        "url": "{{mcpUrl}}/",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": \"momentum_get_recommendations page_size 50\",\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"_meta\": {\n      \"io.modelcontextprotocol/protocolVersion\": \"2026-07-28\",\n      \"io.modelcontextprotocol/clientInfo\": {\n        \"name\": \"postman-contract\",\n        \"version\": \"1\"\n      },\n      \"io.modelcontextprotocol/clientCapabilities\": {}\n    },\n    \"name\": \"momentum_get_recommendations\",\n    \"arguments\": {\n      \"page_size\": 50\n    }\n  }\n}"
         }
       },
       "event": [
@@ -234,14 +580,15 @@
               "pm.test(\"No protocol session\",()=>pm.expect(pm.response.headers.has(\"Mcp-Session-Id\")).to.equal(false));",
               "const body=pm.response.json();",
               "pm.test(\"Successful tool result\",()=>pm.expect(body.result.isError).not.to.equal(true));",
-              "pm.test(\"Summary survived reader adapter\",()=>pm.expect(body.result.structuredContent.result[0].ticker).to.equal(\"AAPL\"));"
+              "pm.test(\"Summary survived reader adapter\",()=>pm.expect(body.result.structuredContent.items[0].ticker).to.equal(\"AAPL\"));",
+              "pm.test(\"End cursor is explicit\",()=>pm.expect(body.result.structuredContent.next_page_token).to.equal(\"\"));"
             ]
           }
         }
       ]
     },
     {
-      "name": "get_analysis",
+      "name": "momentum_get_analysis",
       "request": {
         "method": "POST",
         "header": [
@@ -263,13 +610,13 @@
           },
           {
             "key": "Mcp-Name",
-            "value": "get_analysis"
+            "value": "momentum_get_analysis"
           }
         ],
         "url": "{{mcpUrl}}/",
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": \"get_analysis\",\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"_meta\": {\n      \"io.modelcontextprotocol/protocolVersion\": \"2026-07-28\",\n      \"io.modelcontextprotocol/clientInfo\": {\n        \"name\": \"postman-contract\",\n        \"version\": \"1\"\n      },\n      \"io.modelcontextprotocol/clientCapabilities\": {}\n    },\n    \"name\": \"get_analysis\",\n    \"arguments\": {\n      \"analysis_id\": \"11111111-1111-1111-1111-111111111111\"\n    }\n  }\n}"
+          "raw": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": \"momentum_get_analysis\",\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"_meta\": {\n      \"io.modelcontextprotocol/protocolVersion\": \"2026-07-28\",\n      \"io.modelcontextprotocol/clientInfo\": {\n        \"name\": \"postman-contract\",\n        \"version\": \"1\"\n      },\n      \"io.modelcontextprotocol/clientCapabilities\": {}\n    },\n    \"name\": \"momentum_get_analysis\",\n    \"arguments\": {\n      \"analysis_id\": \"11111111-1111-1111-1111-111111111111\"\n    }\n  }\n}"
         }
       },
       "event": [
@@ -289,7 +636,7 @@
       ]
     },
     {
-      "name": "latest_market_scan",
+      "name": "Latest scan resource",
       "request": {
         "method": "POST",
         "header": [
@@ -307,17 +654,17 @@
           },
           {
             "key": "Mcp-Method",
-            "value": "tools/call"
+            "value": "resources/read"
           },
           {
             "key": "Mcp-Name",
-            "value": "latest_market_scan"
+            "value": "momentum://market_scanner/market-scans/latest"
           }
         ],
         "url": "{{mcpUrl}}/",
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": \"latest_market_scan\",\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"_meta\": {\n      \"io.modelcontextprotocol/protocolVersion\": \"2026-07-28\",\n      \"io.modelcontextprotocol/clientInfo\": {\n        \"name\": \"postman-contract\",\n        \"version\": \"1\"\n      },\n      \"io.modelcontextprotocol/clientCapabilities\": {}\n    },\n    \"name\": \"latest_market_scan\",\n    \"arguments\": {}\n  }\n}"
+          "raw": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": \"Latest scan resource\",\n  \"method\": \"resources/read\",\n  \"params\": {\n    \"_meta\": {\n      \"io.modelcontextprotocol/protocolVersion\": \"2026-07-28\",\n      \"io.modelcontextprotocol/clientInfo\": {\n        \"name\": \"postman-contract\",\n        \"version\": \"1\"\n      },\n      \"io.modelcontextprotocol/clientCapabilities\": {}\n    },\n    \"uri\": \"momentum://market_scanner/market-scans/latest\"\n  }\n}"
         }
       },
       "event": [
@@ -329,15 +676,16 @@
               "pm.test(\"HTTP 200\",()=>pm.response.to.have.status(200));",
               "pm.test(\"No protocol session\",()=>pm.expect(pm.response.headers.has(\"Mcp-Session-Id\")).to.equal(false));",
               "const body=pm.response.json();",
-              "pm.test(\"Successful tool result\",()=>pm.expect(body.result.isError).not.to.equal(true));",
-              "pm.test(\"Full report-v3 preserved\",()=>pm.expect(body.result.structuredContent.report.schema_version).to.equal(3));"
+              "pm.test(\"Successful RPC\",()=>pm.expect(body).not.to.have.property(\"error\"));",
+              "pm.test(\"JSON scan resource\",()=>pm.expect(body.result.contents[0].mimeType).to.equal(\"application/json\"));",
+              "pm.test(\"Scanner report v3\",()=>pm.expect(JSON.parse(body.result.contents[0].text).report.schema_version).to.equal(3));"
             ]
           }
         }
       ]
     },
     {
-      "name": "suggest_ticker",
+      "name": "momentum_suggest_ticker",
       "request": {
         "method": "POST",
         "header": [
@@ -359,13 +707,13 @@
           },
           {
             "key": "Mcp-Name",
-            "value": "suggest_ticker"
+            "value": "momentum_suggest_ticker"
           }
         ],
         "url": "{{mcpUrl}}/",
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": \"suggest_ticker\",\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"_meta\": {\n      \"io.modelcontextprotocol/protocolVersion\": \"2026-07-28\",\n      \"io.modelcontextprotocol/clientInfo\": {\n        \"name\": \"postman-contract\",\n        \"version\": \"1\"\n      },\n      \"io.modelcontextprotocol/clientCapabilities\": {}\n    },\n    \"name\": \"suggest_ticker\",\n    \"arguments\": {\n      \"symbol\": \"MSFT\",\n      \"reason\": \"MCP migration test\"\n    }\n  }\n}"
+          "raw": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": \"momentum_suggest_ticker\",\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"_meta\": {\n      \"io.modelcontextprotocol/protocolVersion\": \"2026-07-28\",\n      \"io.modelcontextprotocol/clientInfo\": {\n        \"name\": \"postman-contract\",\n        \"version\": \"1\"\n      },\n      \"io.modelcontextprotocol/clientCapabilities\": {}\n    },\n    \"name\": \"momentum_suggest_ticker\",\n    \"arguments\": {\n      \"symbol\": \"MSFT\",\n      \"reason\": \"MCP migration test\"\n    }\n  }\n}"
         }
       },
       "event": [
@@ -386,7 +734,7 @@
       ]
     },
     {
-      "name": "get_suggestion_status",
+      "name": "momentum_get_suggestion_status",
       "request": {
         "method": "POST",
         "header": [
@@ -408,13 +756,13 @@
           },
           {
             "key": "Mcp-Name",
-            "value": "get_suggestion_status"
+            "value": "momentum_get_suggestion_status"
           }
         ],
         "url": "{{mcpUrl}}/",
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": \"get_suggestion_status\",\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"_meta\": {\n      \"io.modelcontextprotocol/protocolVersion\": \"2026-07-28\",\n      \"io.modelcontextprotocol/clientInfo\": {\n        \"name\": \"postman-contract\",\n        \"version\": \"1\"\n      },\n      \"io.modelcontextprotocol/clientCapabilities\": {}\n    },\n    \"name\": \"get_suggestion_status\",\n    \"arguments\": {\n      \"suggestion_id\": \"{{suggestionId}}\"\n    }\n  }\n}"
+          "raw": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": \"momentum_get_suggestion_status\",\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"_meta\": {\n      \"io.modelcontextprotocol/protocolVersion\": \"2026-07-28\",\n      \"io.modelcontextprotocol/clientInfo\": {\n        \"name\": \"postman-contract\",\n        \"version\": \"1\"\n      },\n      \"io.modelcontextprotocol/clientCapabilities\": {}\n    },\n    \"name\": \"momentum_get_suggestion_status\",\n    \"arguments\": {\n      \"suggestion_id\": \"{{suggestionId}}\"\n    }\n  }\n}"
         }
       },
       "event": [
@@ -456,13 +804,13 @@
           },
           {
             "key": "Mcp-Name",
-            "value": "list_analyses"
+            "value": "momentum_list_analyses"
           }
         ],
         "url": "{{mcpUrl}}/",
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": \"Sanitized upstream failure\",\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"_meta\": {\n      \"io.modelcontextprotocol/protocolVersion\": \"2026-07-28\",\n      \"io.modelcontextprotocol/clientInfo\": {\n        \"name\": \"postman-contract\",\n        \"version\": \"1\"\n      },\n      \"io.modelcontextprotocol/clientCapabilities\": {}\n    },\n    \"name\": \"list_analyses\",\n    \"arguments\": {\n      \"ticker\": \"FAIL\"\n    }\n  }\n}"
+          "raw": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": \"Sanitized upstream failure\",\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"_meta\": {\n      \"io.modelcontextprotocol/protocolVersion\": \"2026-07-28\",\n      \"io.modelcontextprotocol/clientInfo\": {\n        \"name\": \"postman-contract\",\n        \"version\": \"1\"\n      },\n      \"io.modelcontextprotocol/clientCapabilities\": {}\n    },\n    \"name\": \"momentum_list_analyses\",\n    \"arguments\": {\n      \"ticker\": \"FAIL\"\n    }\n  }\n}"
         }
       },
       "event": [
@@ -475,7 +823,8 @@
               "pm.test(\"No protocol session\",()=>pm.expect(pm.response.headers.has(\"Mcp-Session-Id\")).to.equal(false));",
               "const body=pm.response.json();",
               "pm.test(\"Tool error\",()=>pm.expect(body.result.isError).to.equal(true));",
-              "pm.test(\"No upstream detail leak\",()=>pm.expect(JSON.stringify(body)).not.to.include(\"fixture upstream\"));"
+              "pm.test(\"No upstream detail leak\",()=>pm.expect(JSON.stringify(body)).not.to.include(\"fixture upstream\"));",
+              "pm.test(\"Stable application error code\",()=>pm.expect(body.result.content[0].text).to.include(\"[MOMENTUM_API_ERROR]\"));"
             ]
           }
         }
@@ -547,13 +896,13 @@
           },
           {
             "key": "Mcp-Name",
-            "value": "list_analyses"
+            "value": "momentum_list_analyses"
           }
         ],
         "url": "{{mcpUrl}}/",
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": \"cold-start\",\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"_meta\": {\n      \"io.modelcontextprotocol/protocolVersion\": \"2026-07-28\",\n      \"io.modelcontextprotocol/clientInfo\": {\n        \"name\": \"postman-contract\",\n        \"version\": \"1\"\n      },\n      \"io.modelcontextprotocol/clientCapabilities\": {}\n    },\n    \"name\": \"list_analyses\",\n    \"arguments\": {\n      \"ticker\": \"SLOW\",\n      \"limit\": 1\n    }\n  }\n}"
+          "raw": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": \"cold-start\",\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"_meta\": {\n      \"io.modelcontextprotocol/protocolVersion\": \"2026-07-28\",\n      \"io.modelcontextprotocol/clientInfo\": {\n        \"name\": \"postman-contract\",\n        \"version\": \"1\"\n      },\n      \"io.modelcontextprotocol/clientCapabilities\": {}\n    },\n    \"name\": \"momentum_list_analyses\",\n    \"arguments\": {\n      \"ticker\": \"SLOW\",\n      \"page_size\": 1\n    }\n  }\n}"
         }
       },
       "event": [
@@ -566,7 +915,480 @@
               "pm.test(\"No protocol session\",()=>pm.expect(pm.response.headers.has(\"Mcp-Session-Id\")).to.equal(false));",
               "const body=pm.response.json();",
               "pm.test(\"Successful tool result\",()=>pm.expect(body.result.isError).not.to.equal(true));",
-              "pm.test(\"Reader cold start above ten seconds succeeds\",()=>{pm.expect(body.result.structuredContent.result[0].ticker).to.equal(\"SLOW\");pm.expect(pm.response.responseTime).to.be.above(10000);});"
+              "pm.test(\"Reader cold start above ten seconds succeeds\",()=>{pm.expect(body.result.structuredContent.items[0].ticker).to.equal(\"SLOW\");pm.expect(pm.response.responseTime).to.be.above(10000);});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Resource catalog",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json, text/event-stream"
+          },
+          {
+            "key": "MCP-Protocol-Version",
+            "value": "2026-07-28"
+          },
+          {
+            "key": "Mcp-Method",
+            "value": "resources/list"
+          }
+        ],
+        "url": "{{mcpUrl}}/",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": \"Resource catalog\",\n  \"method\": \"resources/list\",\n  \"params\": {\n    \"_meta\": {\n      \"io.modelcontextprotocol/protocolVersion\": \"2026-07-28\",\n      \"io.modelcontextprotocol/clientInfo\": {\n        \"name\": \"postman-contract\",\n        \"version\": \"1\"\n      },\n      \"io.modelcontextprotocol/clientCapabilities\": {}\n    }\n  }\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\",()=>pm.response.to.have.status(200));",
+              "pm.test(\"No protocol session\",()=>pm.expect(pm.response.headers.has(\"Mcp-Session-Id\")).to.equal(false));",
+              "const body=pm.response.json();",
+              "pm.test(\"Successful RPC\",()=>pm.expect(body).not.to.have.property(\"error\"));",
+              "pm.test(\"One public resource\",()=>pm.expect(body.result.resources.map(r=>r.uri)).to.eql([\"momentum://market_scanner/market-scans/latest\"]));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Prompt catalog",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json, text/event-stream"
+          },
+          {
+            "key": "MCP-Protocol-Version",
+            "value": "2026-07-28"
+          },
+          {
+            "key": "Mcp-Method",
+            "value": "prompts/list"
+          }
+        ],
+        "url": "{{mcpUrl}}/",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": \"Prompt catalog\",\n  \"method\": \"prompts/list\",\n  \"params\": {\n    \"_meta\": {\n      \"io.modelcontextprotocol/protocolVersion\": \"2026-07-28\",\n      \"io.modelcontextprotocol/clientInfo\": {\n        \"name\": \"postman-contract\",\n        \"version\": \"1\"\n      },\n      \"io.modelcontextprotocol/clientCapabilities\": {}\n    }\n  }\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\",()=>pm.response.to.have.status(200));",
+              "pm.test(\"No protocol session\",()=>pm.expect(pm.response.headers.has(\"Mcp-Session-Id\")).to.equal(false));",
+              "const body=pm.response.json();",
+              "pm.test(\"Successful RPC\",()=>pm.expect(body).not.to.have.property(\"error\"));",
+              "pm.test(\"Ticker prompt\",()=>pm.expect(body.result.prompts.map(p=>p.name)).to.eql([\"momentum_analyze_ticker\"]));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Render ticker prompt",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json, text/event-stream"
+          },
+          {
+            "key": "MCP-Protocol-Version",
+            "value": "2026-07-28"
+          },
+          {
+            "key": "Mcp-Method",
+            "value": "prompts/get"
+          },
+          {
+            "key": "Mcp-Name",
+            "value": "momentum_analyze_ticker"
+          }
+        ],
+        "url": "{{mcpUrl}}/",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": \"Render ticker prompt\",\n  \"method\": \"prompts/get\",\n  \"params\": {\n    \"_meta\": {\n      \"io.modelcontextprotocol/protocolVersion\": \"2026-07-28\",\n      \"io.modelcontextprotocol/clientInfo\": {\n        \"name\": \"postman-contract\",\n        \"version\": \"1\"\n      },\n      \"io.modelcontextprotocol/clientCapabilities\": {}\n    },\n    \"name\": \"momentum_analyze_ticker\",\n    \"arguments\": {\n      \"ticker\": \" aapl \"\n    }\n  }\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\",()=>pm.response.to.have.status(200));",
+              "pm.test(\"No protocol session\",()=>pm.expect(pm.response.headers.has(\"Mcp-Session-Id\")).to.equal(false));",
+              "const body=pm.response.json();",
+              "pm.test(\"Successful RPC\",()=>pm.expect(body).not.to.have.property(\"error\"));",
+              "pm.test(\"Loaded prompt instructions\",()=>{const text=body.result.messages[0].content.text;pm.expect(text).to.include(\"ticker=AAPL\");pm.expect(text).to.include(\"momentum://market_scanner/market-scans/latest\");pm.expect(text).not.to.include(\"{{\");});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "momentum_list_analyses page 1",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json, text/event-stream"
+          },
+          {
+            "key": "MCP-Protocol-Version",
+            "value": "2026-07-28"
+          },
+          {
+            "key": "Mcp-Method",
+            "value": "tools/call"
+          },
+          {
+            "key": "Mcp-Name",
+            "value": "momentum_list_analyses"
+          }
+        ],
+        "url": "{{mcpUrl}}/",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": \"momentum_list_analyses page 1\",\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"_meta\": {\n      \"io.modelcontextprotocol/protocolVersion\": \"2026-07-28\",\n      \"io.modelcontextprotocol/clientCapabilities\": {}\n    },\n    \"name\": \"momentum_list_analyses\",\n    \"arguments\": {\n      \"ticker\": \" aapl \",\n      \"page_size\": 2,\n      \"page_token\": \"\"\n    }\n  }\n}"
+        },
+        "description": "Direct tool call without optional clientInfo; FastMCP handles protocol metadata."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\",()=>pm.response.to.have.status(200));",
+              "pm.test(\"No protocol session\",()=>pm.expect(pm.response.headers.has(\"Mcp-Session-Id\")).to.equal(false));",
+              "const body=pm.response.json();",
+              "pm.test(\"Successful tool result\",()=>pm.expect(body.result.isError).not.to.equal(true));",
+              "const page=body.result.structuredContent;",
+              "pm.test(\"Page envelope\",()=>pm.expect(Object.keys(page).sort()).to.eql([\"items\",\"next_page_token\"]));",
+              "pm.test(\"Short page retains API cursor\",()=>{pm.expect(page.items).to.have.lengthOf(1);pm.expect(page.next_page_token).to.equal(\"eyJ2ZXJzaW9uIjoxLCJjcmVhdGVkX2F0IjoiMjAyNi0xMC0yM1QxMjowMDowMFoiLCJpZCI6IjExMTExMTExLTExMTEtMTExMS0xMTExLTExMTExMTExMTExMSIsInNjb3BlIjoiYWVmNDkzYTY3NjdhNmEzZWMxYjdmNDNlMTBiMGM1MDIwYmIxMTU2ODg5YzZiZDMzZjczY2U0ZGQzYjFlMDRkNiJ9\");});",
+              "pm.collectionVariables.set(\"list_analyses_cursor\",page.next_page_token);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "momentum_list_analyses page 2",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json, text/event-stream"
+          },
+          {
+            "key": "MCP-Protocol-Version",
+            "value": "2026-07-28"
+          },
+          {
+            "key": "Mcp-Method",
+            "value": "tools/call"
+          },
+          {
+            "key": "Mcp-Name",
+            "value": "momentum_list_analyses"
+          }
+        ],
+        "url": "{{mcpUrl}}/",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": \"momentum_list_analyses page 2\",\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"_meta\": {\n      \"io.modelcontextprotocol/protocolVersion\": \"2026-07-28\",\n      \"io.modelcontextprotocol/clientCapabilities\": {}\n    },\n    \"name\": \"momentum_list_analyses\",\n    \"arguments\": {\n      \"ticker\": \" aapl \",\n      \"page_size\": 2,\n      \"page_token\": \"{{list_analyses_cursor}}\"\n    }\n  }\n}"
+        },
+        "description": "Direct tool call without optional clientInfo; FastMCP handles protocol metadata."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\",()=>pm.response.to.have.status(200));",
+              "pm.test(\"No protocol session\",()=>pm.expect(pm.response.headers.has(\"Mcp-Session-Id\")).to.equal(false));",
+              "const body=pm.response.json();",
+              "pm.test(\"Successful tool result\",()=>pm.expect(body.result.isError).not.to.equal(true));",
+              "const page=body.result.structuredContent;",
+              "pm.test(\"Page envelope\",()=>pm.expect(Object.keys(page).sort()).to.eql([\"items\",\"next_page_token\"]));",
+              "pm.test(\"Full final page has empty cursor\",()=>{pm.expect(page.items).to.have.lengthOf(2);pm.expect(page.next_page_token).to.equal(\"\");});",
+              "pm.test(\"Continuation preserves order without repeating the first item\",()=>pm.expect(page.items.map(i=>i.id)).to.eql([\"00000002-1111-1111-1111-111111111111\",\"00000001-1111-1111-1111-111111111111\"]));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "momentum_latest_analyses page 1",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json, text/event-stream"
+          },
+          {
+            "key": "MCP-Protocol-Version",
+            "value": "2026-07-28"
+          },
+          {
+            "key": "Mcp-Method",
+            "value": "tools/call"
+          },
+          {
+            "key": "Mcp-Name",
+            "value": "momentum_latest_analyses"
+          }
+        ],
+        "url": "{{mcpUrl}}/",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": \"momentum_latest_analyses page 1\",\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"_meta\": {\n      \"io.modelcontextprotocol/protocolVersion\": \"2026-07-28\",\n      \"io.modelcontextprotocol/clientCapabilities\": {}\n    },\n    \"name\": \"momentum_latest_analyses\",\n    \"arguments\": {\n      \"rating\": \" buy, OVERWEIGHT \",\n      \"page_size\": 2,\n      \"page_token\": \"\"\n    }\n  }\n}"
+        },
+        "description": "Direct tool call without optional clientInfo; FastMCP handles protocol metadata."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\",()=>pm.response.to.have.status(200));",
+              "pm.test(\"No protocol session\",()=>pm.expect(pm.response.headers.has(\"Mcp-Session-Id\")).to.equal(false));",
+              "const body=pm.response.json();",
+              "pm.test(\"Successful tool result\",()=>pm.expect(body.result.isError).not.to.equal(true));",
+              "const page=body.result.structuredContent;",
+              "pm.test(\"Page envelope\",()=>pm.expect(Object.keys(page).sort()).to.eql([\"items\",\"next_page_token\"]));",
+              "pm.test(\"Short page retains API cursor\",()=>{pm.expect(page.items).to.have.lengthOf(1);pm.expect(page.next_page_token).to.equal(\"eyJ2ZXJzaW9uIjoxLCJjcmVhdGVkX2F0IjoiMjAyNi0xMC0yM1QxMjowMDowMFoiLCJpZCI6IjExMTExMTExLTExMTEtMTExMS0xMTExLTExMTExMTExMTExMSIsInNjb3BlIjoiNjRhZGUzOTc0YmNkNWU5ZjM4NjE2ZjcwNDYyMTBjNDIwMGVjNzY1NDg1Njk0ZGI0OWUwZDc2Njg4NDM4MmZhNCJ9\");});",
+              "pm.collectionVariables.set(\"latest_analyses_cursor\",page.next_page_token);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "momentum_latest_analyses page 2",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json, text/event-stream"
+          },
+          {
+            "key": "MCP-Protocol-Version",
+            "value": "2026-07-28"
+          },
+          {
+            "key": "Mcp-Method",
+            "value": "tools/call"
+          },
+          {
+            "key": "Mcp-Name",
+            "value": "momentum_latest_analyses"
+          }
+        ],
+        "url": "{{mcpUrl}}/",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": \"momentum_latest_analyses page 2\",\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"_meta\": {\n      \"io.modelcontextprotocol/protocolVersion\": \"2026-07-28\",\n      \"io.modelcontextprotocol/clientCapabilities\": {}\n    },\n    \"name\": \"momentum_latest_analyses\",\n    \"arguments\": {\n      \"rating\": \" buy, OVERWEIGHT \",\n      \"page_size\": 2,\n      \"page_token\": \"{{latest_analyses_cursor}}\"\n    }\n  }\n}"
+        },
+        "description": "Direct tool call without optional clientInfo; FastMCP handles protocol metadata."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\",()=>pm.response.to.have.status(200));",
+              "pm.test(\"No protocol session\",()=>pm.expect(pm.response.headers.has(\"Mcp-Session-Id\")).to.equal(false));",
+              "const body=pm.response.json();",
+              "pm.test(\"Successful tool result\",()=>pm.expect(body.result.isError).not.to.equal(true));",
+              "const page=body.result.structuredContent;",
+              "pm.test(\"Page envelope\",()=>pm.expect(Object.keys(page).sort()).to.eql([\"items\",\"next_page_token\"]));",
+              "pm.test(\"Full final page has empty cursor\",()=>{pm.expect(page.items).to.have.lengthOf(2);pm.expect(page.next_page_token).to.equal(\"\");});",
+              "pm.test(\"Continuation preserves order without repeating the first item\",()=>pm.expect(page.items.map(i=>i.id)).to.eql([\"00000002-1111-1111-1111-111111111111\",\"00000001-1111-1111-1111-111111111111\"]));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "momentum_get_recommendations page 1",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json, text/event-stream"
+          },
+          {
+            "key": "MCP-Protocol-Version",
+            "value": "2026-07-28"
+          },
+          {
+            "key": "Mcp-Method",
+            "value": "tools/call"
+          },
+          {
+            "key": "Mcp-Name",
+            "value": "momentum_get_recommendations"
+          }
+        ],
+        "url": "{{mcpUrl}}/",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": \"momentum_get_recommendations page 1\",\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"_meta\": {\n      \"io.modelcontextprotocol/protocolVersion\": \"2026-07-28\",\n      \"io.modelcontextprotocol/clientCapabilities\": {}\n    },\n    \"name\": \"momentum_get_recommendations\",\n    \"arguments\": {\n      \"page_size\": 2,\n      \"page_token\": \"\"\n    }\n  }\n}"
+        },
+        "description": "Direct tool call without optional clientInfo; FastMCP handles protocol metadata."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\",()=>pm.response.to.have.status(200));",
+              "pm.test(\"No protocol session\",()=>pm.expect(pm.response.headers.has(\"Mcp-Session-Id\")).to.equal(false));",
+              "const body=pm.response.json();",
+              "pm.test(\"Successful tool result\",()=>pm.expect(body.result.isError).not.to.equal(true));",
+              "const page=body.result.structuredContent;",
+              "pm.test(\"Page envelope\",()=>pm.expect(Object.keys(page).sort()).to.eql([\"items\",\"next_page_token\"]));",
+              "pm.test(\"Short page retains API cursor\",()=>{pm.expect(page.items).to.have.lengthOf(1);pm.expect(page.next_page_token).to.equal(\"eyJ2ZXJzaW9uIjoxLCJjcmVhdGVkX2F0IjoiMjAyNi0xMC0yM1QxMjowMDowMFoiLCJpZCI6IjExMTExMTExLTExMTEtMTExMS0xMTExLTExMTExMTExMTExMSIsInNjb3BlIjoiOTJhYTc1MDRjODI1MjJjZWE1MzRmMmMzZDRhNDkyZGJhMjBhNzBhOWE4NzFlN2ExYzU0YjRmZTI3MTQzNTA3ZiJ9\");});",
+              "pm.collectionVariables.set(\"get_recommendations_cursor\",page.next_page_token);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "momentum_get_recommendations page 2",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json, text/event-stream"
+          },
+          {
+            "key": "MCP-Protocol-Version",
+            "value": "2026-07-28"
+          },
+          {
+            "key": "Mcp-Method",
+            "value": "tools/call"
+          },
+          {
+            "key": "Mcp-Name",
+            "value": "momentum_get_recommendations"
+          }
+        ],
+        "url": "{{mcpUrl}}/",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": \"momentum_get_recommendations page 2\",\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"_meta\": {\n      \"io.modelcontextprotocol/protocolVersion\": \"2026-07-28\",\n      \"io.modelcontextprotocol/clientCapabilities\": {}\n    },\n    \"name\": \"momentum_get_recommendations\",\n    \"arguments\": {\n      \"page_size\": 2,\n      \"page_token\": \"{{get_recommendations_cursor}}\"\n    }\n  }\n}"
+        },
+        "description": "Direct tool call without optional clientInfo; FastMCP handles protocol metadata."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\",()=>pm.response.to.have.status(200));",
+              "pm.test(\"No protocol session\",()=>pm.expect(pm.response.headers.has(\"Mcp-Session-Id\")).to.equal(false));",
+              "const body=pm.response.json();",
+              "pm.test(\"Successful tool result\",()=>pm.expect(body.result.isError).not.to.equal(true));",
+              "const page=body.result.structuredContent;",
+              "pm.test(\"Page envelope\",()=>pm.expect(Object.keys(page).sort()).to.eql([\"items\",\"next_page_token\"]));",
+              "pm.test(\"Full final page has empty cursor\",()=>{pm.expect(page.items).to.have.lengthOf(2);pm.expect(page.next_page_token).to.equal(\"\");});",
+              "pm.test(\"Continuation preserves order without repeating the first item\",()=>pm.expect(page.items.map(i=>i.id)).to.eql([\"00000002-1111-1111-1111-111111111111\",\"00000001-1111-1111-1111-111111111111\"]));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Exactly one upstream request per pagination call",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer disposable-momentum-token"
+          }
+        ],
+        "url": "{{simulationUrl}}/momentum/__pagination_calls"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\",()=>pm.response.to.have.status(200));",
+              "pm.test(\"Two explicit calls per endpoint\",()=>pm.expect(pm.response.json()).to.eql({\"/v1/analyses\":2,\"/v1/analyses/latest\":2,\"/v1/recommendations\":2}));"
             ]
           }
         }

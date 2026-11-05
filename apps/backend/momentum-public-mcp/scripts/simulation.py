@@ -69,10 +69,11 @@ def main():
                     "MOMENTUM_API_USE_IAM": "false",
                     "MOMENTUM_API_TOKEN": "disposable-momentum-token",
                     "MARKET_SCANNER_API_TOKEN": "disposable-scanner-token",
+                    "GOOGLE_CLOUD_PROJECT": "",
                     "SUGGESTION_HASH_SECRET": "disposable-simulation-only",
                 }
                 app = subprocess.Popen(
-                    [sys.executable, "-m", "momentum_public_mcp.main"],
+                    [sys.executable, "-m", "app.main"],
                     cwd=ROOT,
                     env=env,
                     start_new_session=True,
@@ -88,6 +89,8 @@ def main():
                         "tests/postman/mcp.postman_collection.json",
                         "--env-var",
                         f"mcpUrl={endpoint}",
+                        "--env-var",
+                        f"simulationUrl={base}",
                         "--report-events=false",
                     ],
                     cwd=ROOT,

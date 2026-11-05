@@ -53,12 +53,12 @@ def main():
         wait_for_health(endpoint)
         discovery = rpc(endpoint + "/", "server/discover")
         assert VERSION in discovery["supportedVersions"]
-        assert len(rpc(endpoint + "/", "tools/list")["tools"]) == 7
+        assert len(rpc(endpoint + "/", "tools/list")["tools"]) == 6
         invalid = rpc(
             endpoint + "/",
             "tools/call",
             {
-                "name": "get_analysis",
+                "name": "momentum_get_analysis",
                 "arguments": {"analysis_id": "invalid-uuid"},
             },
         )
@@ -84,12 +84,15 @@ def main():
                     "image": args.image,
                     "user": user,
                     "protocol": VERSION,
-                    "tools": 7,
+                    "tools": 6,
                     "validation_error": True,
                     "runtime_only": True,
                 }
             )
         )
+    except Exception:
+        print(docker("logs", name))
+        raise
     finally:
         docker("stop", name)
 
