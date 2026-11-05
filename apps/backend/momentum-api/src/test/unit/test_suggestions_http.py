@@ -10,7 +10,7 @@ import pytest
 
 from app.app_factory import create_app
 from app.config.settings import Settings
-from app.domain.suggestions import Suggestion, SuggestionInput
+from app.domain.suggestions import Suggestion, SuggestionInput, SuggestionSubmission
 
 SECRET = "disposable-suggestion-key"
 CALLER = "a" * 64
@@ -30,7 +30,7 @@ class Store:
     async def submit(self, symbol, reason, caller):
         value = SuggestionInput(symbol, reason, caller)
         self.calls.append(value)
-        return Suggestion(
+        self.value = Suggestion(
             UUID(int=1),
             value.symbol,
             value.reason,
@@ -40,6 +40,11 @@ class Store:
             None,
             None,
         )
+
+        return SuggestionSubmission(self.value, created=True)
+
+    async def get(self, suggestion_id):
+        return self.value if suggestion_id == self.value.id else None
 
 
 @pytest.fixture
@@ -61,16 +66,22 @@ async def client():
         yield client, store
 
 
-async def test_original_intake_contract(client):
+async def test_versioned_intake_contract(client):
     connection, store = client
     response = await connection.post(
         "/v1/suggestions",
         json={"symbol": " msft ", "reason": " test "},
         headers=HEADERS,
     )
-    assert response.status_code == 202, response.text
+    assert response.status_code == 201, response.text
     assert response.json()["symbol"] == "MSFT"
     assert response.json()["status"] == "pending"
+    assert (
+        response.headers["location"]
+        == "http://test/v1/suggestions/00000000-0000-0000-0000-000000000001"
+    )
+    found = await connection.get(response.headers["location"], headers=HEADERS)
+    assert found.json() == response.json()
     assert len(store.calls) == 1
     assert "suggested_by" not in response.json()
     assert response.headers["cache-control"] == "no-store"
@@ -125,10 +136,50 @@ async def test_intake_method_allowlist(client):
     assert not store.calls
 
 
-async def test_unversioned_intake_is_removed(client):
+@pytest.mark.parametrize(
+    "path", ["/suggestions", "/suggestions/00000000-0000-0000-0000-000000000001"]
+)
+async def test_unversioned_paths_are_removed(client, path):
     connection, store = client
-    response = await connection.post(
-        "/suggestions", json={"symbol": "MSFT"}, headers=HEADERS
-    )
-    assert response.status_code == 404
+    for method in ("GET", "POST", "HEAD", "OPTIONS"):
+        response = await connection.request(method, path, headers=HEADERS)
+        assert response.status_code == 404
     assert not store.calls
+
+
+async def test_duplicate_returns_200_and_canonical_location(client, monkeypatch):
+    connection, store = client
+    original = store.submit
+
+    async def duplicate(*args):
+        result = await original(*args)
+        return SuggestionSubmission(result.suggestion, created=False)
+
+    monkeypatch.setattr(store, "submit", duplicate)
+    response = await connection.post(
+        "/v1/suggestions", json={"symbol": "MSFT"}, headers=HEADERS
+    )
+    assert response.status_code == 200
+    assert response.headers["location"].endswith(
+        "/v1/suggestions/" + response.json()["id"]
+    )
+
+
+async def test_location_respects_mount_path(client):
+    from fastapi import FastAPI
+
+    connection, _ = client
+    outer = FastAPI()
+    outer.mount("/api", connection._transport.app)
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(outer), base_url="https://test"
+    ) as mounted:
+        response = await mounted.post(
+            "/api/v1/suggestions", json={"symbol": "MSFT"}, headers=HEADERS
+        )
+        assert response.status_code == 201
+        assert response.headers["location"].startswith(
+            "https://test/api/v1/suggestions/"
+        )
+        found = await mounted.get(response.headers["location"], headers=HEADERS)
+        assert found.json() == response.json()

@@ -2,7 +2,7 @@
   "components": {
     "headers": {
       "Allow": {
-        "description": "GET, HEAD, OPTIONS for this resource.",
+        "description": "Supported methods for the target resource.",
         "schema": {
           "type": "string"
         }
@@ -5576,7 +5576,35 @@
           "required": true
         },
         "responses": {
-          "202": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuggestionResponse"
+                }
+              }
+            },
+            "description": "Existing suggestion",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/Cache-Control"
+              },
+              "Location": {
+                "description": "Canonical URL of the created or existing suggestion.",
+                "schema": {
+                  "format": "uri",
+                  "type": "string"
+                }
+              },
+              "Request-ID": {
+                "$ref": "#/components/headers/Request-ID"
+              },
+              "Vary": {
+                "$ref": "#/components/headers/Vary"
+              }
+            }
+          },
+          "201": {
             "content": {
               "application/json": {
                 "schema": {
@@ -5588,6 +5616,13 @@
             "headers": {
               "Cache-Control": {
                 "$ref": "#/components/headers/Cache-Control"
+              },
+              "Location": {
+                "description": "Canonical URL of the created or existing suggestion.",
+                "schema": {
+                  "format": "uri",
+                  "type": "string"
+                }
               },
               "Request-ID": {
                 "$ref": "#/components/headers/Request-ID"
@@ -5771,7 +5806,7 @@
             "Bearer": []
           }
         ],
-        "summary": "Status",
+        "summary": "Get Suggestion",
         "tags": [
           "suggestions"
         ]
@@ -6046,7 +6081,7 @@
             "Bearer": []
           }
         ],
-        "summary": "Metadata only: Status",
+        "summary": "Metadata only: Get Suggestion",
         "tags": [
           "suggestions"
         ]
