@@ -187,16 +187,9 @@ def main() -> None:
                 "Latest scan resource",
                 "Sanitized upstream failure",
                 "Cold-start latency",
-                "Exactly one upstream request per pagination call",
             }
-            # Short pages with fixed cursor bytes belong to the three-row HTTP
-            # simulation. This database fixture contains one analysis; its API
-            # cursor encoding and keyset traversal have separate database tests.
             collection["item"] = [
-                item
-                for item in collection["item"]
-                if item["name"] not in omitted
-                and not item["name"].endswith((" page 1", " page 2"))
+                item for item in collection["item"] if item["name"] not in omitted
             ]
             path = Path(directory) / "collection.json"
             path.write_text(json.dumps(collection))

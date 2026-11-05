@@ -484,8 +484,6 @@ export batch.
 Cloud Run request-based CPU allocation can delay background batch export while
 an instance is idle; billing/CPU allocation is unchanged by this integration.
 
-`tests/test_telemetry.py` uses an in-memory exporter to verify span parentage,
-propagation, full trace recording and log correlation without sending data to GCP.
 Live Cloud Trace ingestion must be verified after deployment; local tests do not
 prove service-account permissions or exported traces in the destination project.
 

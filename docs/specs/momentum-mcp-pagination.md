@@ -102,8 +102,6 @@ Chemins relatifs à `apps/backend/momentum-public-mcp/` :
 | `core_components/gateway.py` sous `src/app/` | Une lecture de page via le client HTTP. |
 | `domain.py` sous `src/app/` | Validation de la demande MCP `AnalysisPage`. |
 | `api/momentum/` sous `src/app/` | Clients et DTO HTTP réutilisés sans changer l'API. |
-| `tests/test_pagination.py` | Parcours piloté par le client, limites, schémas et erreurs. |
-| `tests/test_api_cursor_compatibility.py` | Compatibilité avec le véritable contrat de curseur API. |
 | `tests/postman/` | Vérification du serveur réel contre des API simulées. |
 
 ## Vérification reproductible
@@ -119,11 +117,9 @@ uv build --out-dir dist
 ```
 
 La simulation démarre le vrai serveur MCP, appelle les clients HTTP réels et
-contrôle les réponses des deux mocks locaux. Elle vérifie deux pages par outil,
-un curseur sur une page courte, une dernière page pleine, l'ordre sans doublons
-et exactement une requête API par appel de pagination. Les autres scénarios
-couvrent les suggestions simulées, les ressources, les prompts et les erreurs.
-Les observations sont conservées dans `tests/postman/readers.context.md`.
+contrôle les réponses des deux mocks locaux. Les scénarios existants couvrent
+la découverte, les lectures, la ressource Scanner, les suggestions simulées,
+les erreurs et la latence.
 
 Ces vérifications locales ne constituent pas une validation de données Aiven,
 d'IAM déployé ou d'un déploiement de la nouvelle version. Aucun appel de production

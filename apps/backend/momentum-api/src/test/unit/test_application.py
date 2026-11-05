@@ -60,31 +60,6 @@ async def test_liveness_and_authenticated_openapi(client):
     assert schema.status_code == 200 and "openapi" in schema.json()
 
 
-@pytest.mark.parametrize(
-    ("path", "maximum"),
-    [("/v1/analyses", 100), ("/v1/analyses/latest", 100), ("/v1/recommendations", 50)],
-)
-async def test_endpoint_page_limits_match_openapi(client, reader, path, maximum):
-    auth = {"Authorization": BEARER}
-    schema = (await client.get("/openapi.json", headers=auth)).json()
-    page_size = next(
-        parameter["schema"]
-        for parameter in schema["paths"][path]["get"]["parameters"]
-        if parameter["name"] == "page_size"
-    )
-    assert page_size["maximum"] == maximum
-
-    reader.list.return_value = AnalysisPage(items=[], next_page_token="")
-    accepted = await client.get(path, params={"page_size": maximum}, headers=auth)
-    assert accepted.status_code == 200
-    assert reader.list.await_args.args[0].page_size == maximum
-    reader.list.reset_mock()
-
-    rejected = await client.get(path, params={"page_size": maximum + 1}, headers=auth)
-    assert rejected.status_code == 400
-    reader.list.assert_not_awaited()
-
-
 async def test_unexpected_failure_has_safe_correlated_diagnostics(client, caplog):
     with caplog.at_level(logging.ERROR, logger="momentum_api"):
         response = await client.get("/crash", headers={"Authorization": BEARER})

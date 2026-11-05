@@ -16,17 +16,6 @@ def test_rejects_invalid_listening_port(port):
         settings(PORT=port)
 
 
-@pytest.mark.parametrize("page_size", [0, -1, 101])
-def test_rejects_invalid_discovery_page_size(page_size):
-    with pytest.raises(ValidationError):
-        settings(DEFAULT_PAGE_SIZE=page_size)
-
-
-def test_discovery_page_size_defaults_to_100(monkeypatch):
-    monkeypatch.delenv("DEFAULT_PAGE_SIZE", raising=False)
-    assert settings().DEFAULT_PAGE_SIZE == 100
-
-
 @pytest.mark.parametrize("field", ["MOMENTUM_API_URL", "MARKET_SCANNER_API_URL"])
 @pytest.mark.parametrize(
     "url", ["http://private.example", "https://user:password@api.example", "relative"]

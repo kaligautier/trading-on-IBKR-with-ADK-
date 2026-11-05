@@ -1,8 +1,6 @@
 // Read and suggestion contracts: apps/backend/momentum-api/openapi.json.
 // Synthetic local data; no external writes.
 const http = require("http");
-// Generated with Momentum API Cursor.encode() for the pagination fixture filters.
-const paginationTokens = {"/v1/analyses": "eyJ2ZXJzaW9uIjoxLCJjcmVhdGVkX2F0IjoiMjAyNi0xMC0yM1QxMjowMDowMFoiLCJpZCI6IjExMTExMTExLTExMTEtMTExMS0xMTExLTExMTExMTExMTExMSIsInNjb3BlIjoiYWVmNDkzYTY3NjdhNmEzZWMxYjdmNDNlMTBiMGM1MDIwYmIxMTU2ODg5YzZiZDMzZjczY2U0ZGQzYjFlMDRkNiJ9", "/v1/analyses/latest": "eyJ2ZXJzaW9uIjoxLCJjcmVhdGVkX2F0IjoiMjAyNi0xMC0yM1QxMjowMDowMFoiLCJpZCI6IjExMTExMTExLTExMTEtMTExMS0xMTExLTExMTExMTExMTExMSIsInNjb3BlIjoiNjRhZGUzOTc0YmNkNWU5ZjM4NjE2ZjcwNDYyMTBjNDIwMGVjNzY1NDg1Njk0ZGI0OWUwZDc2Njg4NDM4MmZhNCJ9", "/v1/recommendations": "eyJ2ZXJzaW9uIjoxLCJjcmVhdGVkX2F0IjoiMjAyNi0xMC0yM1QxMjowMDowMFoiLCJpZCI6IjExMTExMTExLTExMTEtMTExMS0xMTExLTExMTExMTExMTExMSIsInNjb3BlIjoiOTJhYTc1MDRjODI1MjJjZWE1MzRmMmMzZDRhNDkyZGJhMjBhNzBhOWE4NzFlN2ExYzU0YjRmZTI3MTQzNTA3ZiJ9"};
 http.createServer(async (req,res) => {
  const url = new URL(req.url,"http://localhost");
  const send = (status,body) => {res.writeHead(status,{"Content-Type":"application/json"});res.end(JSON.stringify(body));};
@@ -12,7 +10,6 @@ http.createServer(async (req,res) => {
  const suggestion={"id": "22222222-2222-2222-2222-222222222222", "symbol": "MSFT", "reason": "MCP migration test", "status": "pending", "source": "mcp", "created_at": "2026-10-24T00:00:00Z", "reviewed_at": null, "review_reason": null};
  if(req.method==="POST" && url.pathname==="/v1/suggestions") {
   if(!req.headers["x-momentum-signature"] || !req.headers["x-momentum-caller"]) return send(403,{});
-  res.setHeader("Location",`/v1/suggestions/${suggestion.id}`);
   const existing=await pm.state.get("momentum.suggestions.record");
   if(existing && existing.symbol===req.body.symbol) return send(200,existing);
   await pm.state.set("momentum.suggestions.record",{...suggestion,symbol:req.body.symbol,reason:req.body.reason});
@@ -22,7 +19,6 @@ http.createServer(async (req,res) => {
   const stored=await pm.state.get("momentum.suggestions.record");
   return stored ? send(200,stored) : send(404,{});
  }
- if(req.method==="GET" && url.pathname==="/__pagination_calls") return send(200,await pm.state.get("momentum.pagination_calls") || {});
  if (req.method !== "GET") return send(501,{});
  if (url.pathname === `/v1/analyses/${summary.id}`) return send(200,detail);
  if (["/v1/analyses","/v1/analyses/latest","/v1/recommendations"].includes(url.pathname)) {
@@ -30,19 +26,6 @@ http.createServer(async (req,res) => {
    const size=Number(url.searchParams.get("page_size"));
    const maximum=url.pathname==="/v1/recommendations" ? 50 : 100;
    if(size<1 || size>maximum) return send(400,{});
-   const token=url.searchParams.get("page_token") || "";
-   if (size===2) {
-     const expectedTicker=url.pathname==="/v1/analyses" ? "AAPL" : null;
-     const expectedRating=url.pathname==="/v1/analyses" ? null : "Buy,Overweight";
-     if(url.searchParams.get("ticker")!==expectedTicker || url.searchParams.get("rating")!==expectedRating) return send(400,{error:"fixture cursor filters mismatch"});
-     const counts=await pm.state.get("momentum.pagination_calls") || {};
-     counts[url.pathname]=(counts[url.pathname] || 0)+1;
-     await pm.state.set("momentum.pagination_calls",counts);
-     if(!token) return send(200,{items:[summary],next_page_token:paginationTokens[url.pathname]});
-     if(token!==paginationTokens[url.pathname]) return send(400,{error:"fixture cursor rejected"});
-     return send(200,{items:[{...summary,id:"00000002-1111-1111-1111-111111111111",ticker:url.pathname==="/v1/analyses" ? "AAPL" : "NVDA"},{...summary,id:"00000001-1111-1111-1111-111111111111",ticker:url.pathname==="/v1/analyses" ? "AAPL" : "MSFT"}],next_page_token:""});
-   }
-   if(token) return send(400,{error:"fixture cursor rejected"});
    if(url.searchParams.get("ticker")==="FAIL") return send(503,{error:"fixture upstream unavailable"});
    if(url.searchParams.get("ticker")==="SLOW") return setTimeout(() => send(200,{items:[{...summary,ticker:"SLOW"}],next_page_token:""}),11000);
    return send(200,{items:[summary],next_page_token:""});

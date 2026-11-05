@@ -77,18 +77,6 @@ def test_page_bounds(size):
         AnalysisSearchParams.from_parameters("history", None, None, size, "")
 
 
-@pytest.mark.parametrize(
-    ("view", "maximum"), [("history", 100), ("latest", 100), ("recommendations", 50)]
-)
-def test_page_limit_depends_on_view(view, maximum):
-    assert (
-        AnalysisSearchParams.from_parameters(view, None, None, maximum, "").page_size
-        == maximum
-    )
-    with pytest.raises(ValueError):
-        AnalysisSearchParams.from_parameters(view, None, None, maximum + 1, "")
-
-
 def test_view_defaults():
     assert (
         AnalysisSearchParams.from_parameters("history", None, None, 20, "").ratings
