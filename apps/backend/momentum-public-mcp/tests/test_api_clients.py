@@ -67,7 +67,7 @@ async def test_client_factories_keep_urls_and_identity_audiences_separate(
             return httpx.Response(
                 200, json={"items": [analysis_summary()], "next_page_token": ""}
             )
-        assert request.url == "https://scanner.test/market-scans/latest"
+        assert request.url == "https://scanner.test/v1/market-scans/latest"
         assert "X-Momentum-Signature" not in request.headers
         return httpx.Response(200, json=market_scan())
 

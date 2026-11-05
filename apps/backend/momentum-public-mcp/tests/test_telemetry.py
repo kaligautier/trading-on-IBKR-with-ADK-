@@ -21,7 +21,7 @@ def test_exported_span_tree_matches_http_calls(tracing, monkeypatch, upstream_st
 
     def handler(request):
         calls.append(request)
-        if request.url.path == "/market-scans/latest":
+        if request.url.path == "/v1/market-scans/latest":
             return httpx.Response(200, json=market_scan())
         return httpx.Response(
             upstream_status,

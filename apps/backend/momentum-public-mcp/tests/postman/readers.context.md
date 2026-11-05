@@ -141,6 +141,10 @@ is removed after the run.
   233 MCP tests, 272 API tests, 29 simulation requests / 126 assertions and
   19 real MCP/API/PostgreSQL requests / 77 assertions passed. Both simulation
   members received HTTP calls; the disposable database was cleaned up.
+- 2026-11-05: Aligned the Scanner HTTP client and simulation with main's
+  `GET /v1/market-scans/latest` route. The MCP resource URI stays unchanged.
+  All 233 MCP tests and 29 HTTP simulation requests / 126 assertions passed,
+  with requests observed at both upstream members. No API code was changed.
 <!-- end:observations -->
 
 ## What didn't work

@@ -336,7 +336,8 @@ maximum of 50; the other list endpoints retain 100. API and MCP constraints are
 declared separately and must be updated together. Discovery pagination via
 `DEFAULT_PAGE_SIZE` does not configure these analysis pages.
 
-The resource `momentum://market_scanner/market-scans/latest` returns the current reader envelope
+The resource `momentum://market_scanner/market-scans/latest` calls
+`GET /v1/market-scans/latest` and returns the current reader envelope
 as JSON text in `result.contents` from `resources/read`:
 `{id, scan_date, created_at, report}`. `report` preserves the complete v3 data,
 including decimal strings, null horizons and arbitration. Consumers of the old

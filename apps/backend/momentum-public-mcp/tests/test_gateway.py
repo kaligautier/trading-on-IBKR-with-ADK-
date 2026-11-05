@@ -151,7 +151,7 @@ async def test_latest_market_scan_uses_scanner_consultation_api() -> None:
         raise AssertionError(f"Unexpected request to Momentum API: {request.url}")
 
     async def scanner_handler(request: httpx.Request) -> httpx.Response:
-        assert request.url == "https://scanner.test/market-scans/latest"
+        assert request.url == "https://scanner.test/v1/market-scans/latest"
         return httpx.Response(200, json=market_scan())
 
     momentum_client = httpx.AsyncClient(

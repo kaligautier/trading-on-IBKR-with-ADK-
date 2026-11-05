@@ -21,7 +21,7 @@ class MarketScannerClient:
         )
 
     async def latest_market_scan(self) -> MarketScan:
-        response = await self._http.request("GET", "/market-scans/latest")
+        response = await self._http.request("GET", "/v1/market-scans/latest")
         return self._http.model(response, MarketScan)
 
     async def close(self) -> None:
