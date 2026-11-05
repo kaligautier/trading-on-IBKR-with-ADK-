@@ -1,6 +1,33 @@
 # LiteLLM image dependency review
 
-## Decision and evidence
+## 1.108.0 candidate: deployment blocked
+
+On 2026-11-05, both official v1.108.0 image indexes were resolved from GHCR
+and pinned together in `variables.tf`:
+
+```text
+ghcr.io/berriai/litellm@sha256:c560d317136880ea92d62334d4367ab10955b1af189dd3ea24f6551290b1d6c1
+ghcr.io/berriai/litellm-migrations@sha256:34b56043663c3612513f7a56ce6291a9b5ba60db9378427afe0fb45cd3dfe3ab
+```
+
+The existing `pip-audit==2.10.1` audit of the exact linux/amd64 images found
+13 advisories in `filelock==3.32.7` in each image (202 proxy distributions,
+143 migration distributions). All reported advisories have fixes in filelock
+4.2.1. No advisory exceptions were added. The image-security gate remains
+blocking; these candidate images must not be deployed while it fails.
+
+Upstream [issue #48394](https://github.com/BerriAI/litellm/issues/48394)
+is closed and points to [PR #49137](https://github.com/BerriAI/litellm/pull/49137)
+as its fix. That issue status does not establish that a published image contains
+the corrected installed package: the inventories above still contain 3.32.7.
+The original [PR #48635](https://github.com/BerriAI/litellm/pull/48635)
+was closed without merging.
+
+Reproduce with the command below. Generated inventories and advisory JSON stay
+outside Git. The historical review below describes 1.103.4 at its scan date,
+not the current candidate or a current clean audit of the deployed release.
+
+## Historical 1.103.4 decision and evidence
 
 The PR initially pinned LiteLLM 1.103.1. An audit of its installed proxy Python
 packages found 31 advisories across seven packages. Upgrade both official images

@@ -27,8 +27,9 @@ Terraform manages secret containers and references, not credential payloads.
 
 The pinned proxy and migration images use the same upstream version. Artifact
 Registry mirrors GHCR because Cloud Run cannot pull GHCR references directly.
-The current pins are LiteLLM 1.103.4; see [SECURITY.md](SECURITY.md) for the
-dependency audit, its scope and the upgrade policy.
+The candidate pins are LiteLLM 1.108.0. Deployment is blocked by the
+`image-security` audit until its filelock findings are resolved; see
+[SECURITY.md](SECURITY.md) for current evidence and the upgrade policy.
 
 ## Database and secrets
 
