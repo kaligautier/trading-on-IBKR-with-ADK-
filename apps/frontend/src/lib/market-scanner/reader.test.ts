@@ -20,7 +20,7 @@ test("uses an audience-bound metadata token only for the fixed reader endpoint",
   assert.equal(result?.id, scan.id)
   assert.equal(new URL(requests[0].url).searchParams.get("audience"), config.baseUrl)
   assert.equal(new Headers(requests[0].options?.headers).get("Metadata-Flavor"), "Google")
-  assert.equal(requests[1].url, `${config.baseUrl}/market-scans/latest`)
+  assert.equal(requests[1].url, `${config.baseUrl}/v1/market-scans/latest`)
   assert.equal(new Headers(requests[1].options?.headers).get("X-Serverless-Authorization"), "Bearer identity-token")
   assert.equal(requests[1].options?.redirect, "error")
   assert.ok(requests.every(request => request.options?.signal instanceof AbortSignal))
