@@ -15,7 +15,7 @@ from app.domain.suggestions import CurrentAnalysisExistsError, SuggestionRateLim
 from app.presentation.http.problems import APIError
 from app.services.suggestion_service import SuggestionService
 
-router = APIRouter(prefix="/suggestions", tags=["suggestions"])
+router = APIRouter(prefix="/v1/suggestions", tags=["suggestions"])
 
 
 class SuggestionRequest(BaseModel):

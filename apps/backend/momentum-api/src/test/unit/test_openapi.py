@@ -17,7 +17,7 @@ def test_openapi_policy_and_financial_shapes():
     for path, operations in schema["paths"].items():
         assert set(operations) == (
             {"post", "options"}
-            if path == "/suggestions"
+            if path == "/v1/suggestions"
             else {"get", "head", "options"}
         )
         for method, operation in operations.items():
