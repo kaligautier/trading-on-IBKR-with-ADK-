@@ -23,6 +23,15 @@ the corrected installed package: the inventories above still contain 3.32.7.
 The original [PR #48635](https://github.com/BerriAI/litellm/pull/48635)
 was closed without merging.
 
+Local functional checks passed on this candidate: migrations twice, UI/API
+authentication, key persistence, shared Redis quotas and verified TLS, gateway
+route isolation, native Gemini generation and incremental SSE, durable usage,
+independent daily agent budgets and global-budget denial after proxy restarts.
+The provider is a local stub; this does not establish live Vertex behavior.
+Budget refusals now include HTTP 422. The SSE test uses an explicit provider
+release after the first frame is received, avoiding a fragile elapsed-time
+threshold while still rejecting full-response buffering.
+
 Reproduce with the command below. Generated inventories and advisory JSON stay
 outside Git. The historical review below describes 1.103.4 at its scan date,
 not the current candidate or a current clean audit of the deployed release.
