@@ -6,7 +6,11 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Request
 from fastapi import Query as HTTPQuery
 
-from app.domain.analyses.search import AnalysisSearchParams, View
+from app.domain.analyses.search import (
+    MAX_RECOMMENDATION_PAGE_SIZE,
+    AnalysisSearchParams,
+    View,
+)
 from app.presentation.dto import AnalysisDetail, AnalysisPage
 from app.presentation.http.problems import APIError
 from app.presentation.mappers import detail_to_dto, page_to_dto
@@ -28,6 +32,9 @@ def service(request: Request) -> AnalysisService:
 
 Service = Annotated[AnalysisService, Depends(service)]
 PageSize = Annotated[int, HTTPQuery(ge=1, le=100)]
+RecommendationPageSize = Annotated[
+    int, HTTPQuery(ge=1, le=MAX_RECOMMENDATION_PAGE_SIZE)
+]
 PageToken = Annotated[str, HTTPQuery(max_length=512)]
 Ticker = Annotated[str | None, HTTPQuery(max_length=64)]
 Rating = Annotated[str | None, HTTPQuery(max_length=128)]
@@ -86,7 +93,7 @@ async def recommendations(
     reader: Service,
     ticker: Ticker = None,
     rating: Rating = None,
-    page_size: PageSize = 10,
+    page_size: RecommendationPageSize = 10,
     page_token: PageToken = "",
 ) -> AnalysisPage:
     """Latest-per-ticker results, defaulting to Buy and Overweight."""
