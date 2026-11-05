@@ -271,3 +271,14 @@ bash scripts/test_database.sh stop
 This launches real loopback API/MCP processes, runs nine saved Postman requests,
 and independently reads PostgreSQL to prove the pending result was committed.
 It emulates Cloud Run ingress locally; IAM must also be verified after deployment.
+
+
+## Versioned suggestion resources
+
+All business resources use `/v1`. The former `/suggestions` paths have been
+removed and return 404; clients must migrate with this release. A new suggestion
+returns 201; an existing ticker returns 200. Both include `Location` for the
+canonical status resource. The record remains pending moderation. GET/HEAD
+retrieval is safe; POST is not a general-purpose retry guarantee. Payloads,
+caller authentication and quotas are unchanged. See the
+[versioning specification](../../../docs/specs/rest-api-versioning.md).

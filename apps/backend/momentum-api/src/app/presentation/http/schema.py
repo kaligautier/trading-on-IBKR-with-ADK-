@@ -48,7 +48,7 @@ def install_schema(app: FastAPI) -> None:
                 "Request-ID": "Server-generated request correlation UUID.",
                 "Cache-Control": "Always no-store.",
                 "Vary": "Accept, Accept-Encoding.",
-                "Allow": "GET, HEAD, OPTIONS for this resource.",
+                "Allow": "Supported methods for the target resource.",
                 "WWW-Authenticate": "Bearer challenge with optional OAuth error.",
             }.items()
         }
@@ -197,7 +197,14 @@ def _describe_intake(operations: dict[str, Any], common: dict[str, Any]) -> None
     )
     responses = operation["responses"]
     responses.pop("422", None)
-    responses["202"]["headers"] = deepcopy(common)
+    for success_status in ("200", "201"):
+        responses[success_status]["headers"] = {
+            **deepcopy(common),
+            "Location": {
+                "description": "Canonical URL of the created or existing suggestion.",
+                "schema": {"type": "string", "format": "uri"},
+            },
+        }
     for status in sorted(ERRORS - {412}):
         responses[str(status)] = {"$ref": f"#/components/responses/{status}"}
     operation["parameters"] = [
