@@ -15,6 +15,7 @@ from momentum_public_mcp.constants import (
 from momentum_public_mcp.constants import (
     PUBLIC_TOOL_NAMES as PUBLIC_TOOL_NAMES,
 )
+from momentum_public_mcp.middleware import ToolCallLoggingMiddleware
 from momentum_public_mcp.observability import ToolTelemetry
 from momentum_public_mcp.prompts import analyze_ticker
 from momentum_public_mcp.resources import MomentumPublicResources
@@ -64,6 +65,7 @@ class MomentumPublicMcpServer:
         self.server.add_provider(momentum)
         self.server.add_provider(scanner)
         self.server.enable(tags={"public"}, only=True)
+        self.server.add_middleware(ToolCallLoggingMiddleware())
         self.server.add_middleware(ToolTelemetry())
         self._add_health_route()
         if fingerprint is not None:

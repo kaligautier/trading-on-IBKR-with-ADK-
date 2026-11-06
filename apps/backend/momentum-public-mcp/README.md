@@ -127,9 +127,10 @@ one context-rich `request_completed` event per HTTP request and emits it at the
 end, including on cancellation. It contains the service/revision, HTTP status,
 tool outcome and duration, per-upstream call/error counts and latency, and bounded
 business outcomes (result count, asset count, record found or moderation status).
-Pagination increments counters instead of producing one log line per API call.
-Third-party per-request chatter is suppressed. Cloud Run's own platform request
-logs remain separate from this application event.
+`middleware/logging.py` emits one `tool_call` event with bounded, credential-redacted
+arguments, status and duration. Pagination increments upstream counters instead
+of producing one log line per API call. Third-party per-request chatter is
+suppressed. Cloud Run's own platform request logs remain separate.
 
 Every HTTP response includes a new `X-Request-ID`; outgoing API calls propagate
 that ID and a validated W3C trace context. Tool errors count as failures even
@@ -137,10 +138,11 @@ when HTTP returns 200. A request-local accumulator keeps concurrent calls isolat
 `GOOGLE_CLOUD_PROJECT` adds Cloud Logging trace association fields. This is log
 correlation, not a complete distributed-tracing exporter.
 
-Logs omit arguments, response bodies, addresses, credentials, exception text and
-third-party free-form messages. Use tool, upstream counters, status and error type
-for diagnosis; this deliberate redaction limits exception detail. Example Logs
-Explorer filter for a request (replace the ID with the response header):
+Tool-call events include inputs after masking credential-like keys and truncating
+large values. Neither event includes response bodies, addresses, credential values,
+exception messages or third-party free-form messages. Use tool, upstream counters,
+status and error type for diagnosis. Example Logs Explorer filter for a request
+(replace the ID with the response header):
 
 ```text
 resource.type="cloud_run_revision"
