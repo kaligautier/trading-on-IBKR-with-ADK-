@@ -5,6 +5,7 @@ from starlette.testclient import TestClient
 from test_server import StaticFingerprint, StubGateway
 
 from momentum_public_mcp.protocol import create_http_app
+from momentum_public_mcp.resources import MomentumPublicResources
 from momentum_public_mcp.server import MomentumPublicMcpServer
 from momentum_public_mcp.tools import MomentumPublicTools
 
@@ -42,7 +43,8 @@ def headers(method="tools/list", name=None):
 @pytest.fixture
 def http_client():
     server = MomentumPublicMcpServer(
-        MomentumPublicTools(StubGateway(), StaticFingerprint())
+        MomentumPublicTools(StubGateway(), StaticFingerprint()),
+        resources=MomentumPublicResources(StubGateway()),
     ).server
     with TestClient(create_http_app(server)) as client:
         yield client
@@ -51,8 +53,10 @@ def http_client():
 def test_direct_tool_call_needs_no_discovery_or_initialization(http_client):
     response = http_client.post(
         "/",
-        headers=headers("tools/call", "list_analyses"),
-        json=envelope("tools/call", name="list_analyses", arguments={"page_size": 1}),
+        headers=headers("tools/call", "momentum_list_analyses"),
+        json=envelope(
+            "tools/call", name="momentum_list_analyses", arguments={"page_size": 1}
+        ),
     )
     assert response.status_code == 200, response.text
     assert "mcp-session-id" not in response.headers
@@ -152,7 +156,8 @@ def test_no_standalone_stream_or_session_delete(http_client, method):
 def test_repeated_request_id_is_independent_across_server_instances():
     for _ in range(2):
         server = MomentumPublicMcpServer(
-            MomentumPublicTools(StubGateway(), StaticFingerprint())
+            MomentumPublicTools(StubGateway(), StaticFingerprint()),
+            resources=MomentumPublicResources(StubGateway()),
         ).server
         with TestClient(create_http_app(server)) as client:
             response = client.post("/", headers=headers(), json=envelope())
