@@ -7,20 +7,20 @@ from fastmcp.server.providers import LocalProvider
 from fastmcp.server.transforms import Namespace
 from starlette.responses import JSONResponse
 
-from momentum_public_mcp.constants import (
+from momentum_public_mcp.config.constants import (
     DEFAULT_LIST_PAGE_SIZE,
     MARKET_SCANNER_NAMESPACE,
     MOMENTUM_NAMESPACE,
 )
-from momentum_public_mcp.constants import (
+from momentum_public_mcp.config.constants import (
     PUBLIC_TOOL_NAMES as PUBLIC_TOOL_NAMES,
 )
+from momentum_public_mcp.mcp.prompts import analyze_ticker
+from momentum_public_mcp.mcp.resources import MomentumPublicResources
+from momentum_public_mcp.mcp.tools import MomentumPublicTools
 from momentum_public_mcp.middleware import ToolCallLoggingMiddleware
 from momentum_public_mcp.observability import ToolTelemetry
-from momentum_public_mcp.prompts import analyze_ticker
-from momentum_public_mcp.resources import MomentumPublicResources
 from momentum_public_mcp.security import FingerprintProvider
-from momentum_public_mcp.tools import MomentumPublicTools
 
 
 async def health_check(request) -> JSONResponse:

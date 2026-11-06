@@ -8,24 +8,24 @@ import httpx
 import uvicorn
 from pydantic import SecretStr
 
-from momentum_public_mcp.config import Settings
-from momentum_public_mcp.gateway import (
+from momentum_public_mcp.config.config import Settings
+from momentum_public_mcp.mcp.gateway import (
     CloudRunIdentityHeaders,
     DisabledIdentityTokenProvider,
     MetadataIdentityTokenProvider,
     MomentumHttpGateway,
     SuggestionSigner,
 )
+from momentum_public_mcp.mcp.resources import MomentumPublicResources
+from momentum_public_mcp.mcp.tools import MomentumPublicTools
 from momentum_public_mcp.observability import configure_logging
 from momentum_public_mcp.protocol import create_http_app
-from momentum_public_mcp.resources import MomentumPublicResources
 from momentum_public_mcp.security import (
     CallerFingerprint,
     ClientAddressResolver,
     TrustedProxyNetworks,
 )
 from momentum_public_mcp.server import MomentumPublicMcpServer
-from momentum_public_mcp.tools import MomentumPublicTools
 
 
 class MomentumPublicApplication:

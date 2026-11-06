@@ -7,7 +7,7 @@ from uuid import UUID
 import pytest
 from fastmcp import Client
 
-from momentum_public_mcp.constants import (
+from momentum_public_mcp.config.constants import (
     MARKET_SCANNER_API_VERSION,
     MOMENTUM_API_VERSION,
 )
@@ -17,12 +17,12 @@ from momentum_public_mcp.domain import (
     MarketScan,
     Suggestion,
 )
-from momentum_public_mcp.resources import (
+from momentum_public_mcp.mcp.resources import (
     LATEST_MARKET_SCAN_URI,
     MomentumPublicResources,
 )
+from momentum_public_mcp.mcp.tools import MomentumPublicTools
 from momentum_public_mcp.server import PUBLIC_TOOL_NAMES, MomentumPublicMcpServer
-from momentum_public_mcp.tools import MomentumPublicTools
 
 ANALYSIS_ID = UUID("11111111-1111-1111-1111-111111111111")
 SUGGESTION_ID = UUID("22222222-2222-2222-2222-222222222222")

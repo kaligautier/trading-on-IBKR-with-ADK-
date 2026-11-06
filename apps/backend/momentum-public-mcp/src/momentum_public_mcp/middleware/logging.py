@@ -8,7 +8,7 @@ from typing import Any
 
 from fastmcp.server.middleware import Middleware, MiddlewareContext
 
-from momentum_public_mcp.constants import PUBLIC_TOOL_NAMES
+from momentum_public_mcp.config.constants import PUBLIC_TOOL_NAMES
 
 logger = logging.getLogger(__name__)
 _SENSITIVE_KEY_PARTS = (

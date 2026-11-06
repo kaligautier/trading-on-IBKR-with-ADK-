@@ -12,7 +12,7 @@ from uuid import uuid4
 
 from fastmcp.server.middleware import Middleware
 
-from momentum_public_mcp.constants import PUBLIC_TOOL_NAMES
+from momentum_public_mcp.config.constants import PUBLIC_TOOL_NAMES
 from momentum_public_mcp.domain import (
     AnalysisDetail,
     AnalysisSummaries,

@@ -10,7 +10,7 @@ from fastmcp.exceptions import ToolError
 from fastmcp.tools import tool
 from pydantic import Field, ValidationError, ValidatorFunctionWrapHandler, WrapValidator
 
-from momentum_public_mcp.constants import (
+from momentum_public_mcp.config.constants import (
     GET_ANALYSIS_TOOL,
     GET_RECOMMENDATIONS_TOOL,
     GET_SUGGESTION_STATUS_TOOL,
@@ -29,7 +29,7 @@ from momentum_public_mcp.domain import (
     SuggestionReason,
     TickerSymbol,
 )
-from momentum_public_mcp.gateway import MomentumApiError, MomentumPublicGateway
+from momentum_public_mcp.mcp.gateway import MomentumApiError, MomentumPublicGateway
 from momentum_public_mcp.observability import record_result
 from momentum_public_mcp.security import FingerprintProvider
 
