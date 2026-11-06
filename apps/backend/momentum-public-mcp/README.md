@@ -14,6 +14,9 @@ Market Scanner reader using separate Cloud Run ID-token audiences. It has no
 database credentials or execution/admin permissions. `/health` is a liveness
 probe, not proof of upstream availability.
 
+`examples/sill.py` is a standalone SkillCatalogProvider sample using FastMCP
+4.2.0a2. It runs separately from this service, which stays pinned to FastMCP 4.1.3.
+
 ## Stateless contract
 
 The HTTP profile implements [SEP-2575](https://modelcontextprotocol.io/seps/2575-stateless-mcp)
