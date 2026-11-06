@@ -1,14 +1,30 @@
-"""Public Momentum domain values and validated response models."""
+"""Public Momentum boundary values and one-page result wrapper."""
 
 from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from datetime import date, datetime
-from typing import Any, ClassVar
+from typing import ClassVar
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict
+from momentum_public_mcp.api.market_scanner.dtos.response.market_scan import (
+    MarketScan as MarketScan,
+)
+from momentum_public_mcp.api.momentum.dtos.response.analyses import (
+    AnalysisDetail as AnalysisDetail,
+)
+from momentum_public_mcp.api.momentum.dtos.response.analyses import (
+    AnalysisSummary as AnalysisSummary,
+)
+from momentum_public_mcp.api.momentum.dtos.response.analyses import (
+    ReaderPage as ReaderPage,
+)
+from momentum_public_mcp.api.momentum.dtos.response.analyses import (
+    RunStatistics as RunStatistics,
+)
+from momentum_public_mcp.api.momentum.dtos.response.suggestions import (
+    Suggestion as Suggestion,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -117,98 +133,6 @@ class SuggestionId:
             return cls(UUID(raw_identifier))
         except ValueError as error:
             raise ValueError("Suggestion id must be a valid UUID.") from error
-
-
-class PublicResponse(BaseModel):
-    """Allow additive API changes without leaking undeclared fields."""
-
-    model_config = ConfigDict(extra="ignore")
-
-
-class AnalysisSummary(PublicResponse):
-    id: UUID
-    ticker: str
-    analysis_date: date
-    created_at: datetime | None
-    llm_provider: str
-    next_analysis_date: date | None
-    rating: str | None = None
-    executive_summary: str | None = None
-    price_target: float | None = None
-    entry_price: float | None = None
-    stop_loss: float | None = None
-    position_size: float | None = None
-    position_size_description: str | None = None
-    time_horizon_months: float | None = None
-    time_horizon_description: str | None = None
-    risk_reward_ratio: float | None = None
-    risk_reward_description: str | None = None
-    trader_action: str | None = None
-    trader_entry: float | None = None
-    trader_stop: float | None = None
-    trader_take_profit: float | None = None
-    close_price: float | None = None
-    rsi: float | None = None
-    rsi_signal: str | None = None
-    trend_direction: str | None = None
-    key_support: float | None = None
-    key_resistance: float | None = None
-    pe_ratio: float | None = None
-    peg_ratio: float | None = None
-    beta: float | None = None
-
-
-class RunStatistics(PublicResponse):
-    agents_total: int
-    agents_completed: int
-    llm_calls: int
-    tool_calls: int
-    tokens_in: int
-    tokens_out: int
-    reports_total: int
-    reports_completed: int
-    duration_seconds: float
-
-
-class AnalysisDetail(PublicResponse):
-    id: UUID
-    ticker: str
-    analysis_date: date
-    created_at: datetime | None
-    llm_provider: str
-    deep_think_llm: str
-    quick_think_llm: str
-    next_analysis_date: date | None
-    next_analysis_desc: str | None
-    technical_indicators: dict[str, Any] | None
-    fundamentals: dict[str, Any] | None
-    sentiment: dict[str, Any] | None
-    news: dict[str, Any] | None
-    research_plan: dict[str, Any] | None
-    trader_proposal: dict[str, Any] | None
-    portfolio_decision: dict[str, Any] | None
-    debate_arguments: list[dict[str, Any]]
-    run_stats: RunStatistics | None
-
-
-class Suggestion(PublicResponse):
-    id: UUID
-    symbol: str
-    reason: str
-    status: str
-    source: str
-    created_at: datetime
-    reviewed_at: datetime | None
-    review_reason: str | None
-
-
-class MarketScan(PublicResponse):
-    """Reader envelope; preserve report-v3 values, including decimal strings."""
-
-    id: UUID
-    scan_date: date
-    created_at: datetime
-    report: dict[str, Any]
 
 
 @dataclass(frozen=True, slots=True)
