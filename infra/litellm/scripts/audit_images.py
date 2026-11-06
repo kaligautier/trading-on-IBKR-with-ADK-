@@ -6,6 +6,7 @@ inside images or advisory exceptions are used. Any known vulnerability fails.
 
 import argparse
 import json
+import os
 from pathlib import Path
 import re
 import subprocess
@@ -36,7 +37,10 @@ def main():
     ]:
         block = variables.split(f'variable "{variable}"', 1)[1]
         digest = re.search(r'default\s*=\s*"(sha256:[0-9a-f]{64})"', block)[1]
-        image = f"ghcr.io/berriai/{name}@{digest}"
+        image = os.environ.get(
+            "LITELLM_" + variable.upper().replace("_DIGEST", "_IMAGE"),
+            f"ghcr.io/berriai/{name}@{digest}",
+        )
         requirements = args.output_dir / f"{name}-requirements.txt"
         (args.output_dir / f"{name}-image.txt").write_text(
             image + "\n" + args.platform + "\n"

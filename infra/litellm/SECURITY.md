@@ -1,40 +1,45 @@
 # LiteLLM image dependency review
 
-## 1.108.0 candidate: deployment blocked
+## 1.108.0 security-patched release
 
-On 2026-11-05, both official v1.108.0 image indexes were resolved from GHCR
-and pinned together in `variables.tf`:
+The upstream bases are pinned by digest in `variables.tf`. Both official
+linux/amd64 images contain filelock 3.32.7 with 13 known advisories at the
+2026-11-05 scan. The derived images replace it with filelock 4.2.4, using a
+SHA-256-verified wheel. No advisory exclusions are used.
 
-```text
-ghcr.io/berriai/litellm@sha256:c560d317136880ea92d62334d4367ab10955b1af189dd3ea24f6551290b1d6c1
-ghcr.io/berriai/litellm-migrations@sha256:34b56043663c3612513f7a56ce6291a9b5ba60db9378427afe0fb45cd3dfe3ab
+`images/widen_filelock.py` backports the installed requirement-bound change
+from [upstream PR #49137](https://github.com/BerriAI/litellm/pull/49137):
+`filelock>=3.16.1,<4.0` becomes `filelock>=3.16.1,<5`. It updates the wheel
+RECORD hash and refuses an unexpected upstream requirement. This is necessary
+because the published 1.108.0 images still contain the old bound. Pip is a
+hash-verified temporary build tool; it is not installed in the runtime.
+The final proxy runs as root and migrations as nonroot, matching the bases.
+
+On 2026-11-05, the installed-Python-package audit of both corrected linux/amd64
+images returned **zero known vulnerabilities**. This is not an OS package,
+JavaScript dependency, provenance or unknown-vulnerability audit.
+
+CI builds both derived images before auditing or running the migration,
+authentication, Redis/TLS, route-isolation, Gemini SSE and budget tests.
+The official base digests remain separate from deployed release digests.
+Terraform `release_images` accepts only a complete, immutable Artifact Registry
+pair; the same proxy serves the admin UI and private gateway.
+
+Reproduce the corrected-image audit:
+
+```sh
+python3 infra/litellm/scripts/build_images.py
+export LITELLM_PROXY_IMAGE=litellm:security-patched
+export LITELLM_MIGRATIONS_IMAGE=litellm-migrations:security-patched
+python3 infra/litellm/scripts/audit_images.py --output-dir=/tmp/litellm-audit
 ```
 
-The existing `pip-audit==2.10.1` audit of the exact linux/amd64 images found
-13 advisories in `filelock==3.32.7` in each image (202 proxy distributions,
-143 migration distributions). All reported advisories have fixes in filelock
-4.2.1. No advisory exceptions were added. The image-security gate remains
-blocking; these candidate images must not be deployed while it fails.
-
-Upstream [issue #48394](https://github.com/BerriAI/litellm/issues/48394)
-is closed and points to [PR #49137](https://github.com/BerriAI/litellm/pull/49137)
-as its fix. That issue status does not establish that a published image contains
-the corrected installed package: the inventories above still contain 3.32.7.
-The original [PR #48635](https://github.com/BerriAI/litellm/pull/48635)
-was closed without merging.
-
-Local functional checks passed on this candidate: migrations twice, UI/API
-authentication, key persistence, shared Redis quotas and verified TLS, gateway
-route isolation, native Gemini generation and incremental SSE, durable usage,
-independent daily agent budgets and global-budget denial after proxy restarts.
-The provider is a local stub; this does not establish live Vertex behavior.
-Budget refusals now include HTTP 422. The SSE test uses an explicit provider
-release after the first frame is received, avoiding a fragile elapsed-time
-threshold while still rejecting full-response buffering.
-
-Reproduce with the command below. Generated inventories and advisory JSON stay
-outside Git. The historical review below describes 1.103.4 at its scan date,
-not the current candidate or a current clean audit of the deployed release.
+Use those same environment variables for all three container smoke scripts.
+Without overrides, the audit and smoke scripts inspect the official bases.
+Publish the tested images to Artifact Registry and put their returned digests
+in `release_images` before planning the rollout. Back up PostgreSQL, update
+and execute the migration job first, then update the services. Retain the
+previous release digests for rollback; schema rollback requires the backup.
 
 ## Historical 1.103.4 decision and evidence
 

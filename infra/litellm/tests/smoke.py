@@ -23,6 +23,11 @@ VARIABLES = (ROOT / "variables.tf").read_text()
 
 
 def image(variable, name):
+    override = os.environ.get(
+        "LITELLM_" + variable.upper().replace("_DIGEST", "_IMAGE")
+    )
+    if override:
+        return override
     block = VARIABLES.split(f'variable "{variable}"', 1)[1]
     digest = re.search(r'default\s*=\s*"(sha256:[0-9a-f]{64})"', block)[1]
     return f"ghcr.io/berriai/{name}@{digest}"

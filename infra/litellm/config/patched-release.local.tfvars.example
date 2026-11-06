@@ -1,0 +1,5 @@
+# Use the digests returned by publishing the tested images, never mutable tags.
+release_images = {
+  proxy      = "europe-west1-docker.pkg.dev/your-project/releases/litellm@sha256:REPLACE_WITH_PUBLISHED_DIGEST"
+  migrations = "europe-west1-docker.pkg.dev/your-project/releases/litellm-migrations@sha256:REPLACE_WITH_PUBLISHED_DIGEST"
+}

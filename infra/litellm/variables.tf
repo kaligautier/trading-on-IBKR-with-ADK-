@@ -102,3 +102,19 @@ variable "global_budget_usd" {
     error_message = "Use a positive USD budget; null leaves the global limit unconfigured."
   }
 }
+
+variable "release_images" {
+  description = "Audited security-patched release pair, published to Artifact Registry. Null retains the official images."
+  type = object({
+    proxy      = string
+    migrations = string
+  })
+  default = null
+  validation {
+    condition = var.release_images == null ? true : alltrue([
+      for image in [var.release_images.proxy, var.release_images.migrations] :
+      can(regex("^[a-z0-9-]+-docker[.]pkg[.]dev/[a-z0-9-]+/[a-z0-9-]+/[a-z0-9/-]+@sha256:[0-9a-f]{64}$", image))
+    ])
+    error_message = "Supply both release images as immutable Artifact Registry digest references."
+  }
+}
