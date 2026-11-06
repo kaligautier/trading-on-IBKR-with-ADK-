@@ -40,7 +40,7 @@ curl "$MCP_URL/" \
   -H 'Accept: application/json, text/event-stream' \
   -H 'MCP-Protocol-Version: 2026-07-28' \
   -H 'Mcp-Method: tools/call' -H 'Mcp-Name: list_analyses' \
-  --data '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"list_analyses","arguments":{"limit":1},"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientInfo":{"name":"curl","version":"1"},"io.modelcontextprotocol/clientCapabilities":{}}}}'
+  --data '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"list_analyses","arguments":{"page_size":1,"page_token":""},"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientInfo":{"name":"curl","version":"1"},"io.modelcontextprotocol/clientCapabilities":{}}}}'
 ```
 
 Always check `result.isError`, not just HTTP 200.
@@ -48,11 +48,13 @@ Always check `result.isError`, not just HTTP 200.
 ## Reader migration
 
 The four Momentum tools use `/v1/analyses`, `/v1/analyses/latest`,
-`/v1/analyses/{id}` and `/v1/recommendations`. Their public inputs and list output
-shape (`structuredContent.result`) are retained. The adapter traverses the
-reader's cursors to honor `limit`/`offset`, and fetches all latest pages rather
-than silently dropping them. Repeated cursors fail, and the 45-second tool
-deadline bounds traversal. Pagination does not create an MCP session.
+`/v1/analyses/{id}` and `/v1/recommendations`. List tools return one API page in
+`structuredContent.items` and its opaque cursor in
+`structuredContent.next_page_token`. Continue by calling the same tool with the
+same filters and passing that cursor as `page_token`. Only an empty cursor ends
+the list; a short page can still have another cursor. `page_size` accepts 1–100
+for history and latest analyses, and 1–50 for recommendations. The MCP passes the
+API cursor through unchanged and never fetches another page implicitly.
 
 `latest_market_scan` now returns the current reader envelope:
 `{id, scan_date, created_at, report}`. `report` preserves the complete v3 data,

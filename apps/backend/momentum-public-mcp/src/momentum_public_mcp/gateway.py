@@ -94,13 +94,16 @@ class MomentumPublicGateway(Protocol):
     ) -> AnalysisSummaries: ...
 
     async def latest_analyses(
-        self, ticker: TickerSymbol | None, ratings: Ratings | None
+        self,
+        ticker: TickerSymbol | None,
+        ratings: Ratings | None,
+        page: AnalysisPage,
     ) -> AnalysisSummaries: ...
 
     async def get_analysis(self, analysis_id: AnalysisId) -> AnalysisDetail: ...
 
     async def get_recommendations(
-        self, ratings: Ratings, limit: int
+        self, ratings: Ratings, page: AnalysisPage
     ) -> AnalysisSummaries: ...
 
     async def suggest_ticker(
@@ -165,7 +168,7 @@ class MomentumHttpGateway:
         parameters = {}
         if ticker is not None:
             parameters["ticker"] = ticker.value
-        return await self._pages("/v1/analyses", parameters, page.limit, page.offset)
+        return await self._page("/v1/analyses", parameters, page)
 
     async def latest_market_scan(self) -> MarketScan:
         response = await self._market_scanner_request("GET", "/v1/market-scans/latest")
@@ -175,9 +178,10 @@ class MomentumHttpGateway:
         self,
         ticker: TickerSymbol | None,
         ratings: Ratings | None,
+        page: AnalysisPage,
     ) -> AnalysisSummaries:
         parameters = self._latest_parameters(ticker, ratings)
-        return await self._pages("/v1/analyses/latest", parameters)
+        return await self._page("/v1/analyses/latest", parameters, page)
 
     async def get_analysis(self, analysis_id: AnalysisId) -> AnalysisDetail:
         response = await self._request("GET", f"/v1/analyses/{analysis_id.value}")
@@ -186,42 +190,27 @@ class MomentumHttpGateway:
     async def get_recommendations(
         self,
         ratings: Ratings,
-        limit: int,
+        page: AnalysisPage,
     ) -> AnalysisSummaries:
-        return await self._pages(
-            "/v1/recommendations", {"rating": ratings.as_csv()}, limit
+        return await self._page(
+            "/v1/recommendations", {"rating": ratings.as_csv()}, page
         )
 
-    async def _pages(
-        self, path: str, parameters: dict, limit: int | None = None, offset: int = 0
+    async def _page(
+        self, path: str, parameters: dict, page: AnalysisPage
     ) -> AnalysisSummaries:
-        """Translate the original MCP window into the reader's cursor protocol.
-
-        Never return a silently truncated latest-per-ticker result. The enclosing
-        tool deadline bounds traversal; repeated cursors are an upstream error.
-        """
-        items: list[AnalysisSummary] = []
-        token = ""
-        seen: set[str] = set()
-        while True:
-            size = 100 if limit is None else min(100, offset + limit - len(items))
-            response = await self._request(
-                "GET",
-                path,
-                params={**parameters, "page_size": size, "page_token": token},
-            )
-            page = self._model(response, ReaderPage)
-            skipped = min(offset, len(page.items))
-            offset -= skipped
-            items.extend(page.items[skipped:])
-            if not page.next_page_token or (limit is not None and len(items) >= limit):
-                return AnalysisSummaries(tuple(items))
-            token = page.next_page_token
-            if token in seen:
-                raise MomentumApiError(
-                    "Momentum public API returned a repeated cursor."
-                )
-            seen.add(token)
+        """Return one upstream page without interpreting or following its cursor."""
+        response = await self._request(
+            "GET",
+            path,
+            params={
+                **parameters,
+                "page_size": page.page_size,
+                "page_token": page.page_token,
+            },
+        )
+        result = self._model(response, ReaderPage)
+        return AnalysisSummaries(tuple(result.items), result.next_page_token)
 
     async def suggest_ticker(
         self,

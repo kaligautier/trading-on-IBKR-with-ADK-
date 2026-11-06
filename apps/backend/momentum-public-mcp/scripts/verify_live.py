@@ -66,15 +66,21 @@ def main():
     args = parser.parse_args()
     url = args.url.rstrip("/") + "/"
     # First ever request is a business call; no discover/initialize/cookies.
-    summaries = tool(url, "list_analyses", {"limit": 1})["result"]
+    summaries = tool(url, "list_analyses", {"page_size": 1, "page_token": ""})["items"]
     assert summaries, "No persisted analysis available to verify get_analysis"
     detail = tool(url, "get_analysis", {"analysis_id": summaries[0]["id"]})
     assert detail["id"] == summaries[0]["id"]
     assert detail["ticker"] == summaries[0]["ticker"]
     assert "portfolio_decision" in detail and "technical_indicators" in detail
-    latest = tool(url, "latest_analyses", {"ticker": summaries[0]["ticker"]})["result"]
+    latest = tool(
+        url,
+        "latest_analyses",
+        {"ticker": summaries[0]["ticker"], "page_size": 1, "page_token": ""},
+    )["items"]
     assert len(latest) == 1
-    recommendations = tool(url, "get_recommendations", {"limit": 1})["result"]
+    recommendations = tool(
+        url, "get_recommendations", {"page_size": 1, "page_token": ""}
+    )["items"]
     assert all(item["rating"] in {"Buy", "Overweight"} for item in recommendations)
     scan = tool(url, "latest_market_scan", {})
     assert scan["report"]["schema_version"] == 3

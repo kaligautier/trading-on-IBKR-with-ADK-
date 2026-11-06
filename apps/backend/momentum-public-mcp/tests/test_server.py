@@ -30,16 +30,16 @@ class StubGateway:
         self.caller_fingerprint = None
 
     async def list_analyses(self, ticker, page):
-        return AnalysisSummaries((summary(),))
+        return AnalysisSummaries((summary(),), "")
 
-    async def latest_analyses(self, ticker, ratings):
-        return AnalysisSummaries((summary(),))
+    async def latest_analyses(self, ticker, ratings, page):
+        return AnalysisSummaries((summary(),), "")
 
     async def get_analysis(self, analysis_id):
         raise AssertionError("not used")
 
-    async def get_recommendations(self, ratings, limit):
-        return AnalysisSummaries((summary(),))
+    async def get_recommendations(self, ratings, page):
+        return AnalysisSummaries((summary(),), "")
 
     async def latest_market_scan(self):
         return market_scan()
@@ -102,7 +102,7 @@ async def test_list_tool_returns_structured_validated_data(mcp_server) -> None:
     async with Client(mcp_server) as client:
         result = await client.call_tool("list_analyses", {"ticker": "aapl"})
 
-    assert result.data[0].ticker == "AAPL"
+    assert result.data.items[0].ticker == "AAPL"
 
 
 async def test_latest_market_scan_returns_current_scanner_data(mcp_server) -> None:
