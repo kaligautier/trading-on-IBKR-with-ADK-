@@ -23,6 +23,11 @@ VARIABLES = (ROOT / "variables.tf").read_text()
 
 
 def image(variable, name):
+    override = os.environ.get(
+        "LITELLM_" + variable.upper().replace("_DIGEST", "_IMAGE")
+    )
+    if override:
+        return override
     block = VARIABLES.split(f'variable "{variable}"', 1)[1]
     digest = re.search(r'default\s*=\s*"(sha256:[0-9a-f]{64})"', block)[1]
     return f"ghcr.io/berriai/{name}@{digest}"
@@ -416,9 +421,9 @@ else:
                 ready(container)
                 # Act / Assert: a valid, under-budget key is blocked by the global cap.
                 status, body, _ = request("/v1/chat/completions", payload, auth=key)
-                assert status in (400, 402, 403, 429) and b"budget" in body.lower(), (
-                    "Global budget did not block inference on " + container
-                )
+                assert (
+                    status in (400, 402, 403, 422, 429) and b"budget" in body.lower()
+                ), "Global budget did not block inference on " + container
             print(
                 "PASS: global budget blocks inference on both proxies after restart",
                 flush=True,

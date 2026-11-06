@@ -18,6 +18,10 @@ on:
   schedule:
     - cron: '30 5 * * *'
 
+env:
+  LITELLM_PROXY_IMAGE: litellm:security-patched
+  LITELLM_MIGRATIONS_IMAGE: litellm-migrations:security-patched
+
 permissions:
   contents: read
 
@@ -58,7 +62,7 @@ jobs:
           terraform -chdir=infra/litellm/governance/policy init -backend=false -input=false -lockfile=readonly
           terraform -chdir=infra/litellm/governance/policy test
       - name: Lint bootstrap and verification scripts
-        run: uv run --project apps/backend/market-scanner-adk --no-sync ruff check infra/litellm/scripts infra/litellm/tests
+        run: uv run --project apps/backend/market-scanner-adk --no-sync ruff check infra/litellm/scripts infra/litellm/tests infra/litellm/images
       - name: Test bootstrap regressions
         run: uv run --project apps/backend/market-scanner-adk --no-sync pytest -c /dev/null -p no:cacheprovider infra/litellm/tests
   containers:
@@ -71,6 +75,8 @@ jobs:
         with:
           terraform_version: '1.14.4'
           terraform_wrapper: false
+      - name: Build security-patched images
+        run: python3 infra/litellm/scripts/build_images.py
       - name: Verify images, migrations, auth and shared quotas
         run: python3 infra/litellm/tests/smoke.py
       - name: Verify gateway route isolation and streaming
@@ -100,7 +106,7 @@ jobs:
                 BASE_SHA=$(git merge-base "$BASE_SHA" "$HEAD_SHA")
               fi
               git diff --name-only "$BASE_SHA" "$HEAD_SHA" > "$RUNNER_TEMP/litellm-changes.txt"
-              if ! grep -q '^infra/litellm/' "$RUNNER_TEMP/litellm-changes.txt"; then
+              if ! grep -Eq '^(infra/litellm/|[.]github/workflows/litellm[.]yml$)' "$RUNNER_TEMP/litellm-changes.txt"; then
                 audit=false
               fi
             fi
@@ -114,6 +120,9 @@ jobs:
         if: steps.scope.outputs.audit == 'true'
         with:
           version: '0.9.17'
+      - name: Build security-patched images
+        if: steps.scope.outputs.audit == 'true'
+        run: python3 infra/litellm/scripts/build_images.py
       - name: Audit pinned proxy and migration image packages
         if: steps.scope.outputs.audit == 'true'
         run: python3 infra/litellm/scripts/audit_images.py --output-dir=${{ runner.temp }}/litellm-audit

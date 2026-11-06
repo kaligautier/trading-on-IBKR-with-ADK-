@@ -1,6 +1,47 @@
 # LiteLLM image dependency review
 
-## Decision and evidence
+## 1.108.0 security-patched release
+
+The upstream bases are pinned by digest in `variables.tf`. Both official
+linux/amd64 images contain filelock 3.32.7 with 13 known advisories at the
+2026-11-05 scan. The derived images replace it with filelock 4.2.4, using a
+SHA-256-verified wheel. No advisory exclusions are used.
+
+`images/widen_filelock.py` backports the installed requirement-bound change
+from [upstream PR #49137](https://github.com/BerriAI/litellm/pull/49137):
+`filelock>=3.16.1,<4.0` becomes `filelock>=3.16.1,<5`. It updates the wheel
+RECORD hash and refuses an unexpected upstream requirement. This is necessary
+because the published 1.108.0 images still contain the old bound. Pip is a
+hash-verified temporary build tool; it is not installed in the runtime.
+The final proxy runs as root and migrations as nonroot, matching the bases.
+
+On 2026-11-05, the installed-Python-package audit of both corrected linux/amd64
+images returned **zero known vulnerabilities**. This is not an OS package,
+JavaScript dependency, provenance or unknown-vulnerability audit.
+
+CI builds both derived images before auditing or running the migration,
+authentication, Redis/TLS, route-isolation, Gemini SSE and budget tests.
+The official base digests remain separate from deployed release digests.
+Terraform `release_images` accepts only a complete, immutable Artifact Registry
+pair; the same proxy serves the admin UI and private gateway.
+
+Reproduce the corrected-image audit:
+
+```sh
+python3 infra/litellm/scripts/build_images.py
+export LITELLM_PROXY_IMAGE=litellm:security-patched
+export LITELLM_MIGRATIONS_IMAGE=litellm-migrations:security-patched
+python3 infra/litellm/scripts/audit_images.py --output-dir=/tmp/litellm-audit
+```
+
+Use those same environment variables for all three container smoke scripts.
+Without overrides, the audit and smoke scripts inspect the official bases.
+Publish the tested images to Artifact Registry and put their returned digests
+in `release_images` before planning the rollout. Back up PostgreSQL, update
+and execute the migration job first, then update the services. Retain the
+previous release digests for rollback; schema rollback requires the backup.
+
+## Historical 1.103.4 decision and evidence
 
 The PR initially pinned LiteLLM 1.103.1. An audit of its installed proxy Python
 packages found 31 advisories across seven packages. Upgrade both official images
