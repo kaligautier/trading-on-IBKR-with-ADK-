@@ -85,7 +85,7 @@ async def test_list_analyses_calls_only_the_public_route() -> None:
 
     analyses = await gateway.list_analyses(
         TickerSymbol("aapl"),
-        AnalysisPage(limit=20, offset=0),
+        AnalysisPage(page_size=20, page_token=""),
     )
 
     assert analyses.items[0].ticker == "AAPL"
@@ -103,7 +103,7 @@ async def test_momentum_requests_include_cloud_run_identity_when_enabled() -> No
     identity_headers = CloudRunIdentityHeaders(StaticIdentityTokenProvider())
     gateway = gateway_with(handler, identity_headers=identity_headers)
 
-    result = await gateway.latest_analyses(None, None)
+    result = await gateway.latest_analyses(None, None, AnalysisPage())
 
     assert result.items[0].ticker == "AAPL"
 
@@ -136,7 +136,7 @@ async def test_recommendations_send_normalized_ratings() -> None:
 
     analyses = await gateway.get_recommendations(
         Ratings.from_csv(" buy, OVERWEIGHT "),
-        10,
+        AnalysisPage(page_size=10, page_token=""),
     )
 
     assert len(analyses.items) == 1
@@ -265,7 +265,7 @@ def gateway_with(
     )
 
 
-async def test_original_offset_window_traverses_reader_cursors():
+async def test_list_returns_one_page_and_preserves_its_cursor():
     calls = []
 
     async def handler(request):
@@ -283,16 +283,16 @@ async def test_original_offset_window_traverses_reader_cursors():
         )
 
     gateway = gateway_with(handler)
-    result = await gateway.list_analyses(None, AnalysisPage(limit=1, offset=1))
+    result = await gateway.list_analyses(
+        None, AnalysisPage(page_size=1, page_token="api-cursor")
+    )
     assert [item.ticker for item in result.items] == ["MSFT"]
-    assert calls == [
-        {"page_size": "2", "page_token": ""},
-        {"page_size": "1", "page_token": "page2"},
-    ]
+    assert result.next_page_token == "page3"
+    assert calls == [{"page_size": "1", "page_token": "api-cursor"}]
     await gateway.close()
 
 
-async def test_latest_does_not_drop_reader_pages():
+async def test_latest_returns_reader_cursor_without_fetching_another_page():
     async def handler(request):
         first = not request.url.params["page_token"]
         return httpx.Response(
@@ -306,18 +306,23 @@ async def test_latest_does_not_drop_reader_pages():
         )
 
     gateway = gateway_with(handler)
-    result = await gateway.latest_analyses(None, None)
-    assert [item.ticker for item in result.items] == ["AAPL", "MSFT"]
+    result = await gateway.latest_analyses(None, None, AnalysisPage())
+    assert [item.ticker for item in result.items] == ["AAPL"]
+    assert result.next_page_token == "page2"
     await gateway.close()
 
 
-async def test_repeated_cursor_fails_instead_of_looping():
+async def test_recommendations_cursor_can_be_passed_through():
     async def handler(request):
-        return httpx.Response(200, json={"items": [], "next_page_token": "same"})
+        assert request.url.params["page_token"] == "recommendations-cursor"
+        return httpx.Response(200, json={"items": [], "next_page_token": "next"})
 
     gateway = gateway_with(handler)
-    with pytest.raises(MomentumApiError, match="repeated cursor"):
-        await gateway.latest_analyses(None, None)
+    result = await gateway.get_recommendations(
+        Ratings.from_csv("Buy"),
+        AnalysisPage(page_size=5, page_token="recommendations-cursor"),
+    )
+    assert result.next_page_token == "next"
     await gateway.close()
 
 

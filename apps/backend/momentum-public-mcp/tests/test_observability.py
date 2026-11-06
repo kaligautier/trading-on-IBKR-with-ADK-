@@ -195,7 +195,7 @@ def test_library_chatter_is_suppressed_only_inside_requests():
         request_event.reset(token)
 
 
-def test_paginated_api_calls_are_summarized_in_one_event(caplog):
+def test_single_page_api_call_is_summarized_in_one_event(caplog):
     calls = []
 
     async def upstream(request):
@@ -216,7 +216,9 @@ def test_paginated_api_calls_are_summarized_in_one_event(caplog):
         response = client.post(
             "/",
             headers=headers("tools/call", "list_analyses"),
-            json=envelope("tools/call", name="list_analyses", arguments={"limit": 3}),
+            json=envelope(
+                "tools/call", name="list_analyses", arguments={"page_size": 3}
+            ),
         )
     assert not response.json()["result"]["isError"]
     events = [
@@ -225,5 +227,5 @@ def test_paginated_api_calls_are_summarized_in_one_event(caplog):
         if hasattr(record, "event_fields")
     ]
     assert len(events) == 1
-    assert events[0]["upstreams"]["momentum"]["calls"] == len(calls) == 3
-    assert events[0]["business"] == {"result_count": 3}
+    assert events[0]["upstreams"]["momentum"]["calls"] == len(calls) == 1
+    assert events[0]["business"] == {"result_count": 1}
