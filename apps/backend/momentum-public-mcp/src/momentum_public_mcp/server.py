@@ -3,10 +3,21 @@
 from fastmcp import FastMCP
 from fastmcp.server.lifespan import Lifespan
 from fastmcp.server.middleware.rate_limiting import SlidingWindowRateLimitingMiddleware
+from fastmcp.server.providers import LocalProvider
+from fastmcp.server.transforms import Namespace
 from starlette.responses import JSONResponse
 
-from momentum_public_mcp.constants import PUBLIC_TOOL_NAMES  # noqa: F401 -- compatibility export
+from momentum_public_mcp.constants import (
+    DEFAULT_LIST_PAGE_SIZE,
+    MARKET_SCANNER_NAMESPACE,
+    MOMENTUM_NAMESPACE,
+)
+from momentum_public_mcp.constants import (
+    PUBLIC_TOOL_NAMES as PUBLIC_TOOL_NAMES,
+)
 from momentum_public_mcp.observability import ToolTelemetry
+from momentum_public_mcp.prompts import analyze_ticker
+from momentum_public_mcp.resources import MomentumPublicResources
 from momentum_public_mcp.security import FingerprintProvider
 from momentum_public_mcp.tools import MomentumPublicTools
 
@@ -24,6 +35,9 @@ class MomentumPublicMcpServer:
         tools: MomentumPublicTools,
         fingerprint: FingerprintProvider | None = None,
         lifespan: Lifespan | None = None,
+        *,
+        resources: MomentumPublicResources,
+        list_page_size: int = DEFAULT_LIST_PAGE_SIZE,
     ):
         self.server = FastMCP(
             name="Momentum Public",
@@ -33,12 +47,22 @@ class MomentumPublicMcpServer:
                 "Suggestions stay pending and never start an analysis. No "
                 "administrative capability is available."
             ),
-            tools=tools.components(),
             on_duplicate="error",
             lifespan=lifespan,
             mask_error_details=True,
             tasks=False,
+            list_page_size=list_page_size,
         )
+        momentum = LocalProvider(on_duplicate="error")
+        for component in tools.components():
+            momentum.add_tool(component)
+        momentum.add_prompt(analyze_ticker)
+        momentum.add_transform(Namespace(MOMENTUM_NAMESPACE))
+        scanner = LocalProvider(on_duplicate="error")
+        scanner.add_resource(resources.latest_market_scan)
+        scanner.add_transform(Namespace(MARKET_SCANNER_NAMESPACE))
+        self.server.add_provider(momentum)
+        self.server.add_provider(scanner)
         self.server.enable(tags={"public"}, only=True)
         self.server.add_middleware(ToolTelemetry())
         self._add_health_route()

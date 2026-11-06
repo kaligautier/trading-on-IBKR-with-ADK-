@@ -10,6 +10,10 @@ from typing import Protocol
 import httpx
 from pydantic import BaseModel, ValidationError
 
+from momentum_public_mcp.constants import (
+    MARKET_SCANNER_API_PREFIX,
+    MOMENTUM_API_PREFIX,
+)
 from momentum_public_mcp.domain import (
     AnalysisDetail,
     AnalysisId,
@@ -168,10 +172,12 @@ class MomentumHttpGateway:
         parameters = {}
         if ticker is not None:
             parameters["ticker"] = ticker.value
-        return await self._page("/v1/analyses", parameters, page)
+        return await self._page(f"{MOMENTUM_API_PREFIX}/analyses", parameters, page)
 
     async def latest_market_scan(self) -> MarketScan:
-        response = await self._market_scanner_request("GET", "/v1/market-scans/latest")
+        response = await self._market_scanner_request(
+            "GET", f"{MARKET_SCANNER_API_PREFIX}/market-scans/latest"
+        )
         return self._model(response, MarketScan)
 
     async def latest_analyses(
@@ -181,10 +187,14 @@ class MomentumHttpGateway:
         page: AnalysisPage,
     ) -> AnalysisSummaries:
         parameters = self._latest_parameters(ticker, ratings)
-        return await self._page("/v1/analyses/latest", parameters, page)
+        return await self._page(
+            f"{MOMENTUM_API_PREFIX}/analyses/latest", parameters, page
+        )
 
     async def get_analysis(self, analysis_id: AnalysisId) -> AnalysisDetail:
-        response = await self._request("GET", f"/v1/analyses/{analysis_id.value}")
+        response = await self._request(
+            "GET", f"{MOMENTUM_API_PREFIX}/analyses/{analysis_id.value}"
+        )
         return self._model(response, AnalysisDetail)
 
     async def get_recommendations(
@@ -193,7 +203,9 @@ class MomentumHttpGateway:
         page: AnalysisPage,
     ) -> AnalysisSummaries:
         return await self._page(
-            "/v1/recommendations", {"rating": ratings.as_csv()}, page
+            f"{MOMENTUM_API_PREFIX}/recommendations",
+            {"rating": ratings.as_csv()},
+            page,
         )
 
     async def _page(
@@ -221,12 +233,17 @@ class MomentumHttpGateway:
         payload = {"symbol": symbol.value, "reason": reason.value}
         headers = self._signer.headers(caller_fingerprint)
         response = await self._request(
-            "POST", "/v1/suggestions", json=payload, headers=headers
+            "POST",
+            f"{MOMENTUM_API_PREFIX}/suggestions",
+            json=payload,
+            headers=headers,
         )
         return self._model(response, Suggestion)
 
     async def get_suggestion_status(self, suggestion_id: SuggestionId) -> Suggestion:
-        response = await self._request("GET", f"/v1/suggestions/{suggestion_id.value}")
+        response = await self._request(
+            "GET", f"{MOMENTUM_API_PREFIX}/suggestions/{suggestion_id.value}"
+        )
         return self._model(response, Suggestion)
 
     async def close(self) -> None:
