@@ -3,11 +3,11 @@
 from fastmcp.exceptions import ResourceError
 from fastmcp.resources import resource
 
-from momentum_public_mcp.constants import (
+from momentum_public_mcp.config.constants import (
     MARKET_SCANNER_API_PREFIX,
     MARKET_SCANNER_API_VERSION,
 )
-from momentum_public_mcp.gateway import MomentumApiError, MomentumPublicGateway
+from momentum_public_mcp.mcp.gateway import MomentumApiError, MomentumPublicGateway
 
 _LOCAL_MARKET_SCAN_URI = "momentum://market-scans/latest"
 LATEST_MARKET_SCAN_URI = "momentum://market_scanner/market-scans/latest"
