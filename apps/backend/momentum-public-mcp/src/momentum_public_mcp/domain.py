@@ -44,16 +44,16 @@ class SuggestionReason:
 
 @dataclass(frozen=True, slots=True)
 class AnalysisPage:
-    """Bounded analysis pagination request."""
+    """Bounded request for one page from the Momentum API."""
 
-    limit: int = 50
-    offset: int = 0
+    page_size: int = 50
+    page_token: str = ""
 
     def __post_init__(self) -> None:
-        if not 1 <= self.limit <= 200:
-            raise ValueError("Analysis limit must be between 1 and 200.")
-        if self.offset < 0:
-            raise ValueError("Analysis offset must be positive or zero.")
+        if not 1 <= self.page_size <= 100:
+            raise ValueError("Page size must be between 1 and 100.")
+        if len(self.page_token) > 512:
+            raise ValueError("Page token must contain at most 512 characters.")
 
 
 @dataclass(frozen=True, slots=True)
@@ -213,9 +213,10 @@ class MarketScan(PublicResponse):
 
 @dataclass(frozen=True, slots=True)
 class AnalysisSummaries:
-    """First-class collection of public analysis summaries."""
+    """One page of public analysis summaries and its opaque continuation token."""
 
     items: tuple[AnalysisSummary, ...]
+    next_page_token: str
 
     def as_list(self) -> list[AnalysisSummary]:
         return list(self.items)

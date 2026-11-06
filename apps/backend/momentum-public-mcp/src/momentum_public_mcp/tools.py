@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Awaitable, Callable
-from typing import TypeVar
+from typing import Annotated, TypeVar
 
 from fastmcp.exceptions import ToolError
 from fastmcp.tools import tool
+from pydantic import Field, ValidationError, ValidatorFunctionWrapHandler, WrapValidator
 
 from momentum_public_mcp.constants import (
     GET_ANALYSIS_TOOL,
@@ -21,7 +23,7 @@ from momentum_public_mcp.domain import (
     AnalysisDetail,
     AnalysisId,
     AnalysisPage,
-    AnalysisSummary,
+    AnalysisSummaries,
     MarketScan,
     Ratings,
     Suggestion,
@@ -34,6 +36,30 @@ from momentum_public_mcp.observability import record_result
 from momentum_public_mcp.security import FingerprintProvider
 
 Result = TypeVar("Result")
+
+
+def _validate_page_size(value: object, handler: ValidatorFunctionWrapHandler) -> int:
+    """Use clear tool errors while retaining schema constraints in tools/list."""
+    try:
+        return handler(value)
+    except ValidationError as error:
+        detail = error.errors(include_url=False, include_input=False)[0]
+        if detail["type"] == "less_than_equal":
+            message = f"page_size doit être inférieur ou égal à {detail['ctx']['le']}."
+        elif detail["type"] == "greater_than_equal":
+            message = f"page_size doit être supérieur ou égal à {detail['ctx']['ge']}."
+        else:
+            message = "page_size doit être un entier."
+        raise ToolError(message, log_level=logging.WARNING) from None
+
+
+PageSize = Annotated[
+    int, Field(ge=1, le=100, strict=True), WrapValidator(_validate_page_size)
+]
+RecommendationPageSize = Annotated[
+    int, Field(ge=1, le=50, strict=True), WrapValidator(_validate_page_size)
+]
+PageToken = Annotated[str, Field(max_length=512)]
 
 
 class MomentumPublicTools:
@@ -62,21 +88,20 @@ class MomentumPublicTools:
     async def list_analyses(
         self,
         ticker: str | None = None,
-        limit: int = 50,
-        offset: int = 0,
-    ) -> list[AnalysisSummary]:
-        """List paginated Momentum analysis summaries.
+        page_size: PageSize = 50,
+        page_token: PageToken = "",
+    ) -> AnalysisSummaries:
+        """Read one page of Momentum history and return its API cursor.
 
         Args:
             ticker: Optional ticker symbol.
-            limit: Number of results, between 1 and 200.
-            offset: Number of results to skip.
+            page_size: Maximum items in this page, between 1 and 100.
+            page_token: Opaque cursor from the prior page; empty starts the list.
         """
         return await self._translate(
             lambda: self._gateway.list_analyses(
-                self._optional_ticker(ticker), AnalysisPage(limit, offset)
-            ),
-            transform=lambda summaries: summaries.as_list(),
+                self._optional_ticker(ticker), AnalysisPage(page_size, page_token)
+            )
         )
 
     @tool(**LATEST_ANALYSES_TOOL)
@@ -84,18 +109,23 @@ class MomentumPublicTools:
         self,
         ticker: str | None = None,
         rating: str | None = None,
-    ) -> list[AnalysisSummary]:
-        """Get the most recent analysis for each ticker.
+        page_size: PageSize = 50,
+        page_token: PageToken = "",
+    ) -> AnalysisSummaries:
+        """Read one page of the latest analysis for each ticker.
 
         Args:
             ticker: Optional ticker symbol.
             rating: Optional comma-separated portfolio ratings.
+            page_size: Maximum items in this page, between 1 and 100.
+            page_token: Opaque cursor from the prior page; empty starts the list.
         """
         return await self._translate(
             lambda: self._gateway.latest_analyses(
-                self._optional_ticker(ticker), self._optional_ratings(rating)
-            ),
-            transform=lambda summaries: summaries.as_list(),
+                self._optional_ticker(ticker),
+                self._optional_ratings(rating),
+                AnalysisPage(page_size, page_token),
+            )
         )
 
     @tool(**GET_ANALYSIS_TOOL)
@@ -109,17 +139,18 @@ class MomentumPublicTools:
     async def get_recommendations(
         self,
         rating: str = "Buy,Overweight",
-        limit: int = 10,
-    ) -> list[AnalysisSummary]:
-        """Get latest analyses matching portfolio ratings.
+        page_size: RecommendationPageSize = 10,
+        page_token: PageToken = "",
+    ) -> AnalysisSummaries:
+        """Read one page of latest analyses matching portfolio ratings.
 
         Args:
             rating: Comma-separated portfolio ratings.
-            limit: Number of results, between 1 and 100.
+            page_size: Maximum items in this page, between 1 and 50.
+            page_token: Opaque cursor from the prior page; empty starts the list.
         """
         return await self._translate(
-            lambda: self._recommendations(rating, limit),
-            transform=lambda summaries: summaries.as_list(),
+            lambda: self._recommendations(rating, page_size, page_token)
         )
 
     @tool(**LATEST_MARKET_SCAN_TOOL)
@@ -152,24 +183,22 @@ class MomentumPublicTools:
             )
         )
 
-    async def _recommendations(self, rating: str, limit: int):
-        if not 1 <= limit <= 100:
-            raise ValueError("Recommendation limit must be between 1 and 100.")
-        return await self._gateway.get_recommendations(Ratings.from_csv(rating), limit)
+    async def _recommendations(self, rating: str, page_size: int, page_token: str):
+        page = AnalysisPage(page_size, page_token)
+        if page.page_size > 50:
+            raise ValueError("Recommendation page size must be at most 50.")
+        return await self._gateway.get_recommendations(Ratings.from_csv(rating), page)
 
     async def _translate(
         self,
         operation: Callable[[], Awaitable[Result]],
-        transform: Callable[[Result], object] | None = None,
     ):
         try:
             result = await operation()
         except (MomentumApiError, ValueError) as error:
             raise ToolError(str(error)) from error
         record_result(result)
-        if transform is None:
-            return result
-        return transform(result)
+        return result
 
     @staticmethod
     def _optional_ticker(raw_ticker: str | None) -> TickerSymbol | None:
