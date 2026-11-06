@@ -8,8 +8,9 @@ from time import perf_counter
 from typing import Protocol
 
 import httpx
-from pydantic import BaseModel, ValidationError
+from pydantic import ValidationError
 
+from momentum_public_mcp.api.momentum.dtos.response.analyses import ReaderPage
 from momentum_public_mcp.config.constants import (
     MARKET_SCANNER_API_PREFIX,
     MOMENTUM_API_PREFIX,
@@ -19,7 +20,6 @@ from momentum_public_mcp.domain import (
     AnalysisId,
     AnalysisPage,
     AnalysisSummaries,
-    AnalysisSummary,
     MarketScan,
     Ratings,
     Suggestion,
@@ -32,11 +32,6 @@ from momentum_public_mcp.observability import outbound_headers, record_upstream
 
 class MomentumApiError(RuntimeError):
     """Sanitized public API failure."""
-
-
-class ReaderPage(BaseModel):
-    items: list[AnalysisSummary]
-    next_page_token: str
 
 
 class IdentityTokenProvider(Protocol):
