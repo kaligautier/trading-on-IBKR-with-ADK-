@@ -4,10 +4,10 @@ import pytest
 from starlette.testclient import TestClient
 from test_server import StaticFingerprint, StubGateway
 
+from momentum_public_mcp.mcp.resources import MomentumPublicResources
+from momentum_public_mcp.mcp.tools import MomentumPublicTools
 from momentum_public_mcp.protocol import create_http_app
-from momentum_public_mcp.resources import MomentumPublicResources
 from momentum_public_mcp.server import MomentumPublicMcpServer
-from momentum_public_mcp.tools import MomentumPublicTools
 
 VERSION = "2026-07-28"
 PREFIX = "io.modelcontextprotocol/"

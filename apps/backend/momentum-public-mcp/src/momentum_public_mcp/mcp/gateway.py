@@ -10,7 +10,7 @@ from typing import Protocol
 import httpx
 from pydantic import BaseModel, ValidationError
 
-from momentum_public_mcp.constants import (
+from momentum_public_mcp.config.constants import (
     MARKET_SCANNER_API_PREFIX,
     MOMENTUM_API_PREFIX,
 )

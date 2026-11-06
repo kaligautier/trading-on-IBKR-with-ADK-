@@ -3,13 +3,13 @@
 from fastmcp.exceptions import ResourceError
 from fastmcp.resources import resource
 
-from momentum_public_mcp.constants import (
+from momentum_public_mcp.config.constants import (
     LATEST_MARKET_SCAN_URI,
     LOCAL_MARKET_SCAN_URI,
     MARKET_SCANNER_API_PREFIX,
     MARKET_SCANNER_API_VERSION,
 )
-from momentum_public_mcp.gateway import MomentumApiError, MomentumPublicGateway
+from momentum_public_mcp.mcp.gateway import MomentumApiError, MomentumPublicGateway
 from momentum_public_mcp.observability import record_result
 
 __all__ = ["LATEST_MARKET_SCAN_URI", "MomentumPublicResources"]
