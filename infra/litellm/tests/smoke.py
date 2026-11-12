@@ -416,7 +416,9 @@ else:
                 ready(container)
                 # Act / Assert: a valid, under-budget key is blocked by the global cap.
                 status, body, _ = request("/v1/chat/completions", payload, auth=key)
-                assert status in (400, 402, 403, 429) and b"budget" in body.lower(), (
+                # LiteLLM 1.106.2 distinguishes exhausted budgets from RPM limits.
+                error = json.loads(body).get("error", {})
+                assert status == 422 and error.get("type") == "budget_exceeded", (
                     "Global budget did not block inference on " + container
                 )
             print(

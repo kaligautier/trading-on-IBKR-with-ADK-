@@ -52,9 +52,9 @@ variable "secret_versions" {
 }
 
 variable "proxy_digest" {
-  description = "Official LiteLLM v1.103.4 image index, verified against GHCR on 2026-10-08."
+  description = "Official LiteLLM v1.106.6 image index, verified against GHCR on 2026-10-29."
   type        = string
-  default     = "sha256:8a372e5c22acddcd78e86a68e1c054bd97768ae600006a776475d2d8d4e7574b"
+  default     = "sha256:37e2dafb088a7723beb998590682957386dfc83ffea1848486f8e0e5cfac0b06"
   validation {
     condition     = can(regex("^sha256:[0-9a-f]{64}$", var.proxy_digest))
     error_message = "Use an immutable image digest."
@@ -62,9 +62,9 @@ variable "proxy_digest" {
 }
 
 variable "migrations_digest" {
-  description = "Official LiteLLM migrations v1.103.4 image index; upgrade together with proxy_digest."
+  description = "Official LiteLLM migrations v1.106.6 image index; upgrade together with proxy_digest."
   type        = string
-  default     = "sha256:6206b0d6832242a5dd5b3eb7542da64e7a5b06c80a60dfed6c20f8be0e359158"
+  default     = "sha256:c79b9108fb8acf095641a00e5670bac83d413ef38b49356c9a44b0da21ad845a"
   validation {
     condition     = can(regex("^sha256:[0-9a-f]{64}$", var.migrations_digest))
     error_message = "Use an immutable image digest."
