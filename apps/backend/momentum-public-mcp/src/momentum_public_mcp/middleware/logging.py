@@ -20,6 +20,9 @@ _SENSITIVE_KEY_PARTS = (
     "apikey",
     "cookie",
 )
+# Free-text inputs may carry anything a caller pastes, credentials included, so
+# only their length is logged.
+_FREE_TEXT_KEYS = frozenset({"reason"})
 _MAX_DEPTH = 5
 _MAX_FIELDS = 40
 _MAX_ITEMS = 20
@@ -27,19 +30,13 @@ _MAX_STRING_LENGTH = 256
 
 
 def redact_arguments(value: Any, *, _depth: int = 0) -> Any:
-    """Bound logged JSON arguments and redact credential-like fields."""
+    """Bound logged JSON arguments, redact credential-like fields and free text."""
     if _depth >= _MAX_DEPTH:
         return "[MAX_DEPTH]"
     if isinstance(value, dict):
         entries = list(value.items())
         redacted = {
-            key: "[REDACTED]"
-            if any(
-                part in key.casefold().replace("-", "_")
-                for part in _SENSITIVE_KEY_PARTS
-            )
-            else redact_arguments(item, _depth=_depth + 1)
-            for key, item in entries[:_MAX_FIELDS]
+            key: _redact_field(key, item, _depth) for key, item in entries[:_MAX_FIELDS]
         }
         if len(entries) > _MAX_FIELDS:
             redacted["_truncated_fields"] = len(entries) - _MAX_FIELDS
@@ -56,6 +53,15 @@ def redact_arguments(value: Any, *, _depth: int = 0) -> Any:
     if value is None or isinstance(value, (str, int, float, bool)):
         return value
     return f"[UNSUPPORTED {type(value).__name__}]"
+
+
+def _redact_field(key: Any, value: Any, depth: int) -> Any:
+    name = str(key).casefold().replace("-", "_")
+    if any(part in name for part in _SENSITIVE_KEY_PARTS):
+        return "[REDACTED]"
+    if name in _FREE_TEXT_KEYS and isinstance(value, str):
+        return f"[OMITTED {len(value)} chars]"
+    return redact_arguments(value, _depth=depth + 1)
 
 
 class ToolCallLoggingMiddleware(Middleware):

@@ -16,6 +16,7 @@ async def test_logs_bounded_arguments_and_redacts_sensitive_fields(caplog):
         "page_token": "opaque-cursor",
         "credentials": {"api-key": "private-key"},
         "reason": "x" * 300,
+        "symbol": "y" * 300,
     }
     context = MiddlewareContext(
         message=SimpleNamespace(
@@ -36,8 +37,28 @@ async def test_logs_bounded_arguments_and_redacts_sensitive_fields(caplog):
     assert record["arguments"]["page_size"] == 5
     assert record["arguments"]["page_token"] == "[REDACTED]"
     assert record["arguments"]["credentials"]["api-key"] == "[REDACTED]"
-    assert record["arguments"]["reason"].endswith("…[TRUNCATED]")
+    assert record["arguments"]["reason"] == "[OMITTED 300 chars]"
+    assert record["arguments"]["symbol"].endswith("…[TRUNCATED]")
     assert "private result" not in caplog.text
+
+
+async def test_never_logs_free_text_reason(caplog):
+    caplog.set_level(logging.INFO, logger="momentum_public_mcp.middleware.logging")
+    context = MiddlewareContext(
+        message=SimpleNamespace(
+            name="momentum_suggest_ticker",
+            arguments={"symbol": "AAPL", "reason": "my password is hunter2"},
+        )
+    )
+
+    async def call_next(_context):
+        return ToolResult(content="ok")
+
+    await ToolCallLoggingMiddleware().on_call_tool(context, call_next)
+
+    record = caplog.records[-1].event_fields
+    assert record["arguments"] == {"symbol": "AAPL", "reason": "[OMITTED 22 chars]"}
+    assert "hunter2" not in caplog.text
 
 
 async def test_logs_exception_type_without_exception_message(caplog):

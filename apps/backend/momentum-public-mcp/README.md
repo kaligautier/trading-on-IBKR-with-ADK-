@@ -128,7 +128,8 @@ end, including on cancellation. It contains the service/revision, HTTP status,
 tool outcome and duration, per-upstream call/error counts and latency, and bounded
 business outcomes (result count, asset count, record found or moderation status).
 `middleware/logging.py` emits one `tool_call` event with bounded, credential-redacted
-arguments, status and duration. Pagination increments upstream counters instead
+arguments, status and duration. Free-text arguments such as `reason` are logged
+as their length only, never their content. Pagination increments upstream counters instead
 of producing one log line per API call. Third-party per-request chatter is
 suppressed. Cloud Run's own platform request logs remain separate.
 
