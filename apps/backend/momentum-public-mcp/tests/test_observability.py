@@ -15,7 +15,9 @@ from test_gateway import analysis_summary, gateway_with, market_scan
 from test_server import StaticFingerprint
 from test_stateless_http import envelope, headers
 
-from momentum_public_mcp.constants import LATEST_MARKET_SCAN_URI
+from momentum_public_mcp.config.constants import LATEST_MARKET_SCAN_URI
+from momentum_public_mcp.mcp.resources import MomentumPublicResources
+from momentum_public_mcp.mcp.tools import MomentumPublicTools
 from momentum_public_mcp.observability import (
     CanonicalRequestFilter,
     JsonFormatter,
@@ -24,9 +26,7 @@ from momentum_public_mcp.observability import (
     request_event,
 )
 from momentum_public_mcp.protocol import create_http_app
-from momentum_public_mcp.resources import MomentumPublicResources
 from momentum_public_mcp.server import MomentumPublicMcpServer
-from momentum_public_mcp.tools import MomentumPublicTools
 
 
 @pytest.mark.parametrize("upstream_status", [200, 503])

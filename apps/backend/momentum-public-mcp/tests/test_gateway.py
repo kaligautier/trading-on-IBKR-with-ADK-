@@ -17,7 +17,7 @@ from momentum_public_mcp.domain import (
     SuggestionReason,
     TickerSymbol,
 )
-from momentum_public_mcp.gateway import (
+from momentum_public_mcp.mcp.gateway import (
     CloudRunIdentityHeaders,
     MetadataIdentityTokenProvider,
     MomentumApiError,

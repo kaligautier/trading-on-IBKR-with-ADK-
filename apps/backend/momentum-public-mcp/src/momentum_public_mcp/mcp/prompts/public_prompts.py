@@ -3,7 +3,7 @@
 from fastmcp.exceptions import PromptError
 from fastmcp.prompts import prompt
 
-from momentum_public_mcp.constants import MOMENTUM_API_VERSION
+from momentum_public_mcp.config.constants import MOMENTUM_API_VERSION
 from momentum_public_mcp.domain import TickerSymbol
 
 
