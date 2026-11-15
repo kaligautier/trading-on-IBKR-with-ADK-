@@ -142,6 +142,32 @@ async def test_recommendations_send_normalized_ratings() -> None:
     assert len(analyses.items) == 1
 
 
+async def test_recommendations_stay_within_reader_page_size() -> None:
+    calls = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(dict(request.url.params))
+        first = not request.url.params["page_token"]
+        size = int(request.url.params["page_size"])
+        return httpx.Response(
+            200,
+            json={
+                "items": [analysis_summary()] * size,
+                "next_page_token": "page2" if first else "page3",
+            },
+        )
+
+    gateway = gateway_with(handler)
+
+    analyses = await gateway.get_recommendations(Ratings.from_csv("Buy"), 80)
+
+    assert len(analyses.items) == 80
+    assert calls == [
+        {"rating": "Buy", "page_size": "50", "page_token": ""},
+        {"rating": "Buy", "page_size": "30", "page_token": "page2"},
+    ]
+
+
 async def test_latest_market_scan_uses_scanner_consultation_api() -> None:
     async def momentum_handler(request: httpx.Request) -> httpx.Response:
         raise AssertionError(f"Unexpected request to Momentum API: {request.url}")
