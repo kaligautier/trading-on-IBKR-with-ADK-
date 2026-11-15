@@ -25,6 +25,9 @@ from momentum_public_mcp.domain import (
 )
 from momentum_public_mcp.observability import outbound_headers, record_upstream
 
+READER_PAGE_SIZE = 100
+RECOMMENDATION_PAGE_SIZE = 50
+
 
 class MomentumApiError(RuntimeError):
     """Sanitized public API failure."""
@@ -189,11 +192,20 @@ class MomentumHttpGateway:
         limit: int,
     ) -> AnalysisSummaries:
         return await self._pages(
-            "/v1/recommendations", {"rating": ratings.as_csv()}, limit
+            "/v1/recommendations",
+            {"rating": ratings.as_csv()},
+            limit,
+            page_size=RECOMMENDATION_PAGE_SIZE,
         )
 
     async def _pages(
-        self, path: str, parameters: dict, limit: int | None = None, offset: int = 0
+        self,
+        path: str,
+        parameters: dict,
+        limit: int | None = None,
+        offset: int = 0,
+        *,
+        page_size: int = READER_PAGE_SIZE,
     ) -> AnalysisSummaries:
         """Translate the original MCP window into the reader's cursor protocol.
 
@@ -204,7 +216,11 @@ class MomentumHttpGateway:
         token = ""
         seen: set[str] = set()
         while True:
-            size = 100 if limit is None else min(100, offset + limit - len(items))
+            size = (
+                page_size
+                if limit is None
+                else min(page_size, offset + limit - len(items))
+            )
             response = await self._request(
                 "GET",
                 path,
