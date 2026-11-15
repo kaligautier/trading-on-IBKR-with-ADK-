@@ -18,6 +18,7 @@ from momentum_public_mcp.gateway import (
 )
 from momentum_public_mcp.observability import configure_logging
 from momentum_public_mcp.protocol import create_http_app
+from momentum_public_mcp.resources import MomentumPublicResources
 from momentum_public_mcp.security import (
     CallerFingerprint,
     ClientAddressResolver,
@@ -76,7 +77,12 @@ class MomentumPublicApplication:
             finally:
                 await gateway.close()
 
-        self.mcp = MomentumPublicMcpServer(tools, fingerprint, lifespan).server
+        self.mcp = MomentumPublicMcpServer(
+            tools,
+            fingerprint,
+            lifespan,
+            resources=MomentumPublicResources(gateway),
+        ).server
 
     @staticmethod
     def _backend_headers(settings, token: SecretStr) -> dict[str, str]:

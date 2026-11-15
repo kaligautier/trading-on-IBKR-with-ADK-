@@ -15,7 +15,6 @@ from momentum_public_mcp.constants import (
     GET_RECOMMENDATIONS_TOOL,
     GET_SUGGESTION_STATUS_TOOL,
     LATEST_ANALYSES_TOOL,
-    LATEST_MARKET_SCAN_TOOL,
     LIST_ANALYSES_TOOL,
     SUGGEST_TICKER_TOOL,
 )
@@ -24,7 +23,6 @@ from momentum_public_mcp.domain import (
     AnalysisId,
     AnalysisPage,
     AnalysisSummaries,
-    MarketScan,
     Ratings,
     Suggestion,
     SuggestionId,
@@ -79,7 +77,6 @@ class MomentumPublicTools:
             self.latest_analyses,
             self.get_analysis,
             self.get_recommendations,
-            self.latest_market_scan,
             self.suggest_ticker,
             self.get_suggestion_status,
         ]
@@ -152,11 +149,6 @@ class MomentumPublicTools:
         return await self._translate(
             lambda: self._recommendations(rating, page_size, page_token)
         )
-
-    @tool(**LATEST_MARKET_SCAN_TOOL)
-    async def latest_market_scan(self) -> MarketScan:
-        """Get the most recent daily market regime and normalized asset signals."""
-        return await self._translate(self._gateway.latest_market_scan)
 
     @tool(**SUGGEST_TICKER_TOOL)
     async def suggest_ticker(self, symbol: str, reason: str = "") -> Suggestion:

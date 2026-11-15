@@ -15,6 +15,7 @@ from test_gateway import analysis_summary, gateway_with, market_scan
 from test_server import StaticFingerprint
 from test_stateless_http import envelope, headers
 
+from momentum_public_mcp.constants import LATEST_MARKET_SCAN_URI
 from momentum_public_mcp.observability import (
     CanonicalRequestFilter,
     JsonFormatter,
@@ -23,6 +24,7 @@ from momentum_public_mcp.observability import (
     request_event,
 )
 from momentum_public_mcp.protocol import create_http_app
+from momentum_public_mcp.resources import MomentumPublicResources
 from momentum_public_mcp.server import MomentumPublicMcpServer
 from momentum_public_mcp.tools import MomentumPublicTools
 
@@ -34,10 +36,15 @@ def test_tool_and_upstream_share_trace_and_track_tool_errors(caplog, upstream_st
     async def upstream(request):
         calls.append(request)
         await asyncio.sleep(0.01)
-        return httpx.Response(upstream_status, json=market_scan())
+        return httpx.Response(
+            upstream_status,
+            json={"items": [analysis_summary()], "next_page_token": ""},
+        )
 
+    gateway = gateway_with(upstream)
     server = MomentumPublicMcpServer(
-        MomentumPublicTools(gateway_with(upstream), StaticFingerprint())
+        MomentumPublicTools(gateway, StaticFingerprint()),
+        resources=MomentumPublicResources(gateway),
     ).server
     parent_trace = "1" * 32
     caplog.set_level(logging.INFO, logger="momentum_public_mcp.telemetry")
@@ -47,11 +54,15 @@ def test_tool_and_upstream_share_trace_and_track_tool_errors(caplog, upstream_st
             return client.post(
                 "/",
                 headers={
-                    **headers("tools/call", "latest_market_scan"),
+                    **headers("tools/call", "momentum_list_analyses"),
                     "traceparent": f"00-{parent_trace}-{'2' * 16}-01",
                     "X-Request-ID": "untrusted-caller-value",
                 },
-                json=envelope("tools/call", name="latest_market_scan", arguments={}),
+                json=envelope(
+                    "tools/call",
+                    name="momentum_list_analyses",
+                    arguments={"page_size": 1},
+                ),
             )
 
         with ThreadPoolExecutor(max_workers=2) as executor:
@@ -78,15 +89,13 @@ def test_tool_and_upstream_share_trace_and_track_tool_errors(caplog, upstream_st
         assert event["event"] == "request_completed"
         assert event["trace_id"] == parent_trace
         assert event["http"]["status"] == 200
-        assert event["tool"]["name"] == "latest_market_scan"
+        assert event["tool"]["name"] == "momentum_list_analyses"
         assert event["outcome"] == ("error" if upstream_status == 503 else "success")
         assert event["duration_ms"] >= event["tool"]["duration_ms"]
-        assert event["upstreams"]["scanner"]["calls"] == 1
-        assert event["upstreams"]["scanner"]["last_status"] == upstream_status
+        assert event["upstreams"]["momentum"]["calls"] == 1
+        assert event["upstreams"]["momentum"]["last_status"] == upstream_status
         if upstream_status == 200:
-            assert event["business"]["asset_count"] == len(
-                market_scan()["report"]["assets"]
-            )
+            assert event["business"]["result_count"] == 1
     assert {request.headers["x-request-id"] for request in calls} == ids
     assert all(
         request.headers["traceparent"].split("-")[1] == parent_trace
@@ -102,7 +111,7 @@ async def test_explicit_error_result_is_not_counted_as_success(caplog):
 
     async def app(scope, receive, send):
         result = await ToolTelemetry().on_call_tool(
-            MiddlewareContext(message=SimpleNamespace(name="list_analyses")),
+            MiddlewareContext(message=SimpleNamespace(name="momentum_list_analyses")),
             next_handler,
         )
         assert result.is_error
@@ -208,16 +217,20 @@ def test_single_page_api_call_is_summarized_in_one_event(caplog):
             },
         )
 
+    gateway = gateway_with(upstream)
     server = MomentumPublicMcpServer(
-        MomentumPublicTools(gateway_with(upstream), StaticFingerprint())
+        MomentumPublicTools(gateway, StaticFingerprint()),
+        resources=MomentumPublicResources(gateway),
     ).server
     caplog.set_level(logging.INFO, logger="momentum_public_mcp.telemetry")
     with TestClient(create_http_app(server)) as client:
         response = client.post(
             "/",
-            headers=headers("tools/call", "list_analyses"),
+            headers=headers("tools/call", "momentum_list_analyses"),
             json=envelope(
-                "tools/call", name="list_analyses", arguments={"page_size": 3}
+                "tools/call",
+                name="momentum_list_analyses",
+                arguments={"page_size": 3},
             ),
         )
     assert not response.json()["result"]["isError"]
@@ -229,3 +242,40 @@ def test_single_page_api_call_is_summarized_in_one_event(caplog):
     assert len(events) == 1
     assert events[0]["upstreams"]["momentum"]["calls"] == len(calls) == 1
     assert events[0]["business"] == {"result_count": 1}
+
+
+@pytest.mark.parametrize("upstream_status", [200, 503])
+def test_resource_reads_record_outcome_and_business_result(caplog, upstream_status):
+    async def upstream(request):
+        assert request.url.path == "/v1/market-scans/latest"
+        return httpx.Response(upstream_status, json=market_scan())
+
+    gateway = gateway_with(upstream)
+    server = MomentumPublicMcpServer(
+        MomentumPublicTools(gateway, StaticFingerprint()),
+        resources=MomentumPublicResources(gateway),
+    ).server
+    caplog.set_level(logging.INFO, logger="momentum_public_mcp.telemetry")
+    with TestClient(create_http_app(server)) as client:
+        response = client.post(
+            "/",
+            headers=headers("resources/read", LATEST_MARKET_SCAN_URI),
+            json=envelope("resources/read", uri=LATEST_MARKET_SCAN_URI),
+        )
+    assert response.status_code == 200
+    assert ("error" in response.json()) == (upstream_status == 503)
+    events = [
+        record.event_fields
+        for record in caplog.records
+        if hasattr(record, "event_fields")
+    ]
+    assert len(events) == 1
+    event = events[0]
+    assert event["resource"]["uri"] == LATEST_MARKET_SCAN_URI
+    if upstream_status == 200:
+        assert event["outcome"] == event["resource"]["outcome"] == "success"
+        assert event["business"] == {"asset_count": 0}
+    else:
+        assert event["outcome"] == event["resource"]["outcome"] == "error"
+        assert event["resource"]["error_type"] == "ResourceError"
+        assert "business" not in event
