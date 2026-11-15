@@ -52,14 +52,15 @@ def test_direct_tool_call_needs_no_discovery_or_initialization(http_client):
     response = http_client.post(
         "/",
         headers=headers("tools/call", "list_analyses"),
-        json=envelope("tools/call", name="list_analyses", arguments={"limit": 1}),
+        json=envelope("tools/call", name="list_analyses", arguments={"page_size": 1}),
     )
     assert response.status_code == 200, response.text
     assert "mcp-session-id" not in response.headers
     assert not response.cookies
     result = response.json()["result"]
     assert not result.get("isError", False)
-    assert result["structuredContent"]["result"][0]["ticker"] == "AAPL"
+    assert result["structuredContent"]["items"][0]["ticker"] == "AAPL"
+    assert result["structuredContent"]["next_page_token"] == ""
 
 
 def test_discovery_advertises_modern_protocol(http_client):

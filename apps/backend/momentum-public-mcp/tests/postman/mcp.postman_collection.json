@@ -125,7 +125,7 @@
         "url": "{{mcpUrl}}/",
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": \"list_analyses\",\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"_meta\": {\n      \"io.modelcontextprotocol/protocolVersion\": \"2026-07-28\",\n      \"io.modelcontextprotocol/clientInfo\": {\n        \"name\": \"postman-contract\",\n        \"version\": \"1\"\n      },\n      \"io.modelcontextprotocol/clientCapabilities\": {}\n    },\n    \"name\": \"list_analyses\",\n    \"arguments\": {\n      \"limit\": 1\n    }\n  }\n}"
+          "raw": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": \"list_analyses\",\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"_meta\": {\n      \"io.modelcontextprotocol/protocolVersion\": \"2026-07-28\",\n      \"io.modelcontextprotocol/clientInfo\": {\n        \"name\": \"postman-contract\",\n        \"version\": \"1\"\n      },\n      \"io.modelcontextprotocol/clientCapabilities\": {}\n    },\n    \"name\": \"list_analyses\",\n    \"arguments\": {\n      \"page_size\": 1\n    }\n  }\n}"
         }
       },
       "event": [
@@ -138,7 +138,7 @@
               "pm.test(\"No protocol session\",()=>pm.expect(pm.response.headers.has(\"Mcp-Session-Id\")).to.equal(false));",
               "const body=pm.response.json();",
               "pm.test(\"Successful tool result\",()=>pm.expect(body.result.isError).not.to.equal(true));",
-              "pm.test(\"Summary survived reader adapter\",()=>pm.expect(body.result.structuredContent.result[0].ticker).to.equal(\"AAPL\"));"
+              "pm.test(\"Summary survived reader adapter\",()=>pm.expect(body.result.structuredContent.items[0].ticker).to.equal(\"AAPL\"));"
             ]
           }
         }
@@ -186,7 +186,7 @@
               "pm.test(\"No protocol session\",()=>pm.expect(pm.response.headers.has(\"Mcp-Session-Id\")).to.equal(false));",
               "const body=pm.response.json();",
               "pm.test(\"Successful tool result\",()=>pm.expect(body.result.isError).not.to.equal(true));",
-              "pm.test(\"Summary survived reader adapter\",()=>pm.expect(body.result.structuredContent.result[0].ticker).to.equal(\"AAPL\"));"
+              "pm.test(\"Summary survived reader adapter\",()=>pm.expect(body.result.structuredContent.items[0].ticker).to.equal(\"AAPL\"));"
             ]
           }
         }
@@ -234,7 +234,7 @@
               "pm.test(\"No protocol session\",()=>pm.expect(pm.response.headers.has(\"Mcp-Session-Id\")).to.equal(false));",
               "const body=pm.response.json();",
               "pm.test(\"Successful tool result\",()=>pm.expect(body.result.isError).not.to.equal(true));",
-              "pm.test(\"Summary survived reader adapter\",()=>pm.expect(body.result.structuredContent.result[0].ticker).to.equal(\"AAPL\"));"
+              "pm.test(\"Summary survived reader adapter\",()=>pm.expect(body.result.structuredContent.items[0].ticker).to.equal(\"AAPL\"));"
             ]
           }
         }
@@ -553,7 +553,7 @@
         "url": "{{mcpUrl}}/",
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": \"cold-start\",\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"_meta\": {\n      \"io.modelcontextprotocol/protocolVersion\": \"2026-07-28\",\n      \"io.modelcontextprotocol/clientInfo\": {\n        \"name\": \"postman-contract\",\n        \"version\": \"1\"\n      },\n      \"io.modelcontextprotocol/clientCapabilities\": {}\n    },\n    \"name\": \"list_analyses\",\n    \"arguments\": {\n      \"ticker\": \"SLOW\",\n      \"limit\": 1\n    }\n  }\n}"
+          "raw": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": \"cold-start\",\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"_meta\": {\n      \"io.modelcontextprotocol/protocolVersion\": \"2026-07-28\",\n      \"io.modelcontextprotocol/clientInfo\": {\n        \"name\": \"postman-contract\",\n        \"version\": \"1\"\n      },\n      \"io.modelcontextprotocol/clientCapabilities\": {}\n    },\n    \"name\": \"list_analyses\",\n    \"arguments\": {\n      \"ticker\": \"SLOW\",\n      \"page_size\": 1\n    }\n  }\n}"
         }
       },
       "event": [
@@ -566,7 +566,7 @@
               "pm.test(\"No protocol session\",()=>pm.expect(pm.response.headers.has(\"Mcp-Session-Id\")).to.equal(false));",
               "const body=pm.response.json();",
               "pm.test(\"Successful tool result\",()=>pm.expect(body.result.isError).not.to.equal(true));",
-              "pm.test(\"Reader cold start above ten seconds succeeds\",()=>{pm.expect(body.result.structuredContent.result[0].ticker).to.equal(\"SLOW\");pm.expect(pm.response.responseTime).to.be.above(10000);});"
+              "pm.test(\"Reader cold start above ten seconds succeeds\",()=>{pm.expect(body.result.structuredContent.items[0].ticker).to.equal(\"SLOW\");pm.expect(pm.response.responseTime).to.be.above(10000);});"
             ]
           }
         }
