@@ -67,7 +67,7 @@ curl https://momentum-public-mcp-gdezc6bzrq-ew.a.run.app \
     "method": "tools/call",
     "params": {
       "name": "list_analyses",
-      "arguments": {"limit": 1},
+      "arguments": {"page_size": 1},
       "_meta": {
         "io.modelcontextprotocol/protocolVersion": "2026-07-28",
         "io.modelcontextprotocol/clientInfo": {"name": "readme-example", "version": "1.0.0"},
@@ -137,7 +137,9 @@ show a code snapshot, not a live deployment.
 
 The public MCP server is stateless and uses protocol revision [`2026-07-28`](https://modelcontextprotocol.io/specification/2026-07-28/changelog). Each request includes the protocol version and client capabilities in `params._meta`, as shown in the quick start.
 
-This reference follows the schemas advertised by `tools/list`. Response tables highlight selected fields. The list tools (`list_analyses`, `latest_analyses`, and `get_recommendations`) return their arrays in `result.structuredContent.result`; each item includes an `id` that can be passed to `get_analysis`.
+This reference follows the schemas advertised by `tools/list`. Response tables highlight selected fields. The list tools (`list_analyses`, `latest_analyses`, and `get_recommendations`) return one page in `result.structuredContent` as `{"items": [...], "next_page_token": "..."}`; each item includes an `id` that can be passed to `get_analysis`.
+
+To read the next page, call the same tool again with the same filters and `page_token` set to the previous `next_page_token`. An empty `next_page_token` means there are no more pages. Tokens are opaque: do not build or modify them.
 
 Types use Python notation. `None` means no value is set; **—** means there is no default value.
 
@@ -150,11 +152,11 @@ Returns a paginated list of analyses, optionally filtered by ticker. Summaries i
 
 **Parameters**
 
-| Parameter | Type          | Required | Default | Description and limits          |
-| :-------- | :------------ | :------: | :------ | :------------------------------ |
-| `ticker`  | `str \| None` | No       | `None`  | Filter by symbol, e.g. `AAPL`.  |
-| `limit`   | `int`         | No       | `50`    | Results per page. **1–200**.   |
-| `offset`  | `int`         | No       | `0`     | Pagination offset.              |
+| Parameter    | Type          | Required | Default | Description and limits                        |
+| :----------- | :------------ | :------: | :------ | :-------------------------------------------- |
+| `ticker`     | `str \| None` | No       | `None`  | Filter by symbol, e.g. `AAPL`.                |
+| `page_size`  | `int`         | No       | `50`    | Maximum results in this page. **1–100**.      |
+| `page_token` | `str`         | No       | `""`    | `next_page_token` from the previous page.     |
 
 **Response**
 
@@ -173,10 +175,12 @@ Returns the latest analysis for each ticker, with an optional portfolio rating f
 
 **Parameters**
 
-| Parameter | Type          | Required | Default | Description and limits         |
-| :-------- | :------------ | :------: | :------ | :----------------------------- |
-| `ticker`  | `str \| None` | No       | `None`  | Limit results to one symbol.   |
-| `rating`  | `str \| None` | No       | `None`  | Filter by one or more ratings. |
+| Parameter    | Type          | Required | Default | Description and limits                    |
+| :----------- | :------------ | :------: | :------ | :---------------------------------------- |
+| `ticker`     | `str \| None` | No       | `None`  | Limit results to one symbol.              |
+| `rating`     | `str \| None` | No       | `None`  | Filter by one or more ratings.            |
+| `page_size`  | `int`         | No       | `50`    | Maximum results in this page. **1–100**.  |
+| `page_token` | `str`         | No       | `""`    | `next_page_token` from the previous page. |
 
 **Response**
 
@@ -213,10 +217,11 @@ Returns active recommendations filtered by rating. Useful for “what should I b
 
 **Parameters**
 
-| Parameter | Type  | Required | Default            | Description and limits               |
-| :-------- | :---- | :------: | :----------------- | :----------------------------------- |
-| `rating`  | `str` | No       | `"Buy,Overweight"` | Target ratings, separated by commas. |
-| `limit`   | `int` | No       | `10`               | Number of results. **1–100**.        |
+| Parameter    | Type  | Required | Default            | Description and limits                    |
+| :----------- | :---- | :------: | :----------------- | :---------------------------------------- |
+| `rating`     | `str` | No       | `"Buy,Overweight"` | Target ratings, separated by commas.      |
+| `page_size`  | `int` | No       | `10`               | Maximum results in this page. **1–50**.   |
+| `page_token` | `str` | No       | `""`               | `next_page_token` from the previous page. |
 
 **Response**
 
