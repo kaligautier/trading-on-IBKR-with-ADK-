@@ -20,6 +20,10 @@ PUBLIC_TOOL_NAMES = {
     f"{MOMENTUM_NAMESPACE}_get_suggestion_status",
 }
 
+LOCAL_MARKET_SCAN_URI = "momentum://market-scans/latest"
+LATEST_MARKET_SCAN_URI = f"momentum://{MARKET_SCANNER_NAMESPACE}/market-scans/latest"
+PUBLIC_RESOURCE_URIS = {LATEST_MARKET_SCAN_URI}
+
 READ_ONLY = ToolAnnotations(
     read_only_hint=True,
     destructive_hint=False,

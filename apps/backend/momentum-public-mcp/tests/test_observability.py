@@ -11,10 +11,11 @@ import pytest
 from fastmcp.server.middleware import MiddlewareContext
 from fastmcp.tools.base import ToolResult
 from starlette.testclient import TestClient
-from test_gateway import analysis_summary, gateway_with
+from test_gateway import analysis_summary, gateway_with, market_scan
 from test_server import StaticFingerprint
 from test_stateless_http import envelope, headers
 
+from momentum_public_mcp.constants import LATEST_MARKET_SCAN_URI
 from momentum_public_mcp.observability import (
     CanonicalRequestFilter,
     JsonFormatter,
@@ -241,3 +242,40 @@ def test_single_page_api_call_is_summarized_in_one_event(caplog):
     assert len(events) == 1
     assert events[0]["upstreams"]["momentum"]["calls"] == len(calls) == 1
     assert events[0]["business"] == {"result_count": 1}
+
+
+@pytest.mark.parametrize("upstream_status", [200, 503])
+def test_resource_reads_record_outcome_and_business_result(caplog, upstream_status):
+    async def upstream(request):
+        assert request.url.path == "/v1/market-scans/latest"
+        return httpx.Response(upstream_status, json=market_scan())
+
+    gateway = gateway_with(upstream)
+    server = MomentumPublicMcpServer(
+        MomentumPublicTools(gateway, StaticFingerprint()),
+        resources=MomentumPublicResources(gateway),
+    ).server
+    caplog.set_level(logging.INFO, logger="momentum_public_mcp.telemetry")
+    with TestClient(create_http_app(server)) as client:
+        response = client.post(
+            "/",
+            headers=headers("resources/read", LATEST_MARKET_SCAN_URI),
+            json=envelope("resources/read", uri=LATEST_MARKET_SCAN_URI),
+        )
+    assert response.status_code == 200
+    assert ("error" in response.json()) == (upstream_status == 503)
+    events = [
+        record.event_fields
+        for record in caplog.records
+        if hasattr(record, "event_fields")
+    ]
+    assert len(events) == 1
+    event = events[0]
+    assert event["resource"]["uri"] == LATEST_MARKET_SCAN_URI
+    if upstream_status == 200:
+        assert event["outcome"] == event["resource"]["outcome"] == "success"
+        assert event["business"] == {"asset_count": 0}
+    else:
+        assert event["outcome"] == event["resource"]["outcome"] == "error"
+        assert event["resource"]["error_type"] == "ResourceError"
+        assert "business" not in event

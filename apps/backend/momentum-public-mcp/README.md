@@ -132,7 +132,7 @@ Third-party per-request chatter is suppressed. Cloud Run's own platform request
 logs remain separate from this application event.
 
 Every HTTP response includes a new `X-Request-ID`; outgoing API calls propagate
-that ID and a validated W3C trace context. Tool errors count as failures even
+that ID and a validated W3C trace context. Tool and resource errors count as failures even
 when HTTP returns 200. A request-local accumulator keeps concurrent calls isolated.
 `GOOGLE_CLOUD_PROJECT` adds Cloud Logging trace association fields. This is log
 correlation, not a complete distributed-tracing exporter.

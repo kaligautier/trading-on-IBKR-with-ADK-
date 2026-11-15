@@ -4,13 +4,15 @@ from fastmcp.exceptions import ResourceError
 from fastmcp.resources import resource
 
 from momentum_public_mcp.constants import (
+    LATEST_MARKET_SCAN_URI,
+    LOCAL_MARKET_SCAN_URI,
     MARKET_SCANNER_API_PREFIX,
     MARKET_SCANNER_API_VERSION,
 )
 from momentum_public_mcp.gateway import MomentumApiError, MomentumPublicGateway
+from momentum_public_mcp.observability import record_result
 
-_LOCAL_MARKET_SCAN_URI = "momentum://market-scans/latest"
-LATEST_MARKET_SCAN_URI = "momentum://market_scanner/market-scans/latest"
+__all__ = ["LATEST_MARKET_SCAN_URI", "MomentumPublicResources"]
 
 
 class MomentumPublicResources:
@@ -18,7 +20,7 @@ class MomentumPublicResources:
         self._gateway = gateway
 
     @resource(
-        _LOCAL_MARKET_SCAN_URI,
+        LOCAL_MARKET_SCAN_URI,
         name="latest_market_scan",
         title="Latest market scan",
         mime_type="application/json",
@@ -39,4 +41,5 @@ class MomentumPublicResources:
             scan = await self._gateway.latest_market_scan()
         except MomentumApiError as error:
             raise ResourceError(str(error)) from error
+        record_result(scan)
         return scan.model_dump_json()

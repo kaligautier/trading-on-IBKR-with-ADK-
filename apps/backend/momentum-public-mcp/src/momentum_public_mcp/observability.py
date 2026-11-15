@@ -12,7 +12,7 @@ from uuid import uuid4
 
 from fastmcp.server.middleware import Middleware
 
-from momentum_public_mcp.constants import PUBLIC_TOOL_NAMES
+from momentum_public_mcp.constants import PUBLIC_RESOURCE_URIS, PUBLIC_TOOL_NAMES
 from momentum_public_mcp.domain import (
     AnalysisDetail,
     AnalysisSummaries,
@@ -177,6 +177,7 @@ class RequestTelemetry:
             event["http"]["status"] >= 400
             or "error_type" in event
             or event.get("tool", {}).get("outcome") == "error"
+            or event.get("resource", {}).get("outcome") == "error"
         )
         event["outcome"] = "error" if failed else "success"
         keep = failed or event["duration_ms"] >= self.slow_request_ms
@@ -238,3 +239,24 @@ class ToolTelemetry(Middleware):
             raise
         finally:
             tool["duration_ms"] = elapsed(started)
+
+    async def on_read_resource(self, context, call_next):
+        """Record resource reads like tool calls: MCP errors can travel over 200."""
+        event = request_event.get()
+        uri = str(context.message.uri)
+        resource = {
+            "uri": uri if uri in PUBLIC_RESOURCE_URIS else "unknown",
+            "outcome": "error",
+        }
+        if event is not None:
+            event["resource"] = resource
+        started = perf_counter()
+        try:
+            result = await call_next(context)
+            resource["outcome"] = "success"
+            return result
+        except BaseException as error:
+            resource["error_type"] = type(error).__name__
+            raise
+        finally:
+            resource["duration_ms"] = elapsed(started)
