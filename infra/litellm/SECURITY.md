@@ -2,35 +2,38 @@
 
 ## 1.108.0 security-patched release
 
-The upstream bases are pinned by digest in `variables.tf`. Both official
-linux/amd64 images contain filelock 3.32.7 with 13 known advisories at the
-2026-11-05 scan, and oauthlib 4.0.0 with one advisory at the 2026-11-06 scan.
-The derived images replace them with filelock 4.2.4 and oauthlib 4.0.1, using
-SHA-256-verified wheels. No advisory exclusions are used.
+The upstream bases are pinned by digest in `variables.tf`. The official
+linux/amd64 images contain packages with known advisories; the derived images
+replace them with SHA-256-verified wheels. No advisory exclusions are used.
+
+| Package | Official | Derived | Images | First reported |
+| --- | --- | --- | --- | --- |
+| filelock | 3.32.7 | 4.2.4 | proxy, migrations | 2026-11-05 (13) |
+| oauthlib | 4.0.0 | 4.0.1 | proxy, migrations | 2026-11-06 (1) |
+| dnspython | 2.9.1 | 2.9.2 | proxy, migrations | 2026-11-17 (1) |
+| opentelemetry-api | 1.45.1 | 1.45.2 | proxy, migrations | 2026-11-17 (1) |
+| tornado | 6.6 | 6.6.1 | proxy | 2026-11-17 (1) |
+
+`images/replace_installed.py` applies only wheels whose distribution is
+already installed, so both images share one wheel list, then fails the build
+if any installed requirement on a replaced package is no longer satisfied.
+OpenTelemetry releases are version-locked (`opentelemetry-sdk` pins
+`opentelemetry-api==`), so the proxy's whole installed family moves together
+to 1.45.2 / 0.66b2. tornado ships compiled wheels: the Dockerfile carries the
+amd64 and arm64 abi3 wheels and installs the one matching `TARGETARCH`.
 
 `images/widen_filelock.py` backports the installed requirement-bound change
 from [upstream PR #49137](https://github.com/BerriAI/litellm/pull/49137):
 `filelock>=3.16.1,<4.0` becomes `filelock>=3.16.1,<5`. It updates the wheel
 RECORD hash and refuses an unexpected upstream requirement. This is necessary
-because the published 1.108.0 images still contain the old bound. oauthlib
-needs no metadata change: its only dependent, fastapi-sso 0.19.0, requires
-`oauthlib>=3.1.0`. Pip is a hash-verified temporary build tool; it is not
-installed in the runtime. The final proxy runs as root and migrations as
-nonroot, matching the bases.
+because the published 1.108.0 images still contain the old bound. No other
+replacement needs a metadata change. Pip is a hash-verified temporary build
+tool; it is not installed in the runtime. The final proxy runs as root and
+migrations as nonroot, matching the bases.
 
 On 2026-11-17, the installed-Python-package audit of both corrected
-linux/amd64 images found no filelock or oauthlib advisory. Three advisories
-published since the previous scan remain, so the audit gate still fails:
-
-| Package | Installed | Fixed in | Images |
-| --- | --- | --- | --- |
-| dnspython | 2.9.1 | 2.9.2 | proxy, migrations |
-| opentelemetry-api | 1.45.1 | 1.45.2 | proxy, migrations |
-| tornado | 6.6 | 6.6.1 | proxy |
-
-opentelemetry-api cannot be replaced alone: opentelemetry-sdk 1.45.1 and
-opentelemetry-semantic-conventions 0.66b1 require `opentelemetry-api==1.45.1`.
-This is not an OS package, JavaScript dependency, provenance or
+linux/amd64 images returned **zero known vulnerabilities**; the arm64 images
+also build. This is not an OS package, JavaScript dependency, provenance or
 unknown-vulnerability audit.
 
 CI builds both derived images before auditing or running the migration,

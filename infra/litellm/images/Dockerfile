@@ -2,17 +2,36 @@
 ARG BASE_IMAGE
 FROM ${BASE_IMAGE}
 ARG RUNTIME_USER=0
+ARG TARGETARCH
 USER 0
 ADD --chmod=0644 --checksum=sha256:9655943313a94722b7774661c21049070f6bbb0a1516bf02f7c8d5d9201514cd https://files.pythonhosted.org/packages/44/3c/d717024885424591d5376220b5e836c2d5293ce2011523c9de23ff7bf068/pip-25.3-py3-none-any.whl /tmp/security/pip-25.3-py3-none-any.whl
-ADD --chmod=0644 --checksum=sha256:301241438c57936ef93f4243a94f2559022268bfcf9b375a9a72eb0f8db8358e https://files.pythonhosted.org/packages/e0/1b/5e74289a1878e666bb4b65fe5805a04cafcac2aa5f519ef1ead67ef91c56/filelock-4.2.4-py3-none-any.whl /tmp/security/filelock-4.2.4-py3-none-any.whl
-ADD --chmod=0644 --checksum=sha256:498a298876e996301950a5b053d12c31628bb7b895db03666430c69ce182eb61 https://files.pythonhosted.org/packages/df/ef/3b8adde1b32a6f540758bff734d3442c621734c83708e5f02b0ba2f43b84/oauthlib-4.0.1-py3-none-any.whl /tmp/security/oauthlib-4.0.1-py3-none-any.whl
-COPY --chmod=0644 widen_filelock.py /tmp/security/widen_filelock.py
-# Backport upstream #49137 before installing the fixed wheels. oauthlib needs no
-# backport: its only dependent, fastapi-sso, requires oauthlib>=3.1.0. Pip is
-# used from its wheel and never installed in the runtime. Installation has no
-# network.
+# Fixed wheels. replace_installed.py applies only those already installed in
+# the base, so the proxy and migrations images share this list.
+ADD --chmod=0644 --checksum=sha256:301241438c57936ef93f4243a94f2559022268bfcf9b375a9a72eb0f8db8358e https://files.pythonhosted.org/packages/e0/1b/5e74289a1878e666bb4b65fe5805a04cafcac2aa5f519ef1ead67ef91c56/filelock-4.2.4-py3-none-any.whl /tmp/security/wheels/filelock-4.2.4-py3-none-any.whl
+ADD --chmod=0644 --checksum=sha256:498a298876e996301950a5b053d12c31628bb7b895db03666430c69ce182eb61 https://files.pythonhosted.org/packages/df/ef/3b8adde1b32a6f540758bff734d3442c621734c83708e5f02b0ba2f43b84/oauthlib-4.0.1-py3-none-any.whl /tmp/security/wheels/oauthlib-4.0.1-py3-none-any.whl
+ADD --chmod=0644 --checksum=sha256:af15f7d385a6ae2fb35a796fde2138004c8c42c7389090e2addc83e3b3340fd8 https://files.pythonhosted.org/packages/1e/0c/5346358b3a20275d256978c35203ddc2c8617f78c1b23795b79ba22ced6d/dnspython-2.9.2-py3-none-any.whl /tmp/security/wheels/dnspython-2.9.2-py3-none-any.whl
+# OpenTelemetry releases are version-locked; replace the installed family together.
+ADD --chmod=0644 --checksum=sha256:2cbd737377e710ee740d261c94e93fa0f08e6d037c18f17513cc0a2d94479a34 https://files.pythonhosted.org/packages/a9/2d/610db864d7513158cebb8f36cc88e67e73bd6c7aa1905ef18d89e1281c81/opentelemetry_api-1.45.2-py3-none-any.whl /tmp/security/wheels/opentelemetry_api-1.45.2-py3-none-any.whl
+ADD --chmod=0644 --checksum=sha256:ff974ea70ee4f1d51e2ec152db37c2b626c7bf82bb3f7d86114fd8704e7199c6 https://files.pythonhosted.org/packages/9f/a5/9a3b793ef48245f2336a16beb2324c2397dbb3f987cd68942f77cca06156/opentelemetry_sdk-1.45.2-py3-none-any.whl /tmp/security/wheels/opentelemetry_sdk-1.45.2-py3-none-any.whl
+ADD --chmod=0644 --checksum=sha256:03a7ca1b43f89fd5b965d5975902bb2515c0c86e2428b456836e9a6149c6235a https://files.pythonhosted.org/packages/7e/0d/a0b8f2b9efe2ec1abdf639d3696db9b1563ebeb11d91aac08ba7341e9122/opentelemetry_proto-1.45.2-py3-none-any.whl /tmp/security/wheels/opentelemetry_proto-1.45.2-py3-none-any.whl
+ADD --chmod=0644 --checksum=sha256:52c8b9f268289c92c08b3a97f48c63d6e5c037f25ca1f6f29ef162fb78974afc https://files.pythonhosted.org/packages/19/27/fcc3b725ddbfa274fbf6098c9583032557671d35aa8d5e08d7e7277fb126/opentelemetry_exporter_otlp-1.45.2-py3-none-any.whl /tmp/security/wheels/opentelemetry_exporter_otlp-1.45.2-py3-none-any.whl
+ADD --chmod=0644 --checksum=sha256:af483b24217028892f017096731b794b196b785025d2e6808874720fd0b05a80 https://files.pythonhosted.org/packages/e6/d6/0f30d38120a949aef70528f845bf539f80df62abb4b8e62fdf69c2b6df5a/opentelemetry_exporter_otlp_proto_common-1.45.2-py3-none-any.whl /tmp/security/wheels/opentelemetry_exporter_otlp_proto_common-1.45.2-py3-none-any.whl
+ADD --chmod=0644 --checksum=sha256:8a48d60835e90536846bd82de487bfbd81bccb5a1b3d0fb82edeea17db07395c https://files.pythonhosted.org/packages/e8/48/14301cac3d106e795eef7e89e191489f086b4e5ad26e47c9635a198e95f4/opentelemetry_exporter_otlp_proto_grpc-1.45.2-py3-none-any.whl /tmp/security/wheels/opentelemetry_exporter_otlp_proto_grpc-1.45.2-py3-none-any.whl
+ADD --chmod=0644 --checksum=sha256:6e4d025138829d0ee57946930c2ccad6491ad4d92a958e9c7eea69278fe60cfc https://files.pythonhosted.org/packages/32/65/f64d7d2450217e2989714e1dee15e19bf79a77a313387abac0cac77bc10e/opentelemetry_exporter_otlp_proto_http-1.45.2-py3-none-any.whl /tmp/security/wheels/opentelemetry_exporter_otlp_proto_http-1.45.2-py3-none-any.whl
+ADD --chmod=0644 --checksum=sha256:4cbe61e5f9275d57ab31708446e7938ef4291ebbe6a7fca6f7a629c5acae87d8 https://files.pythonhosted.org/packages/67/bd/6bf33ed31521c565931c037e9e81bac47c1acb000e850c6e24220e2a0c00/opentelemetry_semantic_conventions-0.66b2-py3-none-any.whl /tmp/security/wheels/opentelemetry_semantic_conventions-0.66b2-py3-none-any.whl
+ADD --chmod=0644 --checksum=sha256:ace86efb75489f925f1ef809856ae5f0c7db534e4afdc624530222228b1236a5 https://files.pythonhosted.org/packages/a8/47/b3049e30b339c82e3c7ec1fc692185a5d5a3ba65a94c570bb39b2c0b8424/opentelemetry_exporter_otlp_common-0.66b2-py3-none-any.whl /tmp/security/wheels/opentelemetry_exporter_otlp_common-0.66b2-py3-none-any.whl
+ADD --chmod=0644 --checksum=sha256:fd5f5b490c099acda1cd7b909d5e8981436bf18cc8c6098d302d114c271720e9 https://files.pythonhosted.org/packages/a1/b2/c622a101f31c0e6670b82f4264c4e77c161bce415bc6fc158fda0b82e218/opentelemetry_exporter_http_transport-0.66b2-py3-none-any.whl /tmp/security/wheels/opentelemetry_exporter_http_transport-0.66b2-py3-none-any.whl
+ADD --chmod=0644 --checksum=sha256:fa9ccfdab147a14af8107d19ef0a7b5015675273c5adced7a1fc38f28b42ec4c https://files.pythonhosted.org/packages/3b/41/014d40e2b08a5d9d9058ed4967ad992657c203ce0c292ded97364ee7b82a/opentelemetry_instrumentation-0.66b2-py3-none-any.whl /tmp/security/wheels/opentelemetry_instrumentation-0.66b2-py3-none-any.whl
+ADD --chmod=0644 --checksum=sha256:9c5ec36e6b898f18e6b07b5077c2a3bafa9abf69de98e729797b9efa465f8aa3 https://files.pythonhosted.org/packages/b8/6e/bbb647fc9c789365593b77aefc949beef5fa684015e2b81fb41f5da0aa9c/opentelemetry_instrumentation_asgi-0.66b2-py3-none-any.whl /tmp/security/wheels/opentelemetry_instrumentation_asgi-0.66b2-py3-none-any.whl
+ADD --chmod=0644 --checksum=sha256:401eb9fe58cc86015ac0a6682dcaf1b4bcea32c428969853d02171d6650d1774 https://files.pythonhosted.org/packages/ef/e3/10338083ccc116e65b0471796baa90fcb817daf96fed67e51eff9fb80d4e/opentelemetry_instrumentation_fastapi-0.66b2-py3-none-any.whl /tmp/security/wheels/opentelemetry_instrumentation_fastapi-0.66b2-py3-none-any.whl
+ADD --chmod=0644 --checksum=sha256:c4bb5d6744e60353bcaa3e325bc529a1515346b51cb4d9c8e5b730579337e06d https://files.pythonhosted.org/packages/18/8d/39885564eefa43f6181acfa3d698af2f6b5fe3e64c86dce3f1b955f6397f/opentelemetry_util_http-0.66b2-py3-none-any.whl /tmp/security/wheels/opentelemetry_util_http-0.66b2-py3-none-any.whl
+# tornado ships compiled wheels; keep both and select the build platform's.
+ADD --chmod=0644 --checksum=sha256:1b6ff57cc69b339f8feb9e7b567b0e0eacb16bfaf234159496623ef7a67ba640 https://files.pythonhosted.org/packages/38/4d/c65ea949a3cdc185f1afac8c337074d4f2d029b48293d2db4d2c3dea4849/tornado-6.6.1-cp311-abi3-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl /tmp/security/amd64/tornado-6.6.1-cp311-abi3-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl
+ADD --chmod=0644 --checksum=sha256:da6ce2da215810d56539fa6cac77d9e27f4d8139c6868c53436b2fe933f43c79 https://files.pythonhosted.org/packages/03/ff/20911f85dd399b56761496e8138810e8608ea25f0912377f4205d52af853/tornado-6.6.1-cp311-abi3-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl /tmp/security/arm64/tornado-6.6.1-cp311-abi3-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl
+COPY --chmod=0644 widen_filelock.py replace_installed.py /tmp/security/
+# Backport upstream #49137 before installing the fixed wheels. Pip is used from
+# its wheel and never installed in the runtime. Installation has no network.
 RUN python /tmp/security/widen_filelock.py \
-    && PYTHONPATH=/tmp/security/pip-25.3-py3-none-any.whl python -m pip install --no-index --no-deps --force-reinstall /tmp/security/filelock-4.2.4-py3-none-any.whl /tmp/security/oauthlib-4.0.1-py3-none-any.whl \
-    && python -c 'import importlib.metadata as m; assert m.version("filelock") == "4.2.4"; assert m.version("oauthlib") == "4.0.1"' \
+    && python /tmp/security/replace_installed.py /tmp/security/pip-25.3-py3-none-any.whl /tmp/security/wheels/*.whl /tmp/security/${TARGETARCH}/*.whl \
     && rm -rf /tmp/security
 USER ${RUNTIME_USER}
