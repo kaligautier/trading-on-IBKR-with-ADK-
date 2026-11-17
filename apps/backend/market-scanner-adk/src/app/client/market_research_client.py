@@ -92,6 +92,42 @@ class MarketResearchClient:
         if as_of > self.now().date():
             raise ValueError("Future analysis date")
 
+    @staticmethod
+    def _news_item(article, symbol, start, as_of, seen):
+        if not isinstance(article, dict):
+            return None
+        content = article.get("content") or article
+        if not isinstance(content, dict):
+            return None
+        if symbol and symbol.upper() not in [
+            str(t).upper() for t in article.get("relatedTickers", [])
+        ]:
+            return None
+        try:
+            published = _timestamp(
+                content.get("pubDate") or article.get("providerPublishTime")
+            )
+        except (ValueError, TypeError, OverflowError, OSError):
+            return None
+        title = content.get("title") or ""
+        if not title or title in seen or not start <= published.date() <= as_of:
+            return None
+        provider = content.get("provider") or {}
+        publisher = (
+            provider.get("displayName", "Unknown")
+            if isinstance(provider, dict)
+            else "Unknown"
+        )
+        publisher = content.get("publisher") or publisher
+        return title, (
+            {
+                "title": str(title)[:500],
+                "summary": str(content.get("summary") or "")[:1500],
+                "published_at": published.isoformat(),
+                "publisher": publisher,
+            }
+        )
+
     async def _news(self, queries, as_of, symbol=None):
         self._valid_date(as_of)
         start = as_of - timedelta(days=7)
@@ -109,40 +145,12 @@ class MarketResearchClient:
                         failures.append(type(error).__name__)
             query_count = 0
             for article in articles or []:
-                if not isinstance(article, dict):
+                entry = self._news_item(article, symbol, start, as_of, seen)
+                if entry is None:
                     continue
-                content = article.get("content") or article
-                if not isinstance(content, dict):
-                    continue
-                if symbol and symbol.upper() not in [
-                    str(t).upper() for t in article.get("relatedTickers", [])
-                ]:
-                    continue
-                try:
-                    published = _timestamp(
-                        content.get("pubDate") or article.get("providerPublishTime")
-                    )
-                except (ValueError, TypeError, OverflowError, OSError):
-                    continue
-                title = content.get("title") or ""
-                if not title or title in seen or not start <= published.date() <= as_of:
-                    continue
-                provider = content.get("provider") or {}
-                publisher = (
-                    provider.get("displayName", "Unknown")
-                    if isinstance(provider, dict)
-                    else "Unknown"
-                )
-                publisher = content.get("publisher") or publisher
+                title, item = entry
                 seen.add(title)
-                items.append(
-                    {
-                        "title": str(title)[:500],
-                        "summary": str(content.get("summary") or "")[:1500],
-                        "published_at": published.isoformat(),
-                        "publisher": publisher,
-                    }
-                )
+                items.append(item)
                 query_count += 1
                 if not symbol and query_count >= 4:
                     break

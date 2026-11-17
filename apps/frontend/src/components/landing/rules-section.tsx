@@ -1,4 +1,5 @@
 import { ArrowUpRight } from "lucide-react"
+import { ChromaticTextReveal } from "@/components/motion/chromatic-text-reveal"
 
 const RESEARCH_QUESTIONS = [
   {
@@ -22,7 +23,7 @@ export function RulesSection() {
         <div className="grid gap-8 lg:grid-cols-12 lg:gap-16">
           <div className="min-w-0 lg:col-span-5">
             <h2 id="deep-copy-title" className="text-balance font-display text-4xl font-bold leading-tight tracking-tight md:text-5xl">
-              Experimental trading.
+              <ChromaticTextReveal prefix="Experimental" words={["trading."]} loop={false} />
               <br />
               <span className="font-medium text-on-surface-muted">Explore the path to execution.</span>
             </h2>

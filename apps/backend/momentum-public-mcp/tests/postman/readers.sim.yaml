@@ -1,0 +1,7 @@
+simulation: momentum-mcp
+routing: path
+mocks:
+  - routeKey: momentum
+    path: ./mocks/momentum/config.yaml
+  - routeKey: scanner
+    path: ./mocks/scanner/config.yaml

@@ -1,4 +1,5 @@
 import { PublicActions } from "./public-actions"
+import { ChromaticTextReveal } from "@/components/motion/chromatic-text-reveal"
 
 export function HeroSection() {
   return (
@@ -11,7 +12,7 @@ export function HeroSection() {
       <div className="relative mx-auto grid max-w-6xl items-end gap-14 px-6 lg:grid-cols-12 lg:gap-12">
         <div className="lg:col-span-7">
           <h1 data-animate="hero-title" className="max-w-3xl text-balance text-5xl font-bold leading-[1.04] tracking-[-0.04em] font-display sm:text-6xl md:text-7xl md:leading-[1.02]">
-            <span className="block text-balance">Understand the markets.</span>
+            <span className="block text-balance"><ChromaticTextReveal prefix="Understand the" words={["markets."]} loop={false} delay={0.3} /></span>
             <span className="block text-balance font-medium text-on-surface-muted">Explore AI agents.</span>
           </h1>
         </div>

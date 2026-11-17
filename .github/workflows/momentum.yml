@@ -1,0 +1,125 @@
+name: Momentum checks
+
+on:
+  pull_request:
+    paths:
+      - 'apps/backend/momentum-adk/**'
+      - '.github/workflows/momentum.yml'
+      - '.github/scripts/verify_adk_telemetry.py'
+      - 'database/**'
+      - 'infra/momentum/**'
+  push:
+    branches: [main]
+    paths:
+      - 'apps/backend/momentum-adk/**'
+      - '.github/workflows/momentum.yml'
+      - '.github/scripts/verify_adk_telemetry.py'
+      - 'database/**'
+      - 'infra/momentum/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: momentum-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  library:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: apps/backend/momentum-adk
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
+        with:
+          version: '0.9.17'
+          enable-cache: true
+          cache-dependency-glob: apps/backend/momentum-adk/uv.lock
+      - name: Verify lock and install Python 3.12 dependencies
+        run: |
+          uv lock --check --python 3.12
+          uv sync --frozen --python 3.12
+      - name: Lint and check formatting
+        run: |
+          uv run --frozen ruff check app tests
+          uv run --frozen ruff format --check app tests
+      - name: Test the independent library
+        run: TZ=UTC uv run --frozen pytest -q tests/unit
+      - name: Verify locked ADK and OpenTelemetry compatibility offline
+        run: uv run --frozen python ../../../.github/scripts/verify_adk_telemetry.py
+      - name: Build and import the installed wheel outside the checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          uv build --wheel --out-dir "$RUNNER_TEMP/momentum-dist"
+          wheels=("$RUNNER_TEMP"/momentum-dist/*.whl)
+          uv sync --frozen --no-dev --no-editable --python 3.12
+          runtime_python="$PWD/.venv/bin/python"
+          uv pip install --python "$runtime_python" --no-deps --reinstall "${wheels[0]}"
+          cd "$RUNNER_TEMP"
+          "$runtime_python" -I -c 'import app; from app.domain.contracts import AnalysisRequest; import importlib.metadata as m; required = m.requires("momentum-adk"); assert "opentelemetry-api==1.45.1" in required; assert "opentelemetry-sdk==1.45.1" in required; assert m.version("opentelemetry-api") == "1.45.1"; assert m.version("opentelemetry-sdk") == "1.45.1"'
+
+  database:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      MOMENTUM_TEST_ADMIN_URL: postgresql://postgres:local-test-only@127.0.0.1:55467/postgres
+      MOMENTUM_TEST_CONTAINER: momentum-current-test-db
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
+        with:
+          version: '0.9.17'
+      - run: uv sync --project apps/backend/momentum-adk --frozen --python 3.12
+      - id: postgres
+        run: bash apps/backend/momentum-adk/scripts/test_database.sh start
+      - name: Test actual Liquibase migrations and restricted runtime credentials
+        run: TZ=UTC uv run --project apps/backend/momentum-adk --frozen pytest -c apps/backend/momentum-adk/pyproject.toml -q apps/backend/momentum-adk/tests/integration
+      - if: always() && steps.postgres.outcome == 'success'
+        run: bash apps/backend/momentum-adk/scripts/test_database.sh stop
+
+  infrastructure:
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: infra/momentum
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd
+        with:
+          terraform_version: '1.14.4'
+          terraform_wrapper: false
+      - run: terraform fmt -check -recursive
+      - run: terraform init -backend=false
+      - run: terraform validate
+      - run: terraform test
+
+  dependencies:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e
+        with:
+          version: '0.9.17'
+      - run: uv export --project apps/backend/momentum-adk --frozen --no-dev --no-emit-project --format requirements-txt --output-file=/tmp/momentum-requirements.txt
+      - run: uvx --from pip-audit==2.10.1 --python 3.12 pip-audit -r /tmp/momentum-requirements.txt --disable-pip --no-deps
+
+  image:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - name: Build Linux production image
+        run: docker build --platform linux/amd64 --tag momentum-ci apps/backend/momentum-adk
+      - name: Verify offline runtime as the production user
+        run: |
+          docker run --rm -i --network none --read-only --tmpfs /tmp:rw,nosuid,size=64m \
+            --entrypoint python momentum-ci - < apps/backend/momentum-adk/scripts/container_smoke.py

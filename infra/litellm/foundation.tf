@@ -39,7 +39,7 @@ locals {
     general_settings = merge(local.runtime_settings.general_settings, {
       master_key                       = "os.environ/LITELLM_MASTER_KEY"
       database_url                     = "os.environ/DATABASE_URL"
-      database_connection_pool_limit   = 2
+      database_connection_pool_limit   = 1
       allow_requests_on_db_unavailable = false
       store_model_in_db                = true
     })

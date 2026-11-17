@@ -1,0 +1,90 @@
+name: Momentum public MCP
+on:
+  pull_request:
+    paths:
+      - 'apps/backend/momentum-public-mcp/**'
+      - 'apps/backend/momentum-api/**'
+      - 'database/**'
+      - 'infra/momentum-public-mcp/**'
+      - '.github/workflows/momentum-public-mcp.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'apps/backend/momentum-public-mcp/**'
+      - 'apps/backend/momentum-api/**'
+      - 'database/**'
+      - 'infra/momentum-public-mcp/**'
+      - '.github/workflows/momentum-public-mcp.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: momentum-public-mcp-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  backend:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: apps/backend/momentum-public-mcp
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e
+        with:
+          version: '0.12.2'
+          enable-cache: true
+      - run: uv sync --locked --python 3.12
+      - name: Audit runtime dependencies
+        run: |
+          uv export --locked --no-dev --no-emit-project --format requirements-txt --output-file="$RUNNER_TEMP/mcp-requirements.txt"
+          uvx --from pip-audit==2.10.1 --python 3.12 pip-audit -r "$RUNNER_TEMP/mcp-requirements.txt" --disable-pip --no-deps
+      - run: uv run --locked ruff check src tests scripts ../../../infra/momentum-public-mcp/deploy.py ../../../infra/momentum-public-mcp/tests/test_deploy.py
+      - run: uv run --locked ruff format --check src tests scripts ../../../infra/momentum-public-mcp/deploy.py ../../../infra/momentum-public-mcp/tests/test_deploy.py
+      - run: uv run --locked pytest -q
+      - name: Deployment verification gate
+        run: uv run --locked python -m unittest discover -s ../../../infra/momentum-public-mcp/tests -p 'test_*.py'
+      - name: Install pinned Postman CLI
+        run: |
+          curl --fail --location --silent --show-error \
+            https://dl-cli.pstmn.io/download/version/1.73.0/linux64 \
+            --output "$RUNNER_TEMP/postman.tgz"
+          printf '%s  %s\n' 8f95dfcfc113a7af796783f88e19de26cc7606c9438b414e8cc485199b205817 "$RUNNER_TEMP/postman.tgz" | sha256sum --check -
+          mkdir "$RUNNER_TEMP/mcp-postman"
+          tar -xzf "$RUNNER_TEMP/postman.tgz" -C "$RUNNER_TEMP/mcp-postman"
+          mv "$RUNNER_TEMP/mcp-postman/postman-cli" "$RUNNER_TEMP/mcp-postman/postman"
+          echo "$RUNNER_TEMP/mcp-postman" >> "$GITHUB_PATH"
+      - name: Real MCP over HTTP against contract-derived upstreams
+        run: uv run --locked python scripts/simulation.py
+      - run: uv sync --project ../momentum-api --frozen --python 3.12
+      - name: Real MCP through versioned Momentum API into PostgreSQL
+        working-directory: apps/backend/momentum-api
+        run: |
+          bash scripts/test_database.sh start
+          uv run --frozen python scripts/mcp_smoke.py
+      - name: Clean up owned disposable integration fixture
+        if: always()
+        working-directory: apps/backend/momentum-api
+        run: |
+          if docker container inspect momentum-current-api-test-db >/dev/null 2>&1; then
+            bash scripts/test_database.sh stop
+          fi
+      - run: docker build -t local/momentum-public-mcp:verify .
+      - name: Verify the release container runtime
+        run: uv run --locked python scripts/container_smoke.py local/momentum-public-mcp:verify
+  infrastructure:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    strategy:
+      matrix:
+        root: [infra/momentum-public-mcp, infra/momentum-public-mcp/build]
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd
+        with:
+          terraform_version: '1.14.4'
+          terraform_wrapper: false
+      - run: terraform -chdir=${{ matrix.root }} fmt -check -recursive
+      - run: terraform -chdir=${{ matrix.root }} init -backend=false -input=false -lockfile=readonly
+      - run: terraform -chdir=${{ matrix.root }} validate
+      - run: terraform -chdir=${{ matrix.root }} test

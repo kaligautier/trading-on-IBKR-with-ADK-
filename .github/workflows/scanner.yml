@@ -7,6 +7,7 @@ on:
       - 'infra/**'
       - '.github/workflows/scanner.yml'
       - 'scripts/scanner_image_smoke.py'
+      - '.github/scripts/verify_adk_telemetry.py'
   push:
     branches: [main]
     paths:
@@ -14,6 +15,7 @@ on:
       - 'infra/**'
       - '.github/workflows/scanner.yml'
       - 'scripts/scanner_image_smoke.py'
+      - '.github/scripts/verify_adk_telemetry.py'
   workflow_dispatch:
 
 permissions:
@@ -38,13 +40,15 @@ jobs:
           enable-cache: true
           cache-dependency-glob: apps/backend/market-scanner-adk/uv.lock
       - name: Install locked dependencies
-        run: uv sync --frozen --python 3.12
+        run: uv sync --locked --python 3.12
       - name: Lint application and tests
         run: uv run --no-sync ruff check src ../../../scripts/scanner_image_smoke.py
       - name: Check formatting
         run: uv run --no-sync ruff format --check src/app ../../../scripts/scanner_image_smoke.py
       - name: Test scanner and gateway failure handling
         run: TZ=UTC uv run --no-sync pytest -q src/test/unit
+      - name: Verify locked ADK and OpenTelemetry compatibility offline
+        run: uv run --no-sync python ../../../.github/scripts/verify_adk_telemetry.py
 
   infrastructure:
     runs-on: ubuntu-24.04
@@ -58,11 +62,11 @@ jobs:
       - name: Check Terraform formatting
         run: terraform -chdir=infra fmt -check -recursive
       - name: Initialize providers without cloud backend
-        run: terraform -chdir=infra init -backend=false -input=false -lockfile=readonly
+        run: terraform -chdir=infra/market-scanner init -backend=false -input=false -lockfile=readonly
       - name: Validate runtime infrastructure
-        run: terraform -chdir=infra validate
+        run: terraform -chdir=infra/market-scanner validate
       - name: Test runtime infrastructure with mocked providers
-        run: terraform -chdir=infra test
+        run: terraform -chdir=infra/market-scanner test
       - name: Validate and test bootstrap infrastructure
         run: |
           terraform -chdir=infra/bootstrap init -backend=false -input=false -lockfile=readonly

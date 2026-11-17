@@ -1,4 +1,5 @@
 import { ArrowRight, ArrowUpRight, ChevronDown } from "lucide-react"
+import { ChromaticTextReveal } from "@/components/motion/chromatic-text-reveal"
 
 const REPOSITORY = "https://github.com/kaligautier/trading-on-IBKR-with-ADK-"
 
@@ -55,7 +56,7 @@ export function EngineeringSection() {
         <div className="grid gap-10 lg:grid-cols-12 lg:gap-16">
           <div className="min-w-0 lg:col-span-5">
             <h2 id="engineering-title" className="text-balance font-display text-4xl font-bold leading-tight tracking-tight md:text-5xl">
-              Engineering.
+              <ChromaticTextReveal prefix="" words={["Engineering."]} loop={false} />
               <br />
               <span className="font-medium text-on-surface-muted">The choices behind Deep Copy.</span>
             </h2>

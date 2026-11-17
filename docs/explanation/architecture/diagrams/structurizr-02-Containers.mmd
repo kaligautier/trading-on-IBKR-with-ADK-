@@ -1,0 +1,68 @@
+graph LR
+  linkStyle default fill:none,stroke:#627d94,stroke-width:1.5px
+
+  subgraph diagram ["02 | Deepcopy - services and storage"]
+    style diagram fill:#ffffff,stroke:#ffffff
+
+    1["<div style='font-weight: bold'>Website visitor</div><div style='font-size: 70%; margin-top: 0px'>[Person]</div><div style='font-size: 80%; margin-top:10px'>Reads the daily market<br />report.</div>"]
+    style 1 fill:#16324f,stroke:#627d94,color:#ffffff
+    2["<div style='font-weight: bold'>Authorized operator</div><div style='font-size: 70%; margin-top: 0px'>[Person]</div><div style='font-size: 80%; margin-top:10px'>Runs jobs, queries private<br />readers and administers<br />inference.</div>"]
+    style 2 fill:#16324f,stroke:#627d94,color:#ffffff
+    3["<div style='font-weight: bold'>Market data providers</div><div style='font-size: 70%; margin-top: 0px'>[Software System]</div><div style='font-size: 80%; margin-top:10px'>Yahoo Finance, US Treasury;<br />optional FRED, Polymarket and<br />Alpha Vantage.</div>"]
+    style 3 fill:#eef1f5,stroke:#627d94,color:#31475d
+    4["<div style='font-weight: bold'>Model providers</div><div style='font-size: 70%; margin-top: 0px'>[Software System]</div><div style='font-size: 80%; margin-top:10px'>Vertex AI Gemini; additional<br />API-key providers are<br />configurable.</div>"]
+    style 4 fill:#eef1f5,stroke:#627d94,color:#31475d
+    5[("<div style='font-weight: bold'>Managed PostgreSQL</div><div style='font-size: 70%; margin-top: 0px'>[Software System]</div><div style='font-size: 80%; margin-top:10px'>Separate market_scanner,<br />momentum and litellm<br />databases.</div>")]
+    style 5 fill:#fff0cc,stroke:#627d94,color:#674c16
+    6["<div style='font-weight: bold'>Redis / Valkey (optional)</div><div style='font-size: 70%; margin-top: 0px'>[Software System]</div><div style='font-size: 80%; margin-top:10px'>Shared inference state when<br />configured; external to<br />Terraform.</div>"]
+    style 6 fill:#f5f2ed,stroke:#627d94,color:#686054
+
+    subgraph 7 ["Deepcopy"]
+      style 7 fill:#ffffff,stroke:#627d94,color:#627d94
+
+      10["<div style='font-weight: bold'>Scanner ADK service</div><div style='font-size: 70%; margin-top: 0px'>[Container: FastAPI / Google ADK / Cloud Run]</div><div style='font-size: 80%; margin-top:10px'>Private ADK interface and<br />daily-job dispatcher.</div>"]
+      style 10 fill:#e3eef8,stroke:#627d94,color:#18344d
+      11["<div style='font-weight: bold'>Scanner reader</div><div style='font-size: 70%; margin-top: 0px'>[Container: FastAPI / Cloud Run]</div><div style='font-size: 80%; margin-top:10px'>Read-only persisted report<br />consultation.</div>"]
+      style 11 fill:#e3eef8,stroke:#627d94,color:#18344d
+      12["<div style='font-weight: bold'>Scanner job</div><div style='font-size: 70%; margin-top: 0px'>[Container: Google ADK / Cloud Run Job]</div><div style='font-size: 80%; margin-top:10px'>Daily analysis; shares<br />workflow with ADK service.</div>"]
+      style 12 fill:#eee5fa,stroke:#627d94,color:#533474
+      21["<div style='font-weight: bold'>Momentum reader</div><div style='font-size: 70%; margin-top: 0px'>[Container: FastAPI / Cloud Run]</div><div style='font-size: 80%; margin-top:10px'>History, latest per ticker<br />and recommendations.</div>"]
+      style 21 fill:#e3eef8,stroke:#627d94,color:#18344d
+      22["<div style='font-weight: bold'>Momentum job</div><div style='font-size: 70%; margin-top: 0px'>[Container: Google ADK / Cloud Run Job]</div><div style='font-size: 80%; margin-top:10px'>One analysis request; private<br />job execution.</div>"]
+      style 22 fill:#eee5fa,stroke:#627d94,color:#533474
+      33["<div style='font-weight: bold'>Private inference</div><div style='font-size: 70%; margin-top: 0px'>[Container: Cloud Run / internal ingress]</div><div style='font-size: 80%; margin-top:10px'>Nginx route filter + LiteLLM<br />sidecar; virtual keys.</div>"]
+      style 33 fill:#eee5fa,stroke:#627d94,color:#533474
+      34["<div style='font-weight: bold'>Inference admin</div><div style='font-size: 70%; margin-top: 0px'>[Container: Cloud Run / IAP]</div><div style='font-size: 80%; margin-top:10px'>Separate IAP-protected<br />LiteLLM service.</div>"]
+      style 34 fill:#e3eef8,stroke:#627d94,color:#18344d
+      8["<div style='font-weight: bold'>Public website</div><div style='font-size: 70%; margin-top: 0px'>[Container: Next.js / React / Cloud Run]</div><div style='font-size: 80%; margin-top:10px'>Server-rendered reports; no<br />browser database access.</div>"]
+      style 8 fill:#d9f1ec,stroke:#627d94,color:#18344d
+      9["<div style='font-weight: bold'>Daily schedule</div><div style='font-size: 70%; margin-top: 0px'>[Container: Cloud Scheduler]</div><div style='font-size: 80%; margin-top:10px'>07:00 Europe/Paris.</div>"]
+      style 9 fill:#e3eef8,stroke:#627d94,color:#18344d
+    end
+
+    1-. "<div>Reads reports</div><div style='font-size: 70%'>[HTTPS]</div>" .->8
+    2-. "<div>Submits analysis request</div><div style='font-size: 70%'>[Cloud Run Jobs API]</div>" .->22
+    2-. "<div>Queries analyses</div><div style='font-size: 70%'>[HTTPS / IAM]</div>" .->21
+    2-. "<div>Manages inference</div><div style='font-size: 70%'>[HTTPS / IAP]</div>" .->34
+    8-. "<div>Loads latest report</div><div style='font-size: 70%'>[HTTPS / ID token]</div>" .->11
+    9-. "<div>POST daily-scan</div><div style='font-size: 70%'>[HTTPS / OIDC]</div>" .->10
+    10-. "<div>Submits execution</div><div style='font-size: 70%'>[Cloud Run Jobs API]</div>" .->12
+    10-. "<div>Sessions + interactive<br />reports</div><div style='font-size: 70%'>[SQL / TLS]</div>" .->5
+    10-. "<div>Interactive market research</div><div style='font-size: 70%'>[HTTPS]</div>" .->3
+    10-. "<div>Interactive inference</div><div style='font-size: 70%'>[Gemini API / virtual key]</div>" .->33
+    12-. "<div>Writes market_scanner</div><div style='font-size: 70%'>[SQL / TLS]</div>" .->5
+    12-. "<div>Collects market evidence</div><div style='font-size: 70%'>[HTTPS]</div>" .->3
+    12-. "<div>Research / critique /<br />synthesis</div><div style='font-size: 70%'>[Gemini API / virtual key]</div>" .->33
+    11-. "<div>Reads market_scanner only</div><div style='font-size: 70%'>[SQL / TLS]</div>" .->5
+    22-. "<div>Writes momentum</div><div style='font-size: 70%'>[SQL / TLS]</div>" .->5
+    22-. "<div>Retrieves stock evidence</div><div style='font-size: 70%'>[HTTPS]</div>" .->3
+    22-. "<div>Quick + deep model calls</div><div style='font-size: 70%'>[Gemini API / virtual key]</div>" .->33
+    21-. "<div>Reads momentum only</div><div style='font-size: 70%'>[SQL / TLS]</div>" .->5
+    33-. "<div>Routes configured models</div><div style='font-size: 70%'>[HTTPS]</div>" .->4
+    33-. "<div>Keys, budgets and spend</div><div style='font-size: 70%'>[SQL / TLS]</div>" .->5
+    34-. "<div>Manages inference<br />configuration</div><div style='font-size: 70%'>[SQL / TLS]</div>" .->5
+    34-. "<div>Configured model access</div><div style='font-size: 70%'>[HTTPS]</div>" .->4
+    33-. "<div>Optional shared state</div><div style='font-size: 70%'>[TLS]</div>" .->6
+    34-. "<div>Optional shared state</div><div style='font-size: 70%'>[TLS]</div>" .->6
+
+  end

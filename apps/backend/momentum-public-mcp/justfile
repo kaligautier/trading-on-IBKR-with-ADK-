@@ -1,0 +1,23 @@
+default:
+    @just --list
+
+sync:
+    uv sync --frozen --dev
+
+test:
+    uv run --frozen pytest -q
+
+lint:
+    uv run --frozen ruff check src tests scripts
+    uv run --frozen ruff format --check src tests scripts
+
+test-http:
+    uv run --frozen python scripts/simulation.py
+
+verify-live url:
+    uv run --frozen python scripts/verify_live.py '{{url}}'
+
+check: test lint
+
+run:
+    uv run --frozen momentum-public-mcp

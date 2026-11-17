@@ -8,14 +8,15 @@ from uuid import uuid4
 
 from google.adk.apps import App
 from google.adk.runners import Runner
-from google.adk.sessions import InMemorySessionService
 from google.genai import types
 
 from app.components.agents.market_scanner import root_agent
 from app.config.constants import MARKET_SCANNER, PERSIST_MARKET_SCAN
 from app.config.settings import settings
 from app.models.step_04_market_data import MarketData
+from app.services.admission import ScannerBusyError, admit_scan
 from app.services.database import close_database
+from app.services.session_database import ScannerSessionService
 from app.utils.error import AppError, LiteLLMError
 from app.utils.logger import config_logger
 
@@ -23,17 +24,25 @@ logger = logging.getLogger(__name__)
 
 
 async def run_scan() -> dict[str, str | int]:
-    """Use a fresh in-memory session; retain the business report in PostgreSQL."""
+    """Persist ADK state and business results in the Scanner domain database."""
     if not settings.DATABASE_URL:
         raise RuntimeError("Database persistence is not configured")
     session_id = os.getenv("CLOUD_RUN_EXECUTION") or str(uuid4())
     marker = f"scheduled:{session_id}"
     report = None
-    async with Runner(
-        app=App(name=MARKET_SCANNER, root_agent=root_agent),
-        session_service=InMemorySessionService(),
-    ) as runner:
-        await runner.session_service.create_session(
+    async with (
+        admit_scan(),
+        ScannerSessionService(settings.DATABASE_URL) as sessions,
+        Runner(
+            app=App(name=MARKET_SCANNER, root_agent=root_agent),
+            session_service=sessions,
+        ) as runner,
+    ):
+        if await sessions.get_session(
+            app_name=MARKET_SCANNER, user_id="scheduler", session_id=session_id
+        ):
+            raise RuntimeError("Scheduled session already exists; refusing to replay")
+        await sessions.create_session(
             app_name=MARKET_SCANNER,
             user_id="scheduler",
             session_id=session_id,
@@ -69,6 +78,11 @@ async def main() -> int:
             extra={"event": "scheduled_scan.completed", **result},
         )
         return 0
+    except ScannerBusyError:
+        logger.warning(
+            "scheduled scan deferred", extra={"event": "scheduled_scan.busy"}
+        )
+        return 75
     except Exception as error:
         error_details = (
             {"error_code": error.error_code.name, "error_details": error.details}

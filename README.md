@@ -40,28 +40,34 @@ Open [Market Scanner](https://deepcopy.fr/#market-scanner) to read the daily ana
 
 ### MCP Momentum
 
-1. Add `https://mcp.deepcopy.fr` to your preferred MCP client. The server supports protocol revision [`2026-07-28`](https://modelcontextprotocol.io/specification/2026-07-28/changelog).
+The migrated backend uses FastMCP **4.1.3** with stateless HTTP. See the
+[backend contract and checks](apps/backend/momentum-public-mcp/README.md).
+The Cloud Run URL below serves all seven tools through Momentum API and Market
+Scanner API, including durable pending suggestions. The MCP has no database
+access. The old `mcp.deepcopy.fr` domain has not been migrated.
+
+1. Add `https://momentum-public-mcp-gdezc6bzrq-ew.a.run.app` to your preferred MCP client. The server supports protocol revision [`2026-07-28`](https://modelcontextprotocol.io/specification/2026-07-28/changelog).
 
 2. Ask for recent stock analyses, for example: “List the latest analyses available for AAPL.”
 
-3. Use an analysis ID returned by `list_analyses` to request the full report with `get_analysis`.
+3. Use an analysis ID returned by `momentum_list_analyses` to request the full report with `momentum_get_analysis`.
 
-To call `list_analyses` directly from a terminal:
+To call `momentum_list_analyses` directly from a terminal:
 
 ```bash
-curl https://mcp.deepcopy.fr \
+curl https://momentum-public-mcp-gdezc6bzrq-ew.a.run.app \
   -H 'Content-Type: application/json' \
   -H 'Accept: application/json, text/event-stream' \
   -H 'MCP-Protocol-Version: 2026-07-28' \
   -H 'Mcp-Method: tools/call' \
-  -H 'Mcp-Name: list_analyses' \
+  -H 'Mcp-Name: momentum_list_analyses' \
   --data-raw '{
     "jsonrpc": "2.0",
     "id": "list-analyses-1",
     "method": "tools/call",
     "params": {
-      "name": "list_analyses",
-      "arguments": {"limit": 1},
+      "name": "momentum_list_analyses",
+      "arguments": {"page_size": 1},
       "_meta": {
         "io.modelcontextprotocol/protocolVersion": "2026-07-28",
         "io.modelcontextprotocol/clientInfo": {"name": "readme-example", "version": "1.0.0"},
@@ -77,7 +83,7 @@ Check `result.isError` before using a tool response. If it is `true`, read the e
 <summary>Discover the server and its supported protocol versions</summary>
 
 ```bash
-curl https://mcp.deepcopy.fr \
+curl https://momentum-public-mcp-gdezc6bzrq-ew.a.run.app \
   -H 'Content-Type: application/json' \
   -H 'Accept: application/json, text/event-stream' \
   -H 'MCP-Protocol-Version: 2026-07-28' \
@@ -104,117 +110,53 @@ curl https://mcp.deepcopy.fr \
 
 ## Architecture
 
-The project has three main flows:
+The editable project vision remains in the
+[Excalidraw architecture](docs/global-architecture/architecture-v0.excalidraw).
+The diagrams below describe the architecture implemented in this repository and
+its Terraform configuration. See the [architecture notes](docs/explanation/architecture.md)
+for source references, system boundaries and regeneration instructions. They
+show a code snapshot, not a live deployment.
 
+### System context
 
-```mermaid
----
-config:
-  look: classic
-  layout: elk
-  theme: base
-  themeVariables:
-    fontFamily: "Arial"
-    fontSize: "15px"
-    primaryTextColor: "#1e293b"
-    lineColor: "#64748b"
-    clusterBkg: "#ffffff"
-    clusterBorder: "#94a3b8"
-    edgeLabelBackground: "#ffffff"
-  flowchart:
-    curve: rounded
-    nodeSpacing: 35
-    rankSpacing: 45
----
-flowchart TB
-    USER("User") --> INTERNET("Internet")
-    INTERNET --> FRONT("Next.js frontend<br/>UI and server proxy")
-    INTERNET -->|MCP client| PUBLIC
-    ADMIN("Administrator<br/>Authenticated MCP client") --> INTERNAL
+![Implemented system context](docs/explanation/architecture/diagrams/structurizr-01-SystemContext.mmd.svg)
 
-    subgraph PLATFORM["Deep Copy · application components"]
-        direction TB
+### Services and storage
 
-        API_DC("API<br/>Deep Copy")
-        ADK_DC("ADK2 workflow<br/>Deep Copy")
-        MCP_IBKR("Internal MCP<br/>IBKR")
-        GATEWAY("IBKR gateways<br/>ibkr-gw-*")
+![Implemented services and storage](docs/explanation/architecture/diagrams/structurizr-02-Containers.mmd.svg)
 
-        PUBLIC("Public MCP<br/>Momentum")
-        INTERNAL("Internal MCP<br/>Momentum")
-        API_M("API<br/>Momentum")
-        ADK_M("Momentum ADK2<br/>Cloud Run Job")
+### Market Scanner workflow
 
-        API_S("API<br/>Market Scanner")
-        SCHEDULER("Market Scanner scheduler<br/>and Cloud Workflows")
-        ADK_S("ADK2<br/>Market Scanner")
-        DB("PostgreSQL<br/>Application data")
+![Market Scanner components](docs/explanation/architecture/diagrams/structurizr-03-ScannerComponents.mmd.svg)
 
-        API_DC -->|Run worker| ADK_DC
-        API_DC -->|Deploys and manages| GATEWAY
-        ADK_DC --> MCP_IBKR --> GATEWAY
-        PUBLIC --> API_M
-        PUBLIC --> API_S
-        INTERNAL -->|Administration| API_M
-        API_M -->|Starts an analysis| ADK_M
-        SCHEDULER -->|Session, then execution| ADK_S
+### Momentum workflow
 
-        API_DC --> DB
-        API_M -->|Reads analyses| DB
-        ADK_M -->|Saves| DB
-        API_S -->|Reads scans| DB
-        ADK_S -->|Saves| DB
-    end
-
-    FRONT --> API_DC
-    FRONT --> API_S
-    GATEWAY --> IBKR("Interactive Brokers")
-
-    classDef neutral fill:#e9ecef,stroke:#475569,color:#1e293b;
-    classDef front fill:#a5d8ff,stroke:#475569,color:#1e293b;
-    classDef api fill:#b2f2bb,stroke:#475569,color:#1e293b;
-    classDef mcp fill:#d0bfff,stroke:#475569,color:#1e293b;
-    classDef agent fill:#eebefa,stroke:#475569,color:#1e293b;
-    classDef storage fill:#ffec99,stroke:#475569,color:#1e293b;
-    classDef external fill:#ffc9c9,stroke:#475569,color:#1e293b;
-
-    class USER,INTERNET,ADMIN neutral;
-    class FRONT front;
-    class API_DC,API_M,API_S api;
-    class PUBLIC,INTERNAL,MCP_IBKR mcp;
-    class ADK_DC,ADK_M,ADK_S,SCHEDULER agent;
-    class GATEWAY,DB storage;
-    class IBKR external;
-    style PLATFORM rx:16,ry:16;
-```
-
-- **Market Scanner** uses a graph-based execution engine to retrieve public market data from several providers. Agents research news related to market movements and produce the daily summary.
-- **MCP Momentum** exposes analyses produced with a fork of the [Tauric Research project](https://tauric.ai/research/trading-r1). The public MCP server provides access to these reports and the latest market scan, and accepts ticker suggestions for moderation.
-- **Deepcopy agentic workflow** connects an agentic trading workflow to IBKR and uses the investor's risk profile to guide buy and sell decisions.
-
+![Momentum components](docs/explanation/architecture/diagrams/structurizr-04-MomentumComponents.mmd.svg)
 
 ## MCP reference
 
 The public MCP server is stateless and uses protocol revision [`2026-07-28`](https://modelcontextprotocol.io/specification/2026-07-28/changelog). Each request includes the protocol version and client capabilities in `params._meta`, as shown in the quick start.
 
-This reference follows the schemas advertised by `tools/list`. Response tables highlight selected fields. The list tools (`list_analyses`, `latest_analyses`, and `get_recommendations`) return their arrays in `result.structuredContent.result`; each item includes an `id` that can be passed to `get_analysis`.
+Tools are namespaced with a `momentum_` prefix. This reference follows the schemas advertised by `tools/list` and `resources/list`. Response tables highlight selected fields. The list tools (`momentum_list_analyses`, `momentum_latest_analyses`, and `momentum_get_recommendations`) return one page in `result.structuredContent` as `{"items": [...], "next_page_token": "..."}`; each item includes an `id` that can be passed to `momentum_get_analysis`.
+
+To read the next page, call the same tool again with the same filters and `page_token` set to the previous `next_page_token`. An empty `next_page_token` means there are no more pages. Tokens are opaque: do not build or modify them.
 
 Types use Python notation. `None` means no value is set; **—** means there is no default value.
 
 The `rating` filters accept multiple values separated by commas:
 `Buy`, `Overweight`, `Hold`, `Underweight`, `Sell`.
 
-### `list_analyses`
+### `momentum_list_analyses`
 
 Returns a paginated list of analyses, optionally filtered by ticker. Summaries include ratings, prices, RSI, trends, and P/E ratios.
 
 **Parameters**
 
-| Parameter | Type          | Required | Default | Description and limits          |
-| :-------- | :------------ | :------: | :------ | :------------------------------ |
-| `ticker`  | `str \| None` | No       | `None`  | Filter by symbol, e.g. `AAPL`.  |
-| `limit`   | `int`         | No       | `50`    | Results per page. **1–200**.   |
-| `offset`  | `int`         | No       | `0`     | Pagination offset.              |
+| Parameter    | Type          | Required | Default | Description and limits                        |
+| :----------- | :------------ | :------: | :------ | :-------------------------------------------- |
+| `ticker`     | `str \| None` | No       | `None`  | Filter by symbol, e.g. `AAPL`.                |
+| `page_size`  | `int`         | No       | `50`    | Maximum results in this page. **1–100**.      |
+| `page_token` | `str`         | No       | `""`    | `next_page_token` from the previous page.     |
 
 **Response**
 
@@ -227,16 +169,18 @@ Returns a paginated list of analyses, optionally filtered by ticker. Summaries i
 | Trend        | `trend_direction`, `key_support`, `key_resistance` |
 | Fundamentals | `pe_ratio`, `peg_ratio`, `beta`                    |
 
-### `latest_analyses`
+### `momentum_latest_analyses`
 
 Returns the latest analysis for each ticker, with an optional portfolio rating filter.
 
 **Parameters**
 
-| Parameter | Type          | Required | Default | Description and limits         |
-| :-------- | :------------ | :------: | :------ | :----------------------------- |
-| `ticker`  | `str \| None` | No       | `None`  | Limit results to one symbol.   |
-| `rating`  | `str \| None` | No       | `None`  | Filter by one or more ratings. |
+| Parameter    | Type          | Required | Default | Description and limits                    |
+| :----------- | :------------ | :------: | :------ | :---------------------------------------- |
+| `ticker`     | `str \| None` | No       | `None`  | Limit results to one symbol.              |
+| `rating`     | `str \| None` | No       | `None`  | Filter by one or more ratings.            |
+| `page_size`  | `int`         | No       | `50`    | Maximum results in this page. **1–100**.  |
+| `page_token` | `str`         | No       | `""`    | `next_page_token` from the previous page. |
 
 **Response**
 
@@ -246,7 +190,7 @@ Returns the latest analysis for each ticker, with an optional portfolio rating f
 | Decision  | `price_target`, `trader_action`         |
 | Technical | `rsi`, `trend_direction`                |
 
-### `get_analysis`
+### `momentum_get_analysis`
 
 Returns the full analysis: technical indicators, fundamentals, sentiment, news, bull/bear debates, and the portfolio decision.
 
@@ -267,16 +211,17 @@ Returns the full analysis: technical indicators, fundamentals, sentiment, news, 
 | Decision     | `trader_proposal`, `portfolio_decision` |
 | Execution    | `run_stats`                             |
 
-### `get_recommendations`
+### `momentum_get_recommendations`
 
 Returns active recommendations filtered by rating. Useful for “what should I buy?” queries.
 
 **Parameters**
 
-| Parameter | Type  | Required | Default            | Description and limits               |
-| :-------- | :---- | :------: | :----------------- | :----------------------------------- |
-| `rating`  | `str` | No       | `"Buy,Overweight"` | Target ratings, separated by commas. |
-| `limit`   | `int` | No       | `10`               | Number of results. **1–100**.        |
+| Parameter    | Type  | Required | Default            | Description and limits                    |
+| :----------- | :---- | :------: | :----------------- | :---------------------------------------- |
+| `rating`     | `str` | No       | `"Buy,Overweight"` | Target ratings, separated by commas.      |
+| `page_size`  | `int` | No       | `10`               | Maximum results in this page. **1–50**.   |
+| `page_token` | `str` | No       | `""`               | `next_page_token` from the previous page. |
 
 **Response**
 
@@ -286,24 +231,22 @@ Returns active recommendations filtered by rating. Useful for “what should I b
 | Price levels    | `price_target`, `entry_price`, `stop_loss` |
 | Risk management | `position_size`, `risk_reward_ratio`       |
 
-### `latest_market_scan`
+### Resource `momentum://market_scanner/market-scans/latest`
 
-Returns the latest daily market regime and normalized asset signals.
-
-**Parameters:** None. Use an empty `arguments` object: `{}`.
+Returns the latest daily market regime and normalized asset signals. The market scan is an MCP resource, not a tool: read it with `resources/read` (header `Mcp-Method: resources/read`, `Mcp-Name` set to the URI) and `params.uri` set to `momentum://market_scanner/market-scans/latest`. The scan is returned as JSON text in `result.contents[0].text`.
 
 **Response**
 
 | Data | Returned fields |
 | :--- | :-------------- |
 | Identifier and dates | `id`, `scan_date`, `created_at` |
-| Market regime | `regime`, `summary`, `recommendation` |
-| Market observations | `assets`, `signals` |
-| Session | `session_id` |
+| Market regime | `report.regime`, `report.summary` |
+| Market observations | `report.assets`, `report.themes`, `report.sources` |
+| Full report | `report` preserves the v3 reader schema, including arbitration and data quality. |
 
-### `suggest_ticker`
+### `momentum_suggest_ticker`
 
-Submits a ticker for administrator review without starting an analysis. Pass the returned `id` to `get_suggestion_status` to follow the moderation decision.
+Submits a ticker for administrator review without starting an analysis. Pass the returned `id` to `momentum_get_suggestion_status` to follow the moderation decision.
 
 **Parameters**
 
@@ -320,7 +263,7 @@ Submits a ticker for administrator review without starting an analysis. Pass the
 | Moderation | `status`, `review_reason` |
 | Dates | `created_at`, `reviewed_at` |
 
-### `get_suggestion_status`
+### `momentum_get_suggestion_status`
 
 Returns the moderation decision for a suggestion.
 
@@ -328,7 +271,7 @@ Returns the moderation decision for a suggestion.
 
 | Parameter       | Type         | Required | Default | Description and limits                   |
 | :-------------- | :----------- | :------: | :------ | :--------------------------------------- |
-| `suggestion_id` | `str` (UUID) | **Yes**  | —       | The `id` returned by `suggest_ticker`.   |
+| `suggestion_id` | `str` (UUID) | **Yes**  | —       | The `id` returned by `momentum_suggest_ticker`.   |
 
 **Response**
 
@@ -343,7 +286,7 @@ Returns the moderation decision for a suggestion.
 
 #### Request body
 
-Replace `{{publicMcpAnalysisId}}` with an analysis ID returned by `list_analyses`. Send this body to `https://mcp.deepcopy.fr` with the same content type, accept, and protocol-version headers as the quick start, plus `Mcp-Method: tools/call` and `Mcp-Name: get_analysis`.
+Replace `{{publicMcpAnalysisId}}` with an analysis ID returned by `momentum_list_analyses`. Send this body to `https://momentum-public-mcp-gdezc6bzrq-ew.a.run.app` with the same content type, accept, and protocol-version headers as the quick start, plus `Mcp-Method: tools/call` and `Mcp-Name: momentum_get_analysis`.
 
 ```json
 {
@@ -351,7 +294,7 @@ Replace `{{publicMcpAnalysisId}}` with an analysis ID returned by `list_analyses
   "id": "get-analysis-1",
   "method": "tools/call",
   "params": {
-    "name": "get_analysis",
+    "name": "momentum_get_analysis",
     "arguments": {
       "analysis_id": "{{publicMcpAnalysisId}}"
     },

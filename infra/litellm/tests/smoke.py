@@ -174,29 +174,7 @@ def main():
             for filename in ["redis.crt", "redis.key"]:
                 docker("cp", str(path / filename), redis + ":/tmp/" + filename)
             docker("start", redis)
-            for _ in range(30):
-                if (
-                    docker(
-                        "exec",
-                        redis,
-                        "redis-cli",
-                        "--no-auth-warning",
-                        "-a",
-                        "local-smoke-only",
-                        "--tls",
-                        "-p",
-                        "6378",
-                        "--cacert",
-                        "/tmp/redis.crt",
-                        "ping",
-                        check=False,
-                    )
-                    == "PONG"
-                ):
-                    break
-                time.sleep(0.2)
-            else:
-                raise RuntimeError("Redis TLS did not become ready")
+            wait_for_redis_tls(redis)
             docker(
                 "run",
                 "-d",
@@ -212,14 +190,7 @@ def main():
                 "POSTGRES_PASSWORD=local-smoke-only",
                 "postgres:17",
             )
-            for _ in range(60):
-                if "accepting connections" in docker(
-                    "exec", database, "pg_isready", "-U", "litellm", check=False
-                ):
-                    break
-                time.sleep(1)
-            else:
-                raise RuntimeError("PostgreSQL did not become ready")
+            wait_for_postgres(database)
             for attempt in range(2):
                 docker(
                     "run",
@@ -258,43 +229,10 @@ def main():
             base = "http://" + docker("port", proxy, "4000/tcp")
 
             def request(route, body=None, auth=None, form=False):
-                headers = {}
-                if auth:
-                    headers["Authorization"] = f"Bearer {auth}"
-                if body is not None:
-                    headers["Content-Type"] = (
-                        "application/x-www-form-urlencoded"
-                        if form
-                        else "application/json"
-                    )
-                    body = (
-                        urllib.parse.urlencode(body) if form else json.dumps(body)
-                    ).encode()
-                req = urllib.request.Request(base + route, data=body, headers=headers)
-                try:
-                    with client.open(req, timeout=15) as response:
-                        return response.status, response.read(), response.geturl()
-                except urllib.error.HTTPError as error:
-                    return error.code, error.read(), error.geturl()
+                return http_request(client, base, route, body, auth, form)
 
             def ready(container=proxy):
-                deadline = time.monotonic() + 240
-                last_result = "No HTTP response"
-                while time.monotonic() < deadline:
-                    if (
-                        docker("inspect", "--format", "{{.State.Running}}", container)
-                        != "true"
-                    ):
-                        raise RuntimeError("Proxy exited during startup")
-                    try:
-                        status, _, _ = request("/health/readiness")
-                        last_result = f"HTTP {status}"
-                        if status == 200:
-                            return
-                    except (OSError, urllib.error.URLError) as error:
-                        last_result = str(error)
-                    time.sleep(2)
-                raise RuntimeError(f"Proxy did not become ready: {last_result}")
+                wait_for_proxy(container, request)
 
             ready()
             status, body, _ = request("/ui/")
@@ -457,8 +395,16 @@ else:
             print(docker("exec", proxy, "python", "-c", tls_check), flush=True)
             # Arrange: simulate overspend only in this disposable test database.
             updated = docker(
-                "exec", database, "psql", "-U", "litellm", "-d", "litellm",
-                "-v", "ON_ERROR_STOP=1", "-c",
+                "exec",
+                database,
+                "psql",
+                "-U",
+                "litellm",
+                "-d",
+                "litellm",
+                "-v",
+                "ON_ERROR_STOP=1",
+                "-c",
                 'UPDATE "LiteLLM_UserTable" SET spend = 1.01 '
                 "WHERE user_id = 'litellm-proxy-budget';",
             )
@@ -473,7 +419,10 @@ else:
                 assert status in (400, 402, 403, 429) and b"budget" in body.lower(), (
                     "Global budget did not block inference on " + container
                 )
-            print("PASS: global budget blocks inference on both proxies after restart", flush=True)
+            print(
+                "PASS: global budget blocks inference on both proxies after restart",
+                flush=True,
+            )
         except Exception:
             result = subprocess.run(
                 ["docker", "logs", "--tail", "60", proxy],
@@ -496,6 +445,77 @@ else:
             # Only containers and network created by this test are removed.
             docker("rm", "-f", proxy, sibling, database, redis, check=False)
             docker("network", "rm", prefix, check=False)
+
+
+def http_request(client, base, route, body=None, auth=None, form=False):
+    headers = {}
+    if auth:
+        headers["Authorization"] = f"Bearer {auth}"
+    if body is not None:
+        headers["Content-Type"] = (
+            "application/x-www-form-urlencoded" if form else "application/json"
+        )
+        body = (urllib.parse.urlencode(body) if form else json.dumps(body)).encode()
+    req = urllib.request.Request(base + route, data=body, headers=headers)
+    try:
+        with client.open(req, timeout=15) as response:
+            return response.status, response.read(), response.geturl()
+    except urllib.error.HTTPError as error:
+        return error.code, error.read(), error.geturl()
+
+
+def wait_for_proxy(container, request):
+    deadline = time.monotonic() + 240
+    last_result = "No HTTP response"
+    while time.monotonic() < deadline:
+        if docker("inspect", "--format", "{{.State.Running}}", container) != "true":
+            raise RuntimeError("Proxy exited during startup")
+        try:
+            status, _, _ = request("/health/readiness")
+            last_result = f"HTTP {status}"
+            if status == 200:
+                return
+        except (OSError, urllib.error.URLError) as error:
+            last_result = str(error)
+        time.sleep(2)
+    raise RuntimeError(f"Proxy did not become ready: {last_result}")
+
+
+def wait_for_postgres(database):
+    for _ in range(60):
+        if "accepting connections" in docker(
+            "exec", database, "pg_isready", "-U", "litellm", check=False
+        ):
+            break
+        time.sleep(1)
+    else:
+        raise RuntimeError("PostgreSQL did not become ready")
+
+
+def wait_for_redis_tls(redis):
+    for _ in range(30):
+        if (
+            docker(
+                "exec",
+                redis,
+                "redis-cli",
+                "--no-auth-warning",
+                "-a",
+                "local-smoke-only",
+                "--tls",
+                "-p",
+                "6378",
+                "--cacert",
+                "/tmp/redis.crt",
+                "ping",
+                check=False,
+            )
+            == "PONG"
+        ):
+            break
+        time.sleep(0.2)
+    else:
+        raise RuntimeError("Redis TLS did not become ready")
 
 
 if __name__ == "__main__":

@@ -52,3 +52,13 @@ def test_authentication_cannot_be_disabled_outside_cloud_run(monkeypatch):
 def test_cursor_rejects_unsupported_versions_and_naive_dates(payload):
     with pytest.raises(InvalidCursorError):
         Cursor.decode(base64.urlsafe_b64encode(payload).decode())
+
+
+def test_pool_cannot_exceed_its_shared_server_allocation():
+    with pytest.raises(ValidationError):
+        Settings(
+            DATABASE_URL=BASE,
+            API_TOKEN="test-token-long-enough",
+            DATABASE_POOL_SIZE=2,
+            _env_file=None,
+        )

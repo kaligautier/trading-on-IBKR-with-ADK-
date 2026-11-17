@@ -1,0 +1,200 @@
+"""Explicit storage projections; public DTO changes cannot alter SQL columns."""
+
+HEADER_COLUMNS = (
+    "id, ticker, analysis_date, created_at, llm_provider, deep_think_llm, "
+    "quick_think_llm, next_analysis_date, next_analysis_desc"
+)
+
+SECTION_COLUMNS = {
+    "technical_indicators": ", ".join(
+        (
+            "id",
+            "result_id",
+            "close_price",
+            "close_signal",
+            "close_comment",
+            "sma_50",
+            "sma_50_signal",
+            "sma_50_comment",
+            "sma_200",
+            "sma_200_signal",
+            "sma_200_comment",
+            "ema_10",
+            "ema_10_signal",
+            "ema_10_comment",
+            "rsi",
+            "rsi_signal",
+            "rsi_comment",
+            "macd",
+            "macd_signal_state",
+            "macd_comment",
+            "macd_signal_val",
+            "macd_histogram",
+            "boll_upper",
+            "boll_upper_signal",
+            "boll_upper_comment",
+            "boll_lower",
+            "boll_lower_signal",
+            "boll_lower_comment",
+            "atr",
+            "atr_signal",
+            "atr_comment",
+            "vwma",
+            "vwma_signal",
+            "vwma_comment",
+            "mfi",
+            "mfi_signal",
+            "mfi_comment",
+            "trend_direction",
+            "momentum_state",
+            "volatility_regime",
+            "key_support",
+            "key_resistance",
+            "actionable_recommendation",
+            "summary_short",
+        )
+    ),
+    "fundamentals": ", ".join(
+        (
+            "id",
+            "result_id",
+            "market_cap",
+            "pe_ratio",
+            "forward_pe",
+            "peg_ratio",
+            "eps_ttm",
+            "forward_eps",
+            "revenue",
+            "net_income",
+            "profit_margin",
+            "operating_margin",
+            "roe",
+            "roa",
+            "debt_to_equity",
+            "current_ratio",
+            "free_cash_flow",
+            "total_cash",
+            "capex",
+            "dividend_yield",
+            "beta",
+            "financial_health",
+            "growth_outlook",
+            "valuation_assessment",
+            "summary_short",
+        )
+    ),
+    "sentiment_results": ", ".join(
+        (
+            "id",
+            "result_id",
+            "overall_sentiment",
+            "overall_signal",
+            "retail_sentiment",
+            "institutional_sentiment",
+            "key_risk",
+            "key_catalyst",
+            "summary_short",
+        )
+    ),
+    "sentiment_items": ", ".join(
+        (
+            "id",
+            "result_id",
+            "topic",
+            "sentiment_score",
+            "impact",
+            "comment",
+        )
+    ),
+    "news_results": ", ".join(
+        (
+            "id",
+            "result_id",
+            "overall_impact",
+            "macro_environment",
+            "sector_momentum",
+            "key_catalyst",
+            "key_risk",
+            "summary_short",
+        )
+    ),
+    "news_items": ", ".join(
+        (
+            "id",
+            "result_id",
+            "category",
+            "headline",
+            "impact",
+            "comment",
+        )
+    ),
+    "research_plans": ", ".join(
+        (
+            "id",
+            "result_id",
+            "recommendation",
+            "rationale",
+            "strategic_actions",
+        )
+    ),
+    "trader_proposals": ", ".join(
+        (
+            "id",
+            "result_id",
+            "action",
+            "reasoning",
+            "entry_price",
+            "stop_loss",
+            "take_profit",
+            "position_sizing",
+            "risk_reward_ratio",
+        )
+    ),
+    "portfolio_decisions": ", ".join(
+        (
+            "id",
+            "result_id",
+            "rating",
+            "executive_summary",
+            "investment_thesis",
+            "price_target",
+            "entry_price",
+            "stop_loss",
+            "position_size",
+            "position_size_description",
+            "time_horizon_months",
+            "time_horizon_description",
+            "risk_reward_ratio",
+            "risk_reward_description",
+        )
+    ),
+    "debate_arguments": ", ".join(
+        (
+            "id",
+            "result_id",
+            "debate_type",
+            "role",
+            "round_number",
+            "thesis",
+            "conviction_level",
+            "stance",
+            "target_price",
+            "key_data_point",
+        )
+    ),
+    "run_stats": ", ".join(
+        (
+            "id",
+            "result_id",
+            "agents_total",
+            "agents_completed",
+            "llm_calls",
+            "tool_calls",
+            "tokens_in",
+            "tokens_out",
+            "reports_total",
+            "reports_completed",
+            "duration_seconds",
+        )
+    ),
+}

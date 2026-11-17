@@ -1,0 +1,5 @@
+simulation: agent-policy
+routing: path
+mocks:
+  - routeKey: management
+    path: ../mocks/management/config.yaml

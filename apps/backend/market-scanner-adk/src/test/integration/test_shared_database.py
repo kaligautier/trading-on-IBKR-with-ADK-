@@ -5,7 +5,6 @@ import os
 import shutil
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from uuid import uuid4
 
 import asyncpg
 import pytest
@@ -40,7 +39,7 @@ async def shared_database(monkeypatch):
     if existing:
         await admin.close()
         pytest.fail("Use a disposable server: test roles already exist")
-    name = f"shared_test_{uuid4().hex}"
+    name = "market_scanner"
     await admin.execute(f'CREATE DATABASE "{name}"')
     target = address.set(database=name)
     owner = await asyncpg.connect(target.render_as_string(hide_password=False))
@@ -48,7 +47,19 @@ async def shared_database(monkeypatch):
     try:
         for role in ROLES:
             await admin.execute(f"CREATE ROLE \"{role}\" LOGIN PASSWORD 'local-only'")
-        await owner.execute((DATABASE_ROOT / "bootstrap.sql").read_text())
+        bootstrap = (DATABASE_ROOT / "domains/market_scanner/bootstrap.sql").read_text()
+        await owner.execute(bootstrap)
+        prepare = await asyncpg.connect(
+            target.set(
+                username="database_migrator", password="local-only"
+            ).render_as_string(hide_password=False)
+        )
+        try:
+            await prepare.execute(
+                (DATABASE_ROOT / "operations/prepare.sql").read_text()
+            )
+        finally:
+            await prepare.close()
         # A separate domain and public data must remain unaffected.
         await owner.execute("CREATE TABLE public.unrelated (value TEXT)")
         await owner.execute("INSERT INTO public.unrelated VALUES ('preserved')")
@@ -61,9 +72,9 @@ async def shared_database(monkeypatch):
         reader = await asyncpg.connect(urls[ROLES[1]])
         connections.append(reader)
         monkeypatch.setattr(settings, "DATABASE_URL", urls[ROLES[0]])
-        monkeypatch.setattr(settings, "DATABASE_SCHEMA", "market_scanner")
+        monkeypatch.setattr(settings, "DATABASE_SCHEMA", "_analysis")
         monkeypatch.setattr(settings, "DATABASE_POOL_SIZE", 1)
-        monkeypatch.setattr(settings, "DATABASE_POOL_TIMEOUT", 0.1)
+        monkeypatch.setattr(settings, "DATABASE_POOL_TIMEOUT", 5.0)
         await database.close_database()
         yield owner, owner, reader, urls
     finally:
@@ -82,7 +93,7 @@ async def should_migrate_once_and_enforce_writer_reader_permissions(shared_datab
     await run_liquibase(urls[ROLES[2]])
     await run_liquibase(urls[ROLES[2]])
     assert (
-        await migrator.fetchval("SELECT count(*) FROM liquibase.databasechangelog") == 1
+        await migrator.fetchval("SELECT count(*) FROM liquibase.databasechangelog") == 2
     )
     await MarketScanPersistence().save(_regime(), "shared-database")
     assert await reader.fetchval("SELECT count(*) FROM market_scans") == 1
@@ -92,7 +103,7 @@ async def should_migrate_once_and_enforce_writer_reader_permissions(shared_datab
     for query in (
         "DELETE FROM market_scans",
         "INSERT INTO market_scans SELECT * FROM market_scans",
-        "CREATE TABLE market_scanner.forbidden (id INT)",
+        "CREATE TABLE _analysis.forbidden (id INT)",
     ):
         with pytest.raises(asyncpg.InsufficientPrivilegeError):
             await reader.execute(query)
@@ -102,7 +113,7 @@ async def should_migrate_once_and_enforce_writer_reader_permissions(shared_datab
             "SELECT * FROM market_scans",
             "SELECT * FROM public.unrelated",
             "DELETE FROM market_scans",
-            "CREATE TABLE market_scanner.forbidden (id INT)",
+            "CREATE TABLE _analysis.forbidden (id INT)",
             "SELECT * FROM liquibase.databasechangelog",
         ):
             with pytest.raises(asyncpg.InsufficientPrivilegeError):
@@ -112,20 +123,34 @@ async def should_migrate_once_and_enforce_writer_reader_permissions(shared_datab
         await writer.close()
 
 
-async def should_serialize_concurrent_saves_and_timeout_without_overflow(
+async def should_timeout_without_overflow_when_the_pool_is_full(
     shared_database,
+    monkeypatch,
 ):
     _, _, reader, urls = shared_database
     await run_liquibase(urls[ROLES[2]])
+    monkeypatch.setattr(settings, "DATABASE_POOL_TIMEOUT", 0.1)
     engine = database.get_engine()
-    async with engine.connect() as held:
-        pid = await held.scalar(text("SELECT pg_backend_pid()"))
+    async with engine.connect():
         with pytest.raises(TimeoutError):
             await MarketScanPersistence().save(_regime(), "pool-full")
     assert await reader.fetchval("SELECT count(*) FROM market_scans") == 0
-    await asyncio.gather(
-        *(MarketScanPersistence().save(_regime(), f"parallel-{i}") for i in range(5))
+    assert engine.pool.size() == 1
+    assert engine.pool.overflow() == 0
+
+
+async def should_serialize_concurrent_saves_without_overflow(shared_database):
+    _, _, reader, urls = shared_database
+    await run_liquibase(urls[ROLES[2]])
+    engine = database.get_engine()
+    async with engine.connect() as connection:
+        pid = await connection.scalar(text("SELECT pg_backend_pid()"))
+    # Drain all tasks even on failure so teardown cannot race an outstanding save.
+    results = await asyncio.gather(
+        *(MarketScanPersistence().save(_regime(), f"parallel-{i}") for i in range(5)),
+        return_exceptions=True,
     )
+    assert not any(isinstance(result, BaseException) for result in results), results
     assert await reader.fetchval("SELECT count(*) FROM market_scans") == 5
     async with engine.connect() as connection:
         assert await connection.scalar(text("SELECT pg_backend_pid()")) == pid
@@ -142,32 +167,48 @@ def mounted_tmp_path():
         yield Path(directory)
 
 
+async def should_keep_current_baseline_checksums_stable(shared_database):
+    _, migrator, _, urls = shared_database
+    await run_liquibase(urls[ROLES[2]])
+    before = await migrator.fetch(
+        "SELECT id,filename,md5sum FROM liquibase.databasechangelog ORDER BY id"
+    )
+    await run_liquibase(urls[ROLES[2]])
+    assert (
+        await migrator.fetch(
+            "SELECT id,filename,md5sum FROM liquibase.databasechangelog ORDER BY id"
+        )
+        == before
+    )
+    assert len(before) == 2
+
+
 async def should_rollback_a_failed_migration_and_detect_changed_history(
     shared_database, mounted_tmp_path
 ):
     owner, migrator, _, urls = shared_database
     await run_liquibase(urls[ROLES[2]])
     changelog = mounted_tmp_path / "changelog"
-    shutil.copytree(DATABASE_ROOT / "changelog", changelog)
-    master = changelog / "db.changelog-master.yaml"
+    shutil.copytree(DATABASE_ROOT / "domains", changelog / "domains")
+    master = changelog / "domains/market_scanner/changelog.yaml"
     master.write_text(
         master.read_text()
         + "  - include:\n      file: broken.sql\n      relativeToChangelogFile: true\n"
     )
-    broken = changelog / "broken.sql"
+    broken = master.parent / "broken.sql"
     broken.write_text(
         "--liquibase formatted sql\n--changeset test:broken\n"
-        "CREATE TABLE market_scanner.partial (id INT); SELECT 1/0;\n"
+        "CREATE TABLE _analysis.partial (id INT); SELECT 1/0;\n"
     )
     with pytest.raises(RuntimeError, match="division by zero"):
         await run_liquibase(urls[ROLES[2]], changelog=changelog)
-    assert await owner.fetchval("SELECT to_regclass('market_scanner.partial')") is None
+    assert await owner.fetchval("SELECT to_regclass('_analysis.partial')") is None
     assert (
-        await migrator.fetchval("SELECT count(*) FROM liquibase.databasechangelog") == 1
+        await migrator.fetchval("SELECT count(*) FROM liquibase.databasechangelog") == 2
     )
-    initial = changelog / "market-scanner/001-initial.sql"
+    initial = master.parent / "baseline.sql"
     initial.write_text(
-        initial.read_text().replace("summary TEXT", "summary VARCHAR(10)")
+        initial.read_text().replace("summary text", "summary varchar(10)")
     )
     with pytest.raises(RuntimeError, match="check sum|checksum|Check Sum"):
         await run_liquibase(urls[ROLES[2]], changelog=changelog)
@@ -178,13 +219,13 @@ async def should_add_and_rollback_another_domain_from_the_same_root(
 ):
     owner, _, reader, urls = shared_database
     changelog = mounted_tmp_path / "changelog"
-    shutil.copytree(DATABASE_ROOT / "changelog", changelog)
-    master = changelog / "db.changelog-master.yaml"
+    shutil.copytree(DATABASE_ROOT / "domains", changelog / "domains")
+    master = changelog / "domains/market_scanner/changelog.yaml"
     master.write_text(
         master.read_text() + "  - include:\n      file: other-domain.sql\n"
         "      relativeToChangelogFile: true\n"
     )
-    (changelog / "other-domain.sql").write_text(
+    (master.parent / "other-domain.sql").write_text(
         "--liquibase formatted sql\n--changeset test:other-domain\n"
         "CREATE SCHEMA other_domain;\n"
         "CREATE TABLE other_domain.example (id INT);\n"
@@ -192,7 +233,7 @@ async def should_add_and_rollback_another_domain_from_the_same_root(
         "--rollback DROP SCHEMA other_domain;\n"
     )
     await run_liquibase(urls[ROLES[2]], changelog=changelog)
-    assert await owner.fetchval("SELECT count(*) FROM liquibase.databasechangelog") == 2
+    assert await owner.fetchval("SELECT count(*) FROM liquibase.databasechangelog") == 3
     with pytest.raises(asyncpg.InsufficientPrivilegeError):
         await reader.execute("SELECT * FROM other_domain.example")
     await run_liquibase(
@@ -200,7 +241,7 @@ async def should_add_and_rollback_another_domain_from_the_same_root(
     )
     assert await owner.fetchval("SELECT to_regclass('other_domain.example')") is None
     assert await reader.fetchval("SELECT count(*) FROM market_scans") == 0
-    assert await owner.fetchval("SELECT count(*) FROM liquibase.databasechangelog") == 1
+    assert await owner.fetchval("SELECT count(*) FROM liquibase.databasechangelog") == 2
 
 
 async def run_liquibase(url, command="update", changelog=None):
@@ -216,7 +257,7 @@ async def run_liquibase(url, command="update", changelog=None):
         "LIQUIBASE_COMMAND_URL": f"jdbc:postgresql://127.0.0.1:5432/{address.database}",
         "LIQUIBASE_COMMAND_USERNAME": address.username,
         "LIQUIBASE_COMMAND_PASSWORD": address.password,
-        "LIQUIBASE_COMMAND_CHANGELOG_FILE": "db.changelog-master.yaml",
+        "LIQUIBASE_COMMAND_CHANGELOG_FILE": "domains/market_scanner/changelog.yaml",
         "LIQUIBASE_LIQUIBASE_SCHEMA_NAME": "liquibase",
     }
     process = await asyncio.create_subprocess_exec(
@@ -226,14 +267,14 @@ async def run_liquibase(url, command="update", changelog=None):
         "--network",
         f"container:{container}",
         "-v",
-        f"{changelog or DATABASE_ROOT / 'changelog'}:/liquibase/changelog:ro",
+        f"{changelog or DATABASE_ROOT}:/liquibase/changelog:ro",
         *[
             arg
             for key in environment
             if key.startswith("LIQUIBASE_")
             for arg in ("-e", key)
         ],
-        "local/deep-copy-liquibase:5.0.4",
+        "local/deepcopy-database:5.0.4",
         *([command] if isinstance(command, str) else command),
         env=environment,
         stdout=asyncio.subprocess.PIPE,

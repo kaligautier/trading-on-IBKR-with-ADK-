@@ -1,0 +1,19 @@
+databaseChangeLog:
+  - preConditions:
+      - onFail: HALT
+      - sqlCheck:
+          expectedResult: '1'
+          sql: "SELECT CASE WHEN current_database() = 'market_scanner' AND current_user = 'database_migrator' THEN 1 ELSE 0 END"
+  - changeSet:
+      id: market_scanner-aiven-20261023
+      author: deepcopy
+      changes:
+        - sqlFile:
+            path: baseline.sql
+            relativeToChangelogFile: true
+  - changeSet:
+      id: market_scanner-aiven-20261023-tag
+      author: deepcopy
+      changes:
+        - tagDatabase:
+            tag: aiven-20261023

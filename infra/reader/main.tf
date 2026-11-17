@@ -58,7 +58,7 @@ resource "google_cloud_run_v2_service" "reader" {
       dynamic "env" {
         for_each = {
           AUTH_MODE             = "cloud_run"
-          DATABASE_SCHEMA       = "market_scanner"
+          DATABASE_SCHEMA       = "_analysis"
           DATABASE_POOL_SIZE    = "1"
           DATABASE_POOL_TIMEOUT = "5"
         }

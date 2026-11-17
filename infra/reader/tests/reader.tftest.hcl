@@ -48,3 +48,14 @@ run "reject_project_number" {
   variables { project_id = "123456789012" }
   expect_failures = [var.project_id]
 }
+
+run "domain_analysis_schema" {
+  command = plan
+  assert {
+    condition = [
+      for env in google_cloud_run_v2_service.reader.template[0].containers[0].env :
+      env.value if env.name == "DATABASE_SCHEMA"
+    ] == ["_analysis"]
+    error_message = "The reader must use the domain analysis schema."
+  }
+}

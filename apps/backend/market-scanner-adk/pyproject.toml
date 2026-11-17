@@ -5,9 +5,9 @@ description = "Independent ADK2 daily market scanner"
 requires-python = ">=3.12,<4.0"
 dependencies = [
     "certifi>=2025.1.31",
-    "ddtrace==4.8.2",
+    "ddtrace==4.15.6",
     "dotenv>=0.9.9",
-    # ddtrace 4.8.2 uses the ADK 2.6 tool instrumentation API.
+    # Keep the ADK 2.6 tool instrumentation API while updating ddtrace security fixes.
     "google-adk[db]>=2.6.1,<2.7.0",
     "google-auth>=2.56.2",
     "gunicorn>=23.0.0",
@@ -44,6 +44,7 @@ exclude = [
 ]
 
 [tool.ruff.lint]
+extend-select = ["C90"]
 select = [
     "E",  # pycodestyle errors
     "W",  # pycodestyle warnings
@@ -54,6 +55,9 @@ select = [
     "N",  # pep8-naming
 ]
 ignore = []
+
+[tool.ruff.lint.mccabe]
+max-complexity = 10
 
 [tool.ruff.lint.isort]
 known-first-party = ["app"]
@@ -80,5 +84,13 @@ dev = [
     "pytest-asyncio>=1.0.0",
     "pytest-cov>=7.0.0",
     "pytest-env>=1.2.0",
-    "ruff>=0.14.7",
+    "ruff==0.17.2",
+]
+
+[tool.uv]
+# ADK caps OpenTelemetry at versions affected by CVE-2026-114603 and CVE-2026-126360.
+# Keep API and SDK aligned; remove when ADK supports the fixed releases directly.
+override-dependencies = [
+    "opentelemetry-api==1.45.2",
+    "opentelemetry-sdk==1.45.2",
 ]

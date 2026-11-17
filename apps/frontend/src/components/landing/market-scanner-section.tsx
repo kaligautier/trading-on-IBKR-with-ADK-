@@ -1,4 +1,5 @@
 import { Suspense } from "react"
+import { ChromaticTextReveal } from "@/components/motion/chromatic-text-reveal"
 
 import {
   MarketScannerPanel,
@@ -17,8 +18,8 @@ export function MarketScannerSection() {
       <div className="max-w-6xl mx-auto px-6">
         <div data-animate="section-heading" className="mb-10 grid gap-8 md:grid-cols-12">
           <div className="md:col-span-7">
-            <h2 id="market-scanner-title" className="text-4xl md:text-5xl lg:text-6xl font-bold tracking-[-0.03em] leading-[1.12] md:leading-[1.08] font-display">
-              Market Scanner.
+            <h2 id="market-scanner-title" className="text-balance font-display text-4xl font-bold leading-tight tracking-tight md:text-5xl">
+              <ChromaticTextReveal prefix="Market" words={["Scanner."]} loop={false} />
               <br />
               <span className="text-on-surface-muted font-medium">The market, in one report.</span>
             </h2>

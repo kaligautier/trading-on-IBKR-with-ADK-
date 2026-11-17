@@ -1,0 +1,9 @@
+steps:
+  - name: gcr.io/cloud-builders/docker
+    env: ['DOCKER_BUILDKIT=1']
+    args: ['build', '-t', 'europe-west1-docker.pkg.dev/$PROJECT_ID/market-scanner/momentum-api:$BUILD_ID', '.']
+images:
+  - 'europe-west1-docker.pkg.dev/$PROJECT_ID/market-scanner/momentum-api:$BUILD_ID'
+options:
+  logging: CLOUD_LOGGING_ONLY
+timeout: 1200s

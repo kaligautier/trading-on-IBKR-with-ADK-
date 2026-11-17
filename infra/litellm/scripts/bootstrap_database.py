@@ -194,7 +194,7 @@ async def bootstrap(args):
             sslmode="require",
             sslcert="/etc/database/ca.pem",
             sslaccept="strict",
-            connection_limit=2,
+            connection_limit=1,
         )
     )
     url = f"postgresql://litellm:{quote(password, safe='')}@{uri.hostname}:{uri.port}/litellm?{query}"
@@ -216,10 +216,10 @@ def main():
     parser.add_argument("--expected-host", required=True)
     parser.add_argument("--project", required=True)
     parser.add_argument("--account", required=True)
-    parser.add_argument("--connection-limit", type=int, default=12)
+    parser.add_argument("--connection-limit", type=int, default=2)
     args = parser.parse_args()
-    if not 4 <= args.connection_limit <= 100:
-        parser.error("Choose a database role connection limit between 4 and 100")
+    if args.connection_limit != 2:
+        parser.error("The shared 15-slot budget requires a LiteLLM role limit of 2")
     asyncio.run(bootstrap(args))
 
 

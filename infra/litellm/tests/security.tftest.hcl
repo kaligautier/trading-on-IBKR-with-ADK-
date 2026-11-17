@@ -100,7 +100,7 @@ run "service_requires_iap_and_keeps_native_auth" {
       google_cloud_run_v2_service.litellm[0].template[0].scaling[0].max_instance_count == 1 &&
       google_cloud_run_v2_service.litellm[0].template[0].scaling[0].min_instance_count == 0 &&
       google_cloud_run_v2_service.litellm[0].template[0].containers[0].resources[0].limits.memory == "1Gi" &&
-      yamldecode(local.proxy_config).general_settings.database_connection_pool_limit == 2 &&
+      yamldecode(local.proxy_config).general_settings.database_connection_pool_limit == 1 &&
       !yamldecode(local.proxy_config).general_settings.allow_requests_on_db_unavailable
     )
     error_message = "Keep migrations out of web startup, bound the DB pool and fail closed on DB outages."

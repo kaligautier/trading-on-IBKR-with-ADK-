@@ -1,0 +1,20 @@
+set shell := ["bash", "-euo", "pipefail", "-c"]
+
+default:
+    @just --list
+
+install:
+    uv lock --check --python 3.12
+    uv sync --frozen --python 3.12
+
+lint:
+    uv run --frozen ruff check app tests
+    uv run --frozen ruff format --check app tests
+
+test:
+    TZ=UTC uv run --frozen pytest -q tests/unit
+
+build:
+    uv build --wheel
+
+check: install lint test build

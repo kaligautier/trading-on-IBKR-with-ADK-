@@ -1,3 +1,5 @@
+import { ChromaticTextReveal } from "@/components/motion/chromatic-text-reveal"
+
 const STACK = [
   { name: "Application", tools: "Next.js · React · TypeScript · Tailwind CSS", detail: "The public site and its reading experience." },
   { name: "Agents & data", tools: "Python · Google ADK · FastAPI · Pydantic · SQLAlchemy", detail: "Collect, calculate, analyse and validate before publication." },
@@ -11,7 +13,7 @@ export function TechSection() {
       <div className="mx-auto max-w-6xl px-6">
         <div className="grid gap-6 md:grid-cols-12 md:gap-12">
           <h2 id="tech-title" className="font-display text-4xl font-bold leading-[1.12] tracking-[-0.03em] md:col-span-7 md:text-5xl">
-            The technology<br />
+            <ChromaticTextReveal prefix="The" words={["technology"]} loop={false} /><br />
             <span className="font-medium text-on-surface-muted">behind Deep Copy.</span>
           </h2>
           <p className="max-w-prose self-end text-sm leading-relaxed text-on-surface-variant md:col-span-5">

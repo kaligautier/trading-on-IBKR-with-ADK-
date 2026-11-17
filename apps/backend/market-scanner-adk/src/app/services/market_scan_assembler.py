@@ -74,6 +74,14 @@ class MarketScanAssembler:
         analysis: MarketAnalysis,
         sources: list[ResearchSource],
     ) -> None:
+        MarketScanAssembler._validate_coverage(data, analysis)
+        MarketScanAssembler._validate_horizons(data, analysis)
+        MarketScanAssembler._validate_sources(analysis, sources)
+
+    @staticmethod
+    def _validate_coverage(
+        data: MarketDataCollection, analysis: MarketAnalysis
+    ) -> None:
         available = data.available_keys()
         if analysis.macro_overview:
             for theme in analysis.macro_overview.themes:
@@ -100,6 +108,11 @@ class MarketScanAssembler:
         }
         if len(families) != len(set(families)) or set(families) != expected:
             raise MarketScanAssemblyError("Theme coverage mismatch")
+
+    @staticmethod
+    def _validate_horizons(
+        data: MarketDataCollection, analysis: MarketAnalysis
+    ) -> None:
         for insight in analysis.asset_insights:
             asset = data.available_asset(insight.asset_key)
             if (
@@ -114,6 +127,11 @@ class MarketScanAssembler:
             for _, asset in data.available_items()
         ):
             raise MarketScanAssemblyError("Unavailable report horizon")
+
+    @staticmethod
+    def _validate_sources(
+        analysis: MarketAnalysis, sources: list[ResearchSource]
+    ) -> None:
         registry = {source.id: source for source in sources}
         if len(registry) != len(sources):
             raise MarketScanAssemblyError("Duplicate source IDs")

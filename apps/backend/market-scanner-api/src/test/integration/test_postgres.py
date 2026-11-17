@@ -47,11 +47,19 @@ async def database():
                 await admin.execute(
                     f"CREATE ROLE {role} LOGIN PASSWORD 'integration-only'"
                 )
-        await admin.execute("DROP SCHEMA IF EXISTS market_scanner CASCADE")
+        await admin.execute("DROP SCHEMA IF EXISTS _analysis CASCADE")
+        await admin.execute("DROP SCHEMA IF EXISTS _sessions CASCADE")
+        grant = await admin.fetchval(
+            "SELECT format('GRANT CREATE ON DATABASE %I TO database_migrator', "
+            "current_database())"
+        )
+        await admin.execute(grant)
+        await admin.execute("SET ROLE database_migrator")
         # Apply the same checked-in DDL and grants as the Liquibase changeset.
         await admin.execute(
-            (ROOT / "database/changelog/market-scanner/001-initial.sql").read_text()
+            (ROOT / "database/domains/market_scanner/baseline.sql").read_text()
         )
+        await admin.execute("RESET ROLE")
         reader = url.set(username="market_scanner_reader", password="integration-only")
         settings = Settings(
             DATABASE_URL=reader.render_as_string(hide_password=False),
@@ -65,7 +73,7 @@ async def database():
 
 async def insert(admin, number, *, timestamp=None, report=REPORT):
     await admin.execute(
-        "INSERT INTO market_scanner.market_scans "
+        "INSERT INTO _analysis.market_scans "
         "(id, scan_date, session_id, regime, summary, report, created_at) "
         "VALUES ($1, '2026-10-05', 'private-session', 'cautious', 'Summary', $2, $3)",
         UUID(int=number),
@@ -87,11 +95,11 @@ async def test_reader_pagination_detail_and_concurrent_insert(database):
             headers=HEADERS,
         ) as client,
     ):
-        latest = await client.get("/market-scans/latest")
+        latest = await client.get("/v1/market-scans/latest")
         assert latest.status_code == 200
         assert latest.json()["id"] == str(UUID(int=5))
         assert latest.json()["report"] == REPORT
-        first = (await client.get("/market-scans", params={"page_size": 2})).json()
+        first = (await client.get("/v1/market-scans", params={"page_size": 2})).json()
         assert first["next_page_token"]
         ids = [row["id"] for row in first["items"]]
         # A newly committed latest scan must not shift the ongoing history.
@@ -100,13 +108,13 @@ async def test_reader_pagination_detail_and_concurrent_insert(database):
         while token:
             page = (
                 await client.get(
-                    "/market-scans", params={"page_size": 2, "page_token": token}
+                    "/v1/market-scans", params={"page_size": 2, "page_token": token}
                 )
             ).json()
             ids.extend(row["id"] for row in page["items"])
             token = page["next_page_token"]
         assert ids == [str(UUID(int=n)) for n in range(5, 0, -1)]
-        detail = await client.get(f"/market-scans/{UUID(int=1)}")
+        detail = await client.get(f"/v1/market-scans/{UUID(int=1)}")
         assert detail.json()["report"] == REPORT
         assert "session_id" not in detail.text
         assert (await client.get("/ready")).status_code == 200
@@ -120,14 +128,12 @@ async def test_reader_pagination_detail_and_concurrent_insert(database):
                 await connection.execute(
                     text(
                         "SELECT has_table_privilege(current_user, "
-                        "'market_scanner.market_scans', 'INSERT')"
+                        "'_analysis.market_scans', 'INSERT')"
                     )
                 )
             ).scalar()
             with pytest.raises(DBAPIError):
-                await connection.execute(
-                    text("DELETE FROM market_scanner.market_scans")
-                )
+                await connection.execute(text("DELETE FROM _analysis.market_scans"))
     finally:
         await engine.dispose()
 
@@ -143,15 +149,15 @@ async def test_empty_store_invalid_report_and_unavailable_schema(database):
             headers=HEADERS,
         ) as client,
     ):
-        assert (await client.get("/market-scans/latest")).status_code == 404
-        assert (await client.get("/market-scans")).json() == {
+        assert (await client.get("/v1/market-scans/latest")).status_code == 404
+        assert (await client.get("/v1/market-scans")).json() == {
             "items": [],
             "next_page_token": "",
         }
         await insert(admin, 1, report=None)
-        assert (await client.get("/market-scans/latest")).status_code == 500
-        await admin.execute("DROP SCHEMA market_scanner CASCADE")
-        response = await client.get("/market-scans/latest")
+        assert (await client.get("/v1/market-scans/latest")).status_code == 500
+        await admin.execute("DROP SCHEMA _analysis CASCADE")
+        response = await client.get("/v1/market-scans/latest")
         assert response.status_code == 503
         assert "integration-only" not in response.text
 
@@ -172,7 +178,7 @@ async def test_other_schema_cannot_supply_a_report(database):
                 headers=HEADERS,
             ) as client,
         ):
-            assert (await client.get("/market-scans/latest")).status_code == 404
+            assert (await client.get("/v1/market-scans/latest")).status_code == 404
     finally:
         await admin.execute("DROP TABLE public.market_scans")
 

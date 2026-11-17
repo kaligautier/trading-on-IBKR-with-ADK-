@@ -33,6 +33,7 @@ exclude = [
 ]
 
 [tool.ruff.lint]
+extend-select = ["C90"]
 select = [
     "E",  # pycodestyle errors
     "W",  # pycodestyle warnings
@@ -55,6 +56,9 @@ ignore = []
 "scripts/**" = ["S101", "S603", "S607"] # Test assertions and fixed Docker commands.
 "src/app/repositories/market_scan_repository.py" = ["S608"] # Validated schema only; query values are bound.
 
+[tool.ruff.lint.mccabe]
+max-complexity = 10
+
 [tool.ruff.lint.isort]
 known-first-party = ["app"]
 
@@ -72,7 +76,7 @@ dev = [
     "pytest-asyncio>=1.0.0",
     "mypy>=1.18.0",
     "types-jsonschema>=4.25.0",
-    "ruff>=0.14.7",
+    "ruff==0.17.2",
 ]
 
 [tool.mypy]

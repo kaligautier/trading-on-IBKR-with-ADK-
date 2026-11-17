@@ -1,0 +1,9 @@
+version: 1
+name: LiteLLM management contract
+slug: litellm-management
+protocol: http
+interceptRequests: true
+scenarios:
+  - name: default
+    path: ./default.js
+    default: true

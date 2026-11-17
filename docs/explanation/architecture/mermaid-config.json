@@ -1,0 +1,19 @@
+{
+  "layout": "elk",
+  "theme": "base",
+  "themeVariables": {
+    "fontFamily": "Arial, sans-serif",
+    "fontSize": "16px",
+    "lineColor": "#627d94",
+    "primaryTextColor": "#18344d",
+    "edgeLabelBackground": "#ffffff",
+    "clusterBkg": "#ffffff",
+    "clusterBorder": "#c6d3df"
+  },
+  "flowchart": {
+    "curve": "linear",
+    "nodeSpacing": 35,
+    "rankSpacing": 55,
+    "padding": 18
+  }
+}

@@ -71,13 +71,7 @@ def main():
         docker("start", gateway)
         base = "http://" + docker("port", upstream, "4000/tcp")
 
-        def request(route, method="GET", auth=None):
-            headers = {"Authorization": "Bearer " + auth} if auth else {}
-            req = urllib.request.Request(base + route, method=method, headers=headers)
-            try:
-                return urllib.request.urlopen(req, timeout=5)
-            except urllib.error.HTTPError as error:
-                return error
+        request = requester(base)
 
         for _ in range(30):
             try:
@@ -100,7 +94,6 @@ def main():
             "/sso/login",
             "/sso/callback",
             "/user/new",
-            "/key/info",
             "/docs",
             "/openapi.json",
             "/%6cogin",
@@ -115,6 +108,10 @@ def main():
         for route in [
             "/key/generate",
             "/key/delete",
+            "/key/update",
+            "/team/new",
+            "/team/update",
+            "/team/delete",
             "/v1beta/models/model:generateContent",
             "/v1beta/models/model:countTokens",
         ]:
@@ -128,12 +125,30 @@ def main():
             assert response.readline() == b"data: FIRST\n"
             assert time.monotonic() - started < 0.4, "SSE was buffered"
             assert b"data: LAST" in response.read()
+        for route in ["/key/info", "/team/info"]:
+            with request(route, "GET", "synthetic-admin-key") as response:
+                assert response.status == 200
+                assert response.read() == b"Bearer synthetic-admin-key"
+            with request(route, "POST") as response:
+                assert response.status == 405
         print(
             "PASS: gateway denies login/UI/admin routes; allowed routes preserve auth and stream SSE",
             flush=True,
         )
     finally:
         docker("rm", "-f", gateway, upstream, check=False)
+
+
+def requester(base):
+    def request(route, method="GET", auth=None):
+        headers = {"Authorization": "Bearer " + auth} if auth else {}
+        req = urllib.request.Request(base + route, method=method, headers=headers)
+        try:
+            return urllib.request.urlopen(req, timeout=5)
+        except urllib.error.HTTPError as error:
+            return error
+
+    return request
 
 
 if __name__ == "__main__":

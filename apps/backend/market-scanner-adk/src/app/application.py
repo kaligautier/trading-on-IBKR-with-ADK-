@@ -9,13 +9,19 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from google.adk.cli.fast_api import get_fast_api_app
+from google.adk.cli.service_registry import get_service_registry
 from starlette.datastructures import Headers
 from starlette.types import ASGIApp, Receive, Scope, Send
 
 from app.config.settings import settings
+from app.middleware.admission import ScannerAdmissionMiddleware
 from app.middleware.wide_event import WideEventMiddleware
 from app.services.database import close_database
 from app.services.scan_dispatch import dispatch_scan
+from app.services.session_database import (
+    ScannerSessionService,
+    registered_session_service,
+)
 from app.utils.error import AppError
 from app.utils.wide_event import wide_event
 
@@ -64,16 +70,24 @@ class ScannerAuthMiddleware:
 def create_app() -> FastAPI:
     """Create and configure the FastAPI application instance."""
     authorizer = ScannerRouteAuthorizer(settings.MARKET_SCANNER_TOKEN)
+    sessions = ScannerSessionService(settings.DATABASE_URL)
+    get_service_registry().register_session_service(
+        "scannerdb", registered_session_service
+    )
 
     @asynccontextmanager
     async def lifespan(_app: FastAPI):
         try:
             yield
         finally:
+            await sessions.close()
             await close_database()
 
     app: FastAPI = get_fast_api_app(
         agents_dir=settings.AGENT_DIR,
+        session_service_uri="scannerdb://sessions",
+        session_db_kwargs={"scanner_session_service": sessions},
+        use_local_storage=False,
         web=True,
         lifespan=lifespan,
         allow_origins=settings.ADK_ALLOW_ORIGINS,
@@ -98,6 +112,7 @@ def create_app() -> FastAPI:
             status_code=error.status_code, content={"error": error.message}
         )
 
+    app.add_middleware(ScannerAdmissionMiddleware)
     app.add_middleware(ScannerAuthMiddleware, authorizer=authorizer)
     app.add_middleware(WideEventMiddleware)
 
@@ -118,7 +133,7 @@ def create_app() -> FastAPI:
             status_code=200,
         )
 
-    @app.post("/internal/daily-scan", tags=["Operations"])
+    @app.post("/internal/v1/scan-jobs", tags=["Operations"], status_code=202)
     async def daily_scan() -> JSONResponse:
         """Acknowledge job submission without waiting for the scan."""
         if not settings.MARKET_SCANNER_JOB:
@@ -144,7 +159,11 @@ def create_app() -> FastAPI:
             "scheduled scan accepted",
             extra={"event": "scheduled_scan.accepted", "operation": operation},
         )
-        return JSONResponse({"status": "accepted", "operation": operation})
+        return JSONResponse(
+            {"status": "accepted", "operation": operation},
+            status_code=202,
+            headers={"Cache-Control": "no-store"},
+        )
 
     logger.info(
         "application created",

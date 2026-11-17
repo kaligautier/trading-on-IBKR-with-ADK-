@@ -24,6 +24,55 @@ and Gemini; configuring a database URL also enables report persistence.
 
 ## Validation
 
+### Ruff pre-commit hooks
+
+The shared `.pre-commit-config.yaml` at the repository root runs Ruff 0.17.2
+fixes and formatting on staged Python files throughout the repository. It uses
+the same rules, including `C90` (maximum complexity 10), and Ruff version as
+the global `Lint` workflow. Each contributor enables it once per clone:
+
+```sh
+uv tool install pre-commit
+pre-commit install
+```
+
+Run these commands from the repository root. To check all tracked files in
+the configured scope manually, run `pre-commit run --all-files`. If a hook
+changes files, review and stage the corrections, then retry the commit.
+Remaining lint errors also block the commit. GitHub Actions checks the whole
+repository without modifying files. These Ruff hooks do not run pytest; tests
+remain in the application workflows. Local hooks are not installed automatically
+when cloning the repository.
+
+### Python checks
+
+The global `Lint` workflow checks the repository on pushes to `main` and pull
+requests targeting `main`. It runs Ruff 0.17.2 lint (including `C90`, maximum
+McCabe complexity 10) and format checks, with GitHub annotations for lint errors.
+Global commands explicitly include only `.py` and `.pyi` files, matching the
+hooks even when a nested project has its own Ruff configuration.
+Run the same checks locally from the repository root:
+
+```sh
+just lint
+```
+
+This uses `uvx` with the pinned Ruff version and needs no application environment.
+Keep its version and complexity options aligned with `.github/workflows/lint.yml`
+and `.pre-commit-config.yaml` when upgrading Ruff. All four backend development
+dependencies are also pinned to Ruff 0.17.2.
+When upgrading Ruff, update those declarations and regenerate their lockfiles.
+
+Run the repository-wide Python complexity audit from the root:
+
+```sh
+just complexity
+```
+
+This runs the pinned Ruff version through `uvx`, with a maximum McCabe complexity
+of 10, without requiring an application environment.
+This command checks the whole repository, including Python tests and scripts.
+
 Run the scanner's unit tests and lint checks from its directory:
 
 ```sh
@@ -34,7 +83,7 @@ uv run ruff check src
 Add or update tests for behavior changes. Database integration tests live in
 `apps/backend/market-scanner-adk/src/test/integration` and require a disposable
 local PostgreSQL database. Follow the [database test instructions](database/README.md)
-to run them without skips. Migration files live in `database/changelog`.
+to run them without skips. Migration files live in `database/domains/<domain>/migrations`.
 
 For Terraform changes, run these checks from the repository root:
 
@@ -42,7 +91,7 @@ For Terraform changes, run these checks from the repository root:
 (
 set -e
 terraform fmt -check -recursive infra
-for root in infra/bootstrap infra infra/litellm infra/reader infra/frontend/build infra/frontend; do
+for root in infra/bootstrap infra/market-scanner infra/litellm infra/reader infra/frontend/build infra/frontend; do
   terraform -chdir="$root" init -backend=false -input=false -lockfile=readonly
   terraform -chdir="$root" validate
   terraform -chdir="$root" test
@@ -51,7 +100,7 @@ done
 ```
 
 Terraform tests use mocked providers and do not verify a live deployment.
-See the [deployment guide](infra/README.md) for live validation.
+See the [deployment guide](infra/market-scanner/README.md) for live validation.
 Documentation-only changes should have valid links and commands that match the
 repository.
 
