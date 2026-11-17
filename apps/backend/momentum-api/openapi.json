@@ -5024,7 +5024,7 @@
             "required": false,
             "schema": {
               "default": 10,
-              "maximum": 100,
+              "maximum": 50,
               "minimum": 1,
               "title": "Page Size",
               "type": "integer"
@@ -5199,7 +5199,7 @@
             "required": false,
             "schema": {
               "default": 10,
-              "maximum": 100,
+              "maximum": 50,
               "minimum": 1,
               "title": "Page Size",
               "type": "integer"

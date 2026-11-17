@@ -24,7 +24,7 @@ Each resource supports HEAD and OPTIONS. OPTIONS returns 204 and
 `Allow: GET, HEAD, OPTIONS`; this does not enable browser CORS.
 All reads have no side effects on the store and cannot dispatch analyses.
 
-Lists use `page_size` (1–100, default 20; recommendations 10) and `page_token`
+Lists use `page_size` (history/latest: 1–100, default 20; recommendations: 1–50, default 10) and `page_token`
 (maximum 512 characters). Envelope: `{"items": [], "next_page_token": ""}`.
 An empty token means the end. Pass the next token with the same endpoint and
 normalized filters; page size can change. Both history and latest order by
