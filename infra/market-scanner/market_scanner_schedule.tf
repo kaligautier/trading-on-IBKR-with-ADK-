@@ -33,7 +33,7 @@ resource "google_cloud_scheduler_job" "daily_scan" {
 
   http_target {
     http_method = "POST"
-    uri         = "${google_cloud_run_v2_service.scanner.uri}/internal/daily-scan"
+    uri         = "${google_cloud_run_v2_service.scanner.uri}/internal/v1/scan-jobs"
     headers     = { "Content-Type" = "application/json" }
     body        = base64encode("{}")
     oidc_token {

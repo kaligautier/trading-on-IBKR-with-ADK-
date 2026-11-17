@@ -17,7 +17,7 @@ from momentum_public_mcp.domain import (
     SuggestionReason,
     TickerSymbol,
 )
-from momentum_public_mcp.gateway import (
+from momentum_public_mcp.mcp.gateway import (
     CloudRunIdentityHeaders,
     MetadataIdentityTokenProvider,
     MomentumApiError,
@@ -85,7 +85,7 @@ async def test_list_analyses_calls_only_the_public_route() -> None:
 
     analyses = await gateway.list_analyses(
         TickerSymbol("aapl"),
-        AnalysisPage(limit=20, offset=0),
+        AnalysisPage(page_size=20, page_token=""),
     )
 
     assert analyses.items[0].ticker == "AAPL"
@@ -103,7 +103,7 @@ async def test_momentum_requests_include_cloud_run_identity_when_enabled() -> No
     identity_headers = CloudRunIdentityHeaders(StaticIdentityTokenProvider())
     gateway = gateway_with(handler, identity_headers=identity_headers)
 
-    result = await gateway.latest_analyses(None, None)
+    result = await gateway.latest_analyses(None, None, AnalysisPage())
 
     assert result.items[0].ticker == "AAPL"
 
@@ -136,7 +136,7 @@ async def test_recommendations_send_normalized_ratings() -> None:
 
     analyses = await gateway.get_recommendations(
         Ratings.from_csv(" buy, OVERWEIGHT "),
-        10,
+        AnalysisPage(page_size=10, page_token=""),
     )
 
     assert len(analyses.items) == 1
@@ -147,7 +147,7 @@ async def test_latest_market_scan_uses_scanner_consultation_api() -> None:
         raise AssertionError(f"Unexpected request to Momentum API: {request.url}")
 
     async def scanner_handler(request: httpx.Request) -> httpx.Response:
-        assert request.url == "https://scanner.test/market-scans/latest"
+        assert request.url == "https://scanner.test/v1/market-scans/latest"
         return httpx.Response(200, json=market_scan())
 
     momentum_client = httpx.AsyncClient(
@@ -175,13 +175,14 @@ def test_ratings_reject_values_outside_the_public_vocabulary() -> None:
         Ratings.from_csv("Buy,ExecuteAdminTask")
 
 
-async def test_suggestion_keeps_signature_with_cloud_run_identity() -> None:
+@pytest.mark.parametrize("status", [200, 201])
+async def test_suggestion_keeps_signature_with_cloud_run_identity(status) -> None:
     secret = "test-secret"
     caller_fingerprint = "caller-fingerprint"
 
     async def handler(request: httpx.Request) -> httpx.Response:
         payload = json.loads(request.content)
-        assert request.url.path == "/suggestions"
+        assert request.url.path == "/v1/suggestions"
         assert payload == {"symbol": "MSFT", "reason": "Strong fundamentals"}
         assert request.headers["X-Momentum-Caller"] == caller_fingerprint
         assert request.headers["X-Serverless-Authorization"] == (
@@ -193,7 +194,7 @@ async def test_suggestion_keeps_signature_with_cloud_run_identity() -> None:
             hashlib.sha256,
         ).hexdigest()
         assert request.headers["X-Momentum-Signature"] == expected_signature
-        return httpx.Response(202, json=suggestion())
+        return httpx.Response(status, json=suggestion())
 
     identity_headers = CloudRunIdentityHeaders(StaticIdentityTokenProvider())
     gateway = gateway_with(handler, secret, identity_headers)
@@ -222,7 +223,7 @@ async def test_not_found_is_a_sanitized_gateway_error() -> None:
 
 async def test_current_analysis_conflict_is_explained_to_mcp_user() -> None:
     async def handler(request: httpx.Request) -> httpx.Response:
-        assert request.url.path == "/suggestions"
+        assert request.url.path == "/v1/suggestions"
         return httpx.Response(
             409,
             json={"detail": "NVDA already has a current Momentum analysis."},
@@ -240,7 +241,7 @@ async def test_current_analysis_conflict_is_explained_to_mcp_user() -> None:
 
 async def test_suggestion_status_uses_the_public_status_route() -> None:
     async def handler(request: httpx.Request) -> httpx.Response:
-        assert request.url.path == f"/suggestions/{SUGGESTION_ID}"
+        assert request.url.path == f"/v1/suggestions/{SUGGESTION_ID}"
         return httpx.Response(200, json=suggestion())
 
     gateway = gateway_with(handler)
@@ -264,7 +265,7 @@ def gateway_with(
     )
 
 
-async def test_original_offset_window_traverses_reader_cursors():
+async def test_list_returns_one_page_and_preserves_its_cursor():
     calls = []
 
     async def handler(request):
@@ -282,16 +283,16 @@ async def test_original_offset_window_traverses_reader_cursors():
         )
 
     gateway = gateway_with(handler)
-    result = await gateway.list_analyses(None, AnalysisPage(limit=1, offset=1))
+    result = await gateway.list_analyses(
+        None, AnalysisPage(page_size=1, page_token="api-cursor")
+    )
     assert [item.ticker for item in result.items] == ["MSFT"]
-    assert calls == [
-        {"page_size": "2", "page_token": ""},
-        {"page_size": "1", "page_token": "page2"},
-    ]
+    assert result.next_page_token == "page3"
+    assert calls == [{"page_size": "1", "page_token": "api-cursor"}]
     await gateway.close()
 
 
-async def test_latest_does_not_drop_reader_pages():
+async def test_latest_returns_reader_cursor_without_fetching_another_page():
     async def handler(request):
         first = not request.url.params["page_token"]
         return httpx.Response(
@@ -305,18 +306,23 @@ async def test_latest_does_not_drop_reader_pages():
         )
 
     gateway = gateway_with(handler)
-    result = await gateway.latest_analyses(None, None)
-    assert [item.ticker for item in result.items] == ["AAPL", "MSFT"]
+    result = await gateway.latest_analyses(None, None, AnalysisPage())
+    assert [item.ticker for item in result.items] == ["AAPL"]
+    assert result.next_page_token == "page2"
     await gateway.close()
 
 
-async def test_repeated_cursor_fails_instead_of_looping():
+async def test_recommendations_cursor_can_be_passed_through():
     async def handler(request):
-        return httpx.Response(200, json={"items": [], "next_page_token": "same"})
+        assert request.url.params["page_token"] == "recommendations-cursor"
+        return httpx.Response(200, json={"items": [], "next_page_token": "next"})
 
     gateway = gateway_with(handler)
-    with pytest.raises(MomentumApiError, match="repeated cursor"):
-        await gateway.latest_analyses(None, None)
+    result = await gateway.get_recommendations(
+        Ratings.from_csv("Buy"),
+        AnalysisPage(page_size=5, page_token="recommendations-cursor"),
+    )
+    assert result.next_page_token == "next"
     await gateway.close()
 
 
@@ -347,7 +353,7 @@ async def test_scanner_uses_its_own_identity_headers():
 
 async def test_missing_momentum_suggestions_route_is_a_sanitized_error():
     async def handler(request):
-        assert request.url == "https://momentum.test/suggestions"
+        assert request.url == "https://momentum.test/v1/suggestions"
         return httpx.Response(404, text="private upstream details")
 
     gateway = gateway_with(handler)

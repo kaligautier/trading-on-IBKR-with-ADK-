@@ -122,7 +122,8 @@ The repository permits at most one application component per PR.
 
 Momentum uses two dependent PRs (paths, then creation semantics) to keep the
 generated OpenAPI change within the 1000-line gate: eight PRs in total.
-PRs are stacked in component order so each diff contains one component while
+Scanner ADK precedes Scanner API because the reader CI also checks the writer.
+PRs are stacked in dependency order so each diff contains one component while
 consumer CI sees the candidate providers. The real MCP-to-PostgreSQL CI check
 moves from the provider workflow to the MCP workflow, retaining triggers on
 provider and database changes. The test itself is preserved.
@@ -224,14 +225,14 @@ credentials. Never invoke a billable scan to test a route rename.
 
 - [x] User authorizes the target with immediate breaking changes.
 - [x] Record plan and tasks; proceed under the user’s explicit instruction.
-- [ ] All canonical owned business routes use the agreed versioned paths.
-- [ ] Removed business paths return 404; no aliases or fallback remain.
-- [ ] Every owned consumer and executable example uses canonical paths.
-- [ ] HTTP behavior above has meaningful passing regression coverage.
-- [ ] OpenAPI, documentation, collections and runtime routes agree.
-- [ ] Candidate providers and consumers pass combined local integration checks.
-- [ ] One scoped PR per listed component is pushed and open; relevant CI passes.
-- [ ] The original checkout remains unchanged by this work; no stash is created.
+- [x] All canonical owned business routes use the agreed versioned paths.
+- [x] Removed business paths return 404; no aliases or fallback remain.
+- [x] Every owned consumer and executable example uses canonical paths.
+- [x] HTTP behavior above has meaningful passing regression coverage.
+- [x] OpenAPI, documentation, collections and runtime routes agree.
+- [x] Candidate providers and consumers pass combined local integration checks.
+- [x] Scoped PRs for every listed component are pushed and open; relevant CI passes.
+- [x] The original checkout remains unchanged by this work; no stash is created.
 
 ## Review decision
 

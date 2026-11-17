@@ -3,12 +3,16 @@ on:
   pull_request:
     paths:
       - 'apps/backend/momentum-public-mcp/**'
+      - 'apps/backend/momentum-api/**'
+      - 'database/**'
       - 'infra/momentum-public-mcp/**'
       - '.github/workflows/momentum-public-mcp.yml'
   push:
     branches: [main]
     paths:
       - 'apps/backend/momentum-public-mcp/**'
+      - 'apps/backend/momentum-api/**'
+      - 'database/**'
       - 'infra/momentum-public-mcp/**'
       - '.github/workflows/momentum-public-mcp.yml'
   workflow_dispatch:
@@ -52,6 +56,19 @@ jobs:
           echo "$RUNNER_TEMP/mcp-postman" >> "$GITHUB_PATH"
       - name: Real MCP over HTTP against contract-derived upstreams
         run: uv run --locked python scripts/simulation.py
+      - run: uv sync --project ../momentum-api --frozen --python 3.12
+      - name: Real MCP through versioned Momentum API into PostgreSQL
+        working-directory: apps/backend/momentum-api
+        run: |
+          bash scripts/test_database.sh start
+          uv run --frozen python scripts/mcp_smoke.py
+      - name: Clean up owned disposable integration fixture
+        if: always()
+        working-directory: apps/backend/momentum-api
+        run: |
+          if docker container inspect momentum-current-api-test-db >/dev/null 2>&1; then
+            bash scripts/test_database.sh stop
+          fi
       - run: docker build -t local/momentum-public-mcp:verify .
       - name: Verify the release container runtime
         run: uv run --locked python scripts/container_smoke.py local/momentum-public-mcp:verify

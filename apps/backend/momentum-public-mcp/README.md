@@ -5,10 +5,17 @@ Migrated from `kaligautier/deep-copy-finary`, commit
 `apps/backend/momentum-public-mcp`. FastMCP and fastmcp-slim are pinned to
 **4.1.3 (Root Awakening)**; `uv.lock` pins the complete runtime.
 
-This backend exposes the original seven tool names over **POST /**. It invokes
-the private Momentum consultation API and Market Scanner reader using separate
-Cloud Run ID-token audiences. It has no database credentials or execution/admin
-permissions. `/health` is a liveness probe, not proof of upstream availability.
+This backend exposes six Momentum tools under the `momentum_` namespace, plus
+the latest Market Scanner report as a resource under `momentum://market_scanner/`.
+Its `momentum_analyze_ticker` prompt and API-backed components use their upstream
+OpenAPI versions (Momentum 0.1.0, Market Scanner 1.0.0); both APIs currently use
+the `/v1` route prefix. It invokes the private Momentum consultation API and
+Market Scanner reader using separate Cloud Run ID-token audiences. It has no
+database credentials or execution/admin permissions. `/health` is a liveness
+probe, not proof of upstream availability.
+
+`examples/sill.py` is a standalone SkillCatalogProvider sample using FastMCP
+4.2.0a2. It runs separately from this service, which stays pinned to FastMCP 4.1.3.
 
 ## Stateless contract
 
@@ -39,8 +46,8 @@ curl "$MCP_URL/" \
   -H 'Content-Type: application/json' \
   -H 'Accept: application/json, text/event-stream' \
   -H 'MCP-Protocol-Version: 2026-07-28' \
-  -H 'Mcp-Method: tools/call' -H 'Mcp-Name: list_analyses' \
-  --data '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"list_analyses","arguments":{"limit":1},"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientInfo":{"name":"curl","version":"1"},"io.modelcontextprotocol/clientCapabilities":{}}}}'
+  -H 'Mcp-Method: tools/call' -H 'Mcp-Name: momentum_list_analyses' \
+  --data '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"momentum_list_analyses","arguments":{"page_size":1,"page_token":""},"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientInfo":{"name":"curl","version":"1"},"io.modelcontextprotocol/clientCapabilities":{}}}}'
 ```
 
 Always check `result.isError`, not just HTTP 200.
@@ -48,13 +55,16 @@ Always check `result.isError`, not just HTTP 200.
 ## Reader migration
 
 The four Momentum tools use `/v1/analyses`, `/v1/analyses/latest`,
-`/v1/analyses/{id}` and `/v1/recommendations`. Their public inputs and list output
-shape (`structuredContent.result`) are retained. The adapter traverses the
-reader's cursors to honor `limit`/`offset`, and fetches all latest pages rather
-than silently dropping them. Repeated cursors fail, and the 45-second tool
-deadline bounds traversal. Pagination does not create an MCP session.
+`/v1/analyses/{id}` and `/v1/recommendations`. List tools return one API page in
+`structuredContent.items` and its opaque cursor in
+`structuredContent.next_page_token`. Continue by calling the same tool with the
+same filters and passing that cursor as `page_token`. Only an empty cursor ends
+the list; a short page can still have another cursor. `page_size` accepts 1–100
+for history and latest analyses, and 1–50 for recommendations. The MCP passes the
+API cursor through unchanged and never fetches another page implicitly.
 
-`latest_market_scan` now returns the current reader envelope:
+The `momentum://market_scanner/market-scans/latest` resource returns the current
+reader envelope:
 `{id, scan_date, created_at, report}`. `report` preserves the complete v3 data,
 including decimal strings, null horizons and arbitration. Consumers of the old
 flattened report must read `report.regime`, `report.summary`, `report.assets`.
@@ -62,8 +72,8 @@ The removed legacy `session_id` and `recommendation` fields are not fabricated.
 
 ## Suggestions through Momentum API
 
-`suggest_ticker` and `get_suggestion_status` call `POST /suggestions` and
-`GET /suggestions/{uuid}` on the same `MOMENTUM_API_URL` as the analysis tools,
+`suggest_ticker` and `get_suggestion_status` call `POST /v1/suggestions` and
+`GET /v1/suggestions/{uuid}` on the same `MOMENTUM_API_URL` as the analysis tools,
 with the same Cloud Run identity and original HMAC caller assertion. Validation,
 quotas, persistence and moderation belong to Momentum API, as in DeepCopy.
 The MCP has no storage adapter, database credentials or separate moderation URL.
@@ -90,9 +100,10 @@ The simulation runs this backend, not a mock of it. Its two local upstream
 mocks derive from this repository's Momentum OpenAPI, Scanner producer v3
 example/reader envelope, and the recovered DeepCopy suggestions contract. No
 external owner's mock was needed: these are local services owned by this project.
-The saved collection exercises all seven tools, a real HTTP write/status cycle
-against the Momentum API mock, and a sanitized upstream failure. Unit tests also
-cover separate IAM audiences and cursor traversal. Live IAM/data access needs
+The saved collection exercises all six tools and the scanner resource, a real
+HTTP write/status cycle against the Momentum API mock, and a sanitized upstream
+failure. Unit tests also cover component namespaces and API versions, separate
+IAM audiences and cursor traversal. Live IAM/data access needs
 the deployed checks described in [Terraform](../../../infra/momentum-public-mcp/README.md).
 
 `SUGGESTION_HASH_SECRET` is required for pseudonymization and moderation signing.
@@ -108,27 +119,31 @@ that limit. It has no role in protocol session handling.
 setting. Environment variables override `.env`; invalid ports, proxy CIDRs,
 remote cleartext URLs and URLs with credentials fail at startup. The required
 signing key uses `SecretStr`, and validation errors hide input values.
-`constants.py` holds the seven tool titles, tags, annotations and shared deadline.
+`constants.py` holds tool titles, tags, annotations, upstream API versions and the
+shared deadline.
 
 Following [Logging Sucks](https://loggingsucks.com/), `observability.py` accumulates
 one context-rich `request_completed` event per HTTP request and emits it at the
 end, including on cancellation. It contains the service/revision, HTTP status,
 tool outcome and duration, per-upstream call/error counts and latency, and bounded
 business outcomes (result count, asset count, record found or moderation status).
-Pagination increments counters instead of producing one log line per API call.
-Third-party per-request chatter is suppressed. Cloud Run's own platform request
-logs remain separate from this application event.
+`middleware/logging.py` emits one `tool_call` event with bounded, credential-redacted
+arguments, status and duration. Free-text arguments such as `reason` are logged
+as their length only, never their content. Pagination increments upstream counters instead
+of producing one log line per API call. Third-party per-request chatter is
+suppressed. Cloud Run's own platform request logs remain separate.
 
 Every HTTP response includes a new `X-Request-ID`; outgoing API calls propagate
-that ID and a validated W3C trace context. Tool errors count as failures even
+that ID and a validated W3C trace context. Tool and resource errors count as failures even
 when HTTP returns 200. A request-local accumulator keeps concurrent calls isolated.
 `GOOGLE_CLOUD_PROJECT` adds Cloud Logging trace association fields. This is log
 correlation, not a complete distributed-tracing exporter.
 
-Logs omit arguments, response bodies, addresses, credentials, exception text and
-third-party free-form messages. Use tool, upstream counters, status and error type
-for diagnosis; this deliberate redaction limits exception detail. Example Logs
-Explorer filter for a request (replace the ID with the response header):
+Tool-call events include inputs after masking credential-like keys and truncating
+large values. Neither event includes response bodies, addresses, credential values,
+exception messages or third-party free-form messages. Use tool, upstream counters,
+status and error type for diagnosis. Example Logs Explorer filter for a request
+(replace the ID with the response header):
 
 ```text
 resource.type="cloud_run_revision"
@@ -138,9 +153,10 @@ jsonPayload.correlation_id="REQUEST-UUID"
 
 Filter `jsonPayload.event="request_completed"` and `jsonPayload.outcome="error"`
 for failures, including errors hidden behind a successful HTTP transport. Add
-`jsonPayload.tool.name="get_analysis"` to select an operation. Upstream statuses
-are in `jsonPayload.upstreams.momentum.last_status` (or `scanner.last_status`),
-and the client-facing HTTP code is in `jsonPayload.http.status`.
+`jsonPayload.tool.name="momentum_get_analysis"` to select an operation. Upstream
+statuses are in `jsonPayload.upstreams.momentum.last_status` (or
+`scanner.last_status`), and the client-facing HTTP code is in
+`jsonPayload.http.status`.
 
 Tail sampling happens only after the outcome is known. All errors, cancellations
 and requests lasting at least `LOG_SLOW_REQUEST_MS` (default 2000) are retained.

@@ -54,7 +54,7 @@ network services or source repository. Each application has its own environment;
 do not add sibling applications to `PYTHONPATH`.
 
 Install dependencies through the committed `uv.lock`. The application and wheel
-require OpenTelemetry API/SDK 1.45.1 to fix CVE-2026-114603. ADK 2.6.1 still caps
+require OpenTelemetry API/SDK 1.45.2 to fix CVE-2026-114603 and CVE-2026-126360. ADK 2.6.1 still caps
 these dependencies at 1.42.1, so the project contains a narrow, tested uv override.
 A standalone resolver without that override fails rather than silently installing
 the vulnerable version. For an internal wheel, first prepare the frozen environment
@@ -102,3 +102,8 @@ serves memory reads and atomic completion, with no transaction held during model
 calls. Sessions close before admission is released. Cancellation and process death
 release the physical database session and its lock. This fits the global budget
 in `docs/database-connection-capacity.md`; apply its role limits and rollout gate.
+
+
+The Scanner consumer uses `GET /v1/market-scans/latest` on
+`TA_MARKET_SCANNER_API_URL`. Release it with the versioned Scanner API; the
+removed unversioned path is never retried as a fallback.

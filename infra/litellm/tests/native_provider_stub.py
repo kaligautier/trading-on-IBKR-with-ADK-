@@ -2,7 +2,7 @@
 
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
-import time
+import threading
 
 
 def response(text, finished=True):
@@ -22,9 +22,22 @@ def response(text, finished=True):
     return result
 
 
+stream_release = threading.Event()
+stream_waiting = False
+
+
 class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
+        global stream_waiting
         json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+        if self.path == "/__release_stream":
+            waiting = stream_waiting
+            stream_release.set()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({"waiting": waiting}).encode())
+            return
         if not any(
             method in self.path
             for method in [":generateContent", ":streamGenerateContent"]
@@ -38,13 +51,18 @@ class Handler(BaseHTTPRequestHandler):
         )
         self.end_headers()
         if stream:
+            stream_release.clear()
+            stream_waiting = True
             for index, chunk in enumerate(
                 [response("NATIVE_", False), response("STREAM_OK")]
             ):
                 self.wfile.write(b"data: " + json.dumps(chunk).encode() + b"\n\n")
                 self.wfile.flush()
                 if index == 0:
-                    time.sleep(1)
+                    # The caller must observe frame one before releasing frame two.
+                    # A deadline lets a buffered response finish and fail the test.
+                    stream_release.wait(timeout=15)
+                    stream_waiting = False
         else:
             self.wfile.write(json.dumps(response("NATIVE_OK")).encode())
 

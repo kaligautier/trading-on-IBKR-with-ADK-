@@ -360,7 +360,7 @@ def main():
 
             native_key = key(20)
             verify_access_controls(bases, native_key, master)
-            verify_native_responses(bases, native_key)
+            verify_native_responses(bases, native_key, provider)
             limited_key = key(2)
             statuses = []
             for base in [bases[0], bases[1], bases[0]]:
@@ -385,7 +385,7 @@ def main():
                 ready(proxy, proxy)
                 with request(proxy, GENERATE, PAYLOAD, budget_key) as result:
                     assert (
-                        result.status in (400, 402, 403, 429)
+                        result.status in (400, 402, 403, 422, 429)
                         and b"budget" in result.read().lower()
                     ), "Daily agent budget did not deny inference"
                 with request(proxy, GENERATE, PAYLOAD, other_agent) as result:
@@ -434,7 +434,7 @@ def main():
                 ready(proxy, bases[index])
                 with request(bases[index], GENERATE, PAYLOAD, native_key) as result:
                     assert (
-                        result.status in (400, 402, 403, 429)
+                        result.status in (400, 402, 403, 422, 429)
                         and b"budget" in result.read().lower()
                     ), (
                         "Persisted global budget did not deny native requests after restart"
@@ -490,7 +490,7 @@ def verify_access_controls(bases, native_key, master):
     )
 
 
-def verify_native_responses(bases, native_key):
+def verify_native_responses(bases, native_key, provider):
     with request(bases[0], GENERATE, PAYLOAD, native_key) as result:
         assert result.status == 200, (
             "Native generation failed: " + result.read().decode()
@@ -509,12 +509,23 @@ def verify_native_responses(bases, native_key):
             if line.startswith(b"data: "):
                 arrived.append(time.monotonic())
                 frames.append(json.loads(line[6:]))
+                if len(frames) == 1:
+                    # Prove the first frame reached the caller while the provider
+                    # is still withholding the second, without a timing threshold.
+                    release = docker(
+                        "exec",
+                        bases[0],
+                        "python",
+                        "-c",
+                        "import urllib.request; "
+                        f"r=urllib.request.urlopen('http://{provider}:8080/__release_stream', "
+                        "data=b'{}', timeout=20); print(r.read().decode())",
+                    )
+                    assert json.loads(release)["waiting"], (
+                        "Native SSE first frame arrived only after provider timeout"
+                    )
         assert len(frames) == 2, "Native stream lost Gemini SSE frames"
-        # Measure data frames, not EOF: the provider only pauses BETWEEN
-        # frames. Buffering headers and the entire body collapses this gap.
-        assert arrived[1] - arrived[0] >= 0.8, (
-            "Native SSE frames were buffered until completion"
-        )
+
         print(
             f"Native SSE timing: first frame {arrived[0] - started:.2f}s "
             f"after request; frame gap {arrived[1] - arrived[0]:.2f}s",

@@ -27,7 +27,7 @@ export class LatestScanReader {
   async latest() {
     const headers = new Headers({ Accept: "application/json" })
     if (this.useIam) headers.set("X-Serverless-Authorization", `Bearer ${await this.identityToken()}`)
-    const response = await this.fetcher(`${this.origin}/market-scans/latest`, {
+    const response = await this.fetcher(`${this.origin}/v1/market-scans/latest`, {
       headers, cache: "no-store", redirect: "error", signal: AbortSignal.timeout(20_000),
     })
     if (response.status === 404) return null

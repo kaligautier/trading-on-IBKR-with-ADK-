@@ -50,9 +50,9 @@ access. The old `mcp.deepcopy.fr` domain has not been migrated.
 
 2. Ask for recent stock analyses, for example: “List the latest analyses available for AAPL.”
 
-3. Use an analysis ID returned by `list_analyses` to request the full report with `get_analysis`.
+3. Use an analysis ID returned by `momentum_list_analyses` to request the full report with `momentum_get_analysis`.
 
-To call `list_analyses` directly from a terminal:
+To call `momentum_list_analyses` directly from a terminal:
 
 ```bash
 curl https://momentum-public-mcp-gdezc6bzrq-ew.a.run.app \
@@ -60,14 +60,14 @@ curl https://momentum-public-mcp-gdezc6bzrq-ew.a.run.app \
   -H 'Accept: application/json, text/event-stream' \
   -H 'MCP-Protocol-Version: 2026-07-28' \
   -H 'Mcp-Method: tools/call' \
-  -H 'Mcp-Name: list_analyses' \
+  -H 'Mcp-Name: momentum_list_analyses' \
   --data-raw '{
     "jsonrpc": "2.0",
     "id": "list-analyses-1",
     "method": "tools/call",
     "params": {
-      "name": "list_analyses",
-      "arguments": {"limit": 1},
+      "name": "momentum_list_analyses",
+      "arguments": {"page_size": 1},
       "_meta": {
         "io.modelcontextprotocol/protocolVersion": "2026-07-28",
         "io.modelcontextprotocol/clientInfo": {"name": "readme-example", "version": "1.0.0"},
@@ -137,24 +137,26 @@ show a code snapshot, not a live deployment.
 
 The public MCP server is stateless and uses protocol revision [`2026-07-28`](https://modelcontextprotocol.io/specification/2026-07-28/changelog). Each request includes the protocol version and client capabilities in `params._meta`, as shown in the quick start.
 
-This reference follows the schemas advertised by `tools/list`. Response tables highlight selected fields. The list tools (`list_analyses`, `latest_analyses`, and `get_recommendations`) return their arrays in `result.structuredContent.result`; each item includes an `id` that can be passed to `get_analysis`.
+Tools are namespaced with a `momentum_` prefix. This reference follows the schemas advertised by `tools/list` and `resources/list`. Response tables highlight selected fields. The list tools (`momentum_list_analyses`, `momentum_latest_analyses`, and `momentum_get_recommendations`) return one page in `result.structuredContent` as `{"items": [...], "next_page_token": "..."}`; each item includes an `id` that can be passed to `momentum_get_analysis`.
+
+To read the next page, call the same tool again with the same filters and `page_token` set to the previous `next_page_token`. An empty `next_page_token` means there are no more pages. Tokens are opaque: do not build or modify them.
 
 Types use Python notation. `None` means no value is set; **—** means there is no default value.
 
 The `rating` filters accept multiple values separated by commas:
 `Buy`, `Overweight`, `Hold`, `Underweight`, `Sell`.
 
-### `list_analyses`
+### `momentum_list_analyses`
 
 Returns a paginated list of analyses, optionally filtered by ticker. Summaries include ratings, prices, RSI, trends, and P/E ratios.
 
 **Parameters**
 
-| Parameter | Type          | Required | Default | Description and limits          |
-| :-------- | :------------ | :------: | :------ | :------------------------------ |
-| `ticker`  | `str \| None` | No       | `None`  | Filter by symbol, e.g. `AAPL`.  |
-| `limit`   | `int`         | No       | `50`    | Results per page. **1–200**.   |
-| `offset`  | `int`         | No       | `0`     | Pagination offset.              |
+| Parameter    | Type          | Required | Default | Description and limits                        |
+| :----------- | :------------ | :------: | :------ | :-------------------------------------------- |
+| `ticker`     | `str \| None` | No       | `None`  | Filter by symbol, e.g. `AAPL`.                |
+| `page_size`  | `int`         | No       | `50`    | Maximum results in this page. **1–100**.      |
+| `page_token` | `str`         | No       | `""`    | `next_page_token` from the previous page.     |
 
 **Response**
 
@@ -167,16 +169,18 @@ Returns a paginated list of analyses, optionally filtered by ticker. Summaries i
 | Trend        | `trend_direction`, `key_support`, `key_resistance` |
 | Fundamentals | `pe_ratio`, `peg_ratio`, `beta`                    |
 
-### `latest_analyses`
+### `momentum_latest_analyses`
 
 Returns the latest analysis for each ticker, with an optional portfolio rating filter.
 
 **Parameters**
 
-| Parameter | Type          | Required | Default | Description and limits         |
-| :-------- | :------------ | :------: | :------ | :----------------------------- |
-| `ticker`  | `str \| None` | No       | `None`  | Limit results to one symbol.   |
-| `rating`  | `str \| None` | No       | `None`  | Filter by one or more ratings. |
+| Parameter    | Type          | Required | Default | Description and limits                    |
+| :----------- | :------------ | :------: | :------ | :---------------------------------------- |
+| `ticker`     | `str \| None` | No       | `None`  | Limit results to one symbol.              |
+| `rating`     | `str \| None` | No       | `None`  | Filter by one or more ratings.            |
+| `page_size`  | `int`         | No       | `50`    | Maximum results in this page. **1–100**.  |
+| `page_token` | `str`         | No       | `""`    | `next_page_token` from the previous page. |
 
 **Response**
 
@@ -186,7 +190,7 @@ Returns the latest analysis for each ticker, with an optional portfolio rating f
 | Decision  | `price_target`, `trader_action`         |
 | Technical | `rsi`, `trend_direction`                |
 
-### `get_analysis`
+### `momentum_get_analysis`
 
 Returns the full analysis: technical indicators, fundamentals, sentiment, news, bull/bear debates, and the portfolio decision.
 
@@ -207,16 +211,17 @@ Returns the full analysis: technical indicators, fundamentals, sentiment, news, 
 | Decision     | `trader_proposal`, `portfolio_decision` |
 | Execution    | `run_stats`                             |
 
-### `get_recommendations`
+### `momentum_get_recommendations`
 
 Returns active recommendations filtered by rating. Useful for “what should I buy?” queries.
 
 **Parameters**
 
-| Parameter | Type  | Required | Default            | Description and limits               |
-| :-------- | :---- | :------: | :----------------- | :----------------------------------- |
-| `rating`  | `str` | No       | `"Buy,Overweight"` | Target ratings, separated by commas. |
-| `limit`   | `int` | No       | `10`               | Number of results. **1–100**.        |
+| Parameter    | Type  | Required | Default            | Description and limits                    |
+| :----------- | :---- | :------: | :----------------- | :---------------------------------------- |
+| `rating`     | `str` | No       | `"Buy,Overweight"` | Target ratings, separated by commas.      |
+| `page_size`  | `int` | No       | `10`               | Maximum results in this page. **1–50**.   |
+| `page_token` | `str` | No       | `""`               | `next_page_token` from the previous page. |
 
 **Response**
 
@@ -226,11 +231,9 @@ Returns active recommendations filtered by rating. Useful for “what should I b
 | Price levels    | `price_target`, `entry_price`, `stop_loss` |
 | Risk management | `position_size`, `risk_reward_ratio`       |
 
-### `latest_market_scan`
+### Resource `momentum://market_scanner/market-scans/latest`
 
-Returns the latest daily market regime and normalized asset signals.
-
-**Parameters:** None. Use an empty `arguments` object: `{}`.
+Returns the latest daily market regime and normalized asset signals. The market scan is an MCP resource, not a tool: read it with `resources/read` (header `Mcp-Method: resources/read`, `Mcp-Name` set to the URI) and `params.uri` set to `momentum://market_scanner/market-scans/latest`. The scan is returned as JSON text in `result.contents[0].text`.
 
 **Response**
 
@@ -241,9 +244,9 @@ Returns the latest daily market regime and normalized asset signals.
 | Market observations | `report.assets`, `report.themes`, `report.sources` |
 | Full report | `report` preserves the v3 reader schema, including arbitration and data quality. |
 
-### `suggest_ticker`
+### `momentum_suggest_ticker`
 
-Submits a ticker for administrator review without starting an analysis. Pass the returned `id` to `get_suggestion_status` to follow the moderation decision.
+Submits a ticker for administrator review without starting an analysis. Pass the returned `id` to `momentum_get_suggestion_status` to follow the moderation decision.
 
 **Parameters**
 
@@ -260,7 +263,7 @@ Submits a ticker for administrator review without starting an analysis. Pass the
 | Moderation | `status`, `review_reason` |
 | Dates | `created_at`, `reviewed_at` |
 
-### `get_suggestion_status`
+### `momentum_get_suggestion_status`
 
 Returns the moderation decision for a suggestion.
 
@@ -268,7 +271,7 @@ Returns the moderation decision for a suggestion.
 
 | Parameter       | Type         | Required | Default | Description and limits                   |
 | :-------------- | :----------- | :------: | :------ | :--------------------------------------- |
-| `suggestion_id` | `str` (UUID) | **Yes**  | —       | The `id` returned by `suggest_ticker`.   |
+| `suggestion_id` | `str` (UUID) | **Yes**  | —       | The `id` returned by `momentum_suggest_ticker`.   |
 
 **Response**
 
@@ -283,7 +286,7 @@ Returns the moderation decision for a suggestion.
 
 #### Request body
 
-Replace `{{publicMcpAnalysisId}}` with an analysis ID returned by `list_analyses`. Send this body to `https://momentum-public-mcp-gdezc6bzrq-ew.a.run.app` with the same content type, accept, and protocol-version headers as the quick start, plus `Mcp-Method: tools/call` and `Mcp-Name: get_analysis`.
+Replace `{{publicMcpAnalysisId}}` with an analysis ID returned by `momentum_list_analyses`. Send this body to `https://momentum-public-mcp-gdezc6bzrq-ew.a.run.app` with the same content type, accept, and protocol-version headers as the quick start, plus `Mcp-Method: tools/call` and `Mcp-Name: momentum_get_analysis`.
 
 ```json
 {
@@ -291,7 +294,7 @@ Replace `{{publicMcpAnalysisId}}` with an analysis ID returned by `list_analyses
   "id": "get-analysis-1",
   "method": "tools/call",
   "params": {
-    "name": "get_analysis",
+    "name": "momentum_get_analysis",
     "arguments": {
       "analysis_id": "{{publicMcpAnalysisId}}"
     },
