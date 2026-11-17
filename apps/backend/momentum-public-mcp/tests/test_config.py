@@ -3,7 +3,7 @@
 import pytest
 from pydantic import ValidationError
 
-from momentum_public_mcp.config import Settings
+from momentum_public_mcp.config.config import Settings
 
 
 def settings(**values):

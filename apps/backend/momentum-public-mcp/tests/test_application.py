@@ -1,6 +1,6 @@
 """Cloud Run runtime configuration tests."""
 
-from momentum_public_mcp.config import Settings
+from momentum_public_mcp.config.config import Settings
 
 
 def test_cloud_run_identity_is_enabled_from_environment(monkeypatch) -> None:
