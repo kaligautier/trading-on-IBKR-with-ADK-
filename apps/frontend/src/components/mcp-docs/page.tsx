@@ -51,13 +51,13 @@ const TOC_SECTIONS: TocSection[] = [
     subs: [
       { id: "quickstart", number: "2.1", title: "Quickstart" },
       { id: "protocol-2026", number: "2.2", title: "Protocol 2026-07-28" },
-      { id: "tool-list_analyses", number: "2.3", title: "list_analyses" },
-      { id: "tool-latest_analyses", number: "2.4", title: "latest_analyses" },
-      { id: "tool-get_analysis", number: "2.5", title: "get_analysis" },
-      { id: "tool-get_recommendations", number: "2.6", title: "get_recommendations" },
-      { id: "tool-latest_market_scan", number: "2.7", title: "latest_market_scan" },
-      { id: "tool-suggest_ticker", number: "2.8", title: "suggest_ticker" },
-      { id: "tool-get_suggestion_status", number: "2.9", title: "get_suggestion_status" },
+      { id: "tool-list_analyses", number: "2.3", title: "momentum_list_analyses" },
+      { id: "tool-latest_analyses", number: "2.4", title: "momentum_latest_analyses" },
+      { id: "tool-get_analysis", number: "2.5", title: "momentum_get_analysis" },
+      { id: "tool-get_recommendations", number: "2.6", title: "momentum_get_recommendations" },
+      { id: "tool-latest_market_scan", number: "2.7", title: "Market scan resource" },
+      { id: "tool-suggest_ticker", number: "2.8", title: "momentum_suggest_ticker" },
+      { id: "tool-get_suggestion_status", number: "2.9", title: "momentum_get_suggestion_status" },
       { id: "moderation", number: "2.10", title: "Moderation" },
     ],
   },
@@ -300,21 +300,21 @@ function McpSection() {
       </p>
 
       <CodeBlock
-        title="Call list_analyses"
+        title="Call momentum_list_analyses"
         language="bash"
         code={`curl https://mcp.deepcopy.fr \\
   -H 'Content-Type: application/json' \\
   -H 'Accept: application/json, text/event-stream' \\
   -H 'MCP-Protocol-Version: 2026-07-28' \\
   -H 'Mcp-Method: tools/call' \\
-  -H 'Mcp-Name: list_analyses' \\
+  -H 'Mcp-Name: momentum_list_analyses' \\
   --data-raw '{
     "jsonrpc": "2.0",
     "id": "list-1",
     "method": "tools/call",
     "params": {
-      "name": "list_analyses",
-      "arguments": {"ticker": "ASML", "limit": 10, "offset": 0},
+      "name": "momentum_list_analyses",
+      "arguments": {"ticker": "ASML", "page_size": 10},
       "_meta": {
         "io.modelcontextprotocol/protocolVersion": "2026-07-28",
         "io.modelcontextprotocol/clientInfo": {"name": "my-client", "version": "1.0.0"},
@@ -331,34 +331,36 @@ function McpSection() {
       <SectionTitle>MCP Tools</SectionTitle>
 
       <p className="mb-6 max-w-2xl text-sm text-on-surface-variant">
-        List tools return their arrays in <InlineCode>result.structuredContent.result</InlineCode>. Pass an item&apos;s <InlineCode>id</InlineCode> as <InlineCode>analysis_id</InlineCode> to <InlineCode>get_analysis</InlineCode>.
+        Tools are namespaced with a <InlineCode>momentum_</InlineCode> prefix. List tools return one page in <InlineCode>result.structuredContent</InlineCode> as <InlineCode>{"{"}items, next_page_token{"}"}</InlineCode>. To read the next page, call the same tool with the same filters and <InlineCode>page_token</InlineCode> set to the previous <InlineCode>next_page_token</InlineCode>; an empty token means there are no more pages. Pass an item&apos;s <InlineCode>id</InlineCode> as <InlineCode>analysis_id</InlineCode> to <InlineCode>momentum_get_analysis</InlineCode>.
       </p>
 
       <div className="mt-6">
         <ToolDoc
           id="tool-list_analyses"
-          name="list_analyses"
+          name="momentum_list_analyses"
           description="Paginated analyses with an optional ticker filter. Returns a summary: rating, price, RSI, trend and P/E ratio."
           params={[
             { name: "ticker", type: "str | None", default: "None", description: "Filter by symbol (e.g. AAPL)" },
-            { name: "limit", type: "int", default: "50", description: "Number of results (maximum 200)" },
-            { name: "offset", type: "int", default: "0", description: "Pagination offset" },
+            { name: "page_size", type: "int", default: "50", description: "Results in this page (1 to 100)" },
+            { name: "page_token", type: "str", default: '""', description: "next_page_token from the previous page" },
           ]}
           responseFields={["id", "analysis_date", "ticker", "rating", "executive_summary", "price_target", "entry_price", "stop_loss", "rsi", "rsi_signal", "trend_direction", "key_support", "key_resistance", "pe_ratio", "peg_ratio", "beta"]}
         />
         <ToolDoc
           id="tool-latest_analyses"
-          name="latest_analyses"
+          name="momentum_latest_analyses"
           description="Latest analysis for each ticker, with an optional portfolio rating filter."
           params={[
             { name: "ticker", type: "str | None", default: "None", description: "A single ticker" },
             { name: "rating", type: "str | None", default: "None", description: "Comma-separated: Buy,Overweight,Hold,Underweight,Sell" },
+            { name: "page_size", type: "int", default: "50", description: "Results in this page (1 to 100)" },
+            { name: "page_token", type: "str", default: '""', description: "next_page_token from the previous page" },
           ]}
           responseFields={["id", "ticker", "rating", "executive_summary", "price_target", "trader_action", "rsi", "trend_direction"]}
         />
         <ToolDoc
           id="tool-get_analysis"
-          name="get_analysis"
+          name="momentum_get_analysis"
           description="Full report: technical indicators, fundamentals, sentiment, news, bull/bear debates and portfolio decision."
           params={[
             { name: "analysis_id", type: "str (UUID)", default: "required", description: "Analysis identifier" },
@@ -367,24 +369,25 @@ function McpSection() {
         />
         <ToolDoc
           id="tool-get_recommendations"
-          name="get_recommendations"
+          name="momentum_get_recommendations"
           description="Active recommendations filtered by rating, for queries about potential purchases."
           params={[
             { name: "rating", type: "str", default: '"Buy,Overweight"', description: "Target ratings" },
-            { name: "limit", type: "int", default: "10", description: "Number of results (maximum 100)" },
+            { name: "page_size", type: "int", default: "10", description: "Results in this page (1 to 50)" },
+            { name: "page_token", type: "str", default: '""', description: "next_page_token from the previous page" },
           ]}
           responseFields={["id", "ticker", "rating", "price_target", "entry_price", "stop_loss", "position_size", "risk_reward_ratio"]}
         />
         <ToolDoc
           id="tool-latest_market_scan"
-          name="latest_market_scan"
-          description="Returns the latest daily market regime and normalized asset signals. No parameters: send an empty arguments object ({})."
+          name="momentum://market_scanner/market-scans/latest"
+          description="MCP resource, not a tool: read it with resources/read (Mcp-Method: resources/read, Mcp-Name and params.uri set to this URI). Returns the latest daily market regime and normalized asset signals as JSON text in result.contents[0].text."
           params={[]}
           responseFields={["id", "scan_date", "created_at", "regime", "summary", "recommendation", "assets", "signals", "session_id"]}
         />
         <ToolDoc
           id="tool-suggest_ticker"
-          name="suggest_ticker"
+          name="momentum_suggest_ticker"
           description="Suggest a ticker for analysis. An existing analysis or suggestion is returned without another write; otherwise, a single suggestion is created for moderation."
           params={[
             { name: "symbol", type: "str", default: "required", description: "Stock symbol (e.g. ASML)" },
@@ -394,10 +397,10 @@ function McpSection() {
         />
         <ToolDoc
           id="tool-get_suggestion_status"
-          name="get_suggestion_status"
+          name="momentum_get_suggestion_status"
           description="Read the moderation decision for a suggestion."
           params={[
-            { name: "suggestion_id", type: "str (UUID)", default: "required", description: "Identifier returned by suggest_ticker" },
+            { name: "suggestion_id", type: "str (UUID)", default: "required", description: "Identifier returned by momentum_suggest_ticker" },
           ]}
           responseFields={["id", "symbol", "status", "created_at", "reviewed_at", "review_reason"]}
         />
@@ -418,7 +421,7 @@ function ModerationWorkflow() {
         An unknown ticker is saved once with the status <InlineCode>pending</InlineCode>. If an analysis or suggestion already exists, it is returned without another write. An administrator can then approve or reject a new suggestion.
       </p>
       <div className="mt-5 grid gap-3 sm:grid-cols-3">
-        <WorkflowStep number="1" title="Suggestion" detail="The LLM calls suggest_ticker." />
+        <WorkflowStep number="1" title="Suggestion" detail="The LLM calls momentum_suggest_ticker." />
         <WorkflowStep number="2" title="Moderation" detail="An administrator reviews the request." />
         <WorkflowStep number="3" title="Analysis" detail="A job is created after approval." />
       </div>
