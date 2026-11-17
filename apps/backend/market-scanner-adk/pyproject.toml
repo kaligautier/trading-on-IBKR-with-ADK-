@@ -88,9 +88,9 @@ dev = [
 ]
 
 [tool.uv]
-# ADK caps OpenTelemetry at a version affected by CVE-2026-114603.
-# Keep API and SDK aligned; remove when ADK supports the fixed release directly.
+# ADK caps OpenTelemetry at versions affected by CVE-2026-114603 and CVE-2026-126360.
+# Keep API and SDK aligned; remove when ADK supports the fixed releases directly.
 override-dependencies = [
-    "opentelemetry-api==1.45.1",
-    "opentelemetry-sdk==1.45.1",
+    "opentelemetry-api==1.45.2",
+    "opentelemetry-sdk==1.45.2",
 ]
