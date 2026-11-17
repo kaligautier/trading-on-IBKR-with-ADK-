@@ -4,20 +4,34 @@
 
 The upstream bases are pinned by digest in `variables.tf`. Both official
 linux/amd64 images contain filelock 3.32.7 with 13 known advisories at the
-2026-11-05 scan. The derived images replace it with filelock 4.2.4, using a
-SHA-256-verified wheel. No advisory exclusions are used.
+2026-11-05 scan, and oauthlib 4.0.0 with one advisory at the 2026-11-06 scan.
+The derived images replace them with filelock 4.2.4 and oauthlib 4.0.1, using
+SHA-256-verified wheels. No advisory exclusions are used.
 
 `images/widen_filelock.py` backports the installed requirement-bound change
 from [upstream PR #49137](https://github.com/BerriAI/litellm/pull/49137):
 `filelock>=3.16.1,<4.0` becomes `filelock>=3.16.1,<5`. It updates the wheel
 RECORD hash and refuses an unexpected upstream requirement. This is necessary
-because the published 1.108.0 images still contain the old bound. Pip is a
-hash-verified temporary build tool; it is not installed in the runtime.
-The final proxy runs as root and migrations as nonroot, matching the bases.
+because the published 1.108.0 images still contain the old bound. oauthlib
+needs no metadata change: its only dependent, fastapi-sso 0.19.0, requires
+`oauthlib>=3.1.0`. Pip is a hash-verified temporary build tool; it is not
+installed in the runtime. The final proxy runs as root and migrations as
+nonroot, matching the bases.
 
-On 2026-11-05, the installed-Python-package audit of both corrected linux/amd64
-images returned **zero known vulnerabilities**. This is not an OS package,
-JavaScript dependency, provenance or unknown-vulnerability audit.
+On 2026-11-17, the installed-Python-package audit of both corrected
+linux/amd64 images found no filelock or oauthlib advisory. Three advisories
+published since the previous scan remain, so the audit gate still fails:
+
+| Package | Installed | Fixed in | Images |
+| --- | --- | --- | --- |
+| dnspython | 2.9.1 | 2.9.2 | proxy, migrations |
+| opentelemetry-api | 1.45.1 | 1.45.2 | proxy, migrations |
+| tornado | 6.6 | 6.6.1 | proxy |
+
+opentelemetry-api cannot be replaced alone: opentelemetry-sdk 1.45.1 and
+opentelemetry-semantic-conventions 0.66b1 require `opentelemetry-api==1.45.1`.
+This is not an OS package, JavaScript dependency, provenance or
+unknown-vulnerability audit.
 
 CI builds both derived images before auditing or running the migration,
 authentication, Redis/TLS, route-isolation, Gemini SSE and budget tests.
