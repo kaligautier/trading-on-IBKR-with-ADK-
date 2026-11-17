@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react"
 import { PublicActions } from "@/components/landing/public-actions"
 import { CopyEndpointButton } from "@/components/landing/copy-endpoint-button"
+import { NavSection } from "@/components/landing/nav-section"
 import Link from "next/link"
 
 /* ------------------------------------------------------------------ */
@@ -12,7 +13,7 @@ import Link from "next/link"
 export default function ApiDocsPage() {
   return (
     <div className="min-h-screen bg-surface text-on-surface overflow-x-clip">
-      <NavBar />
+      <NavSection sectionPath="/" />
       <div className="max-w-7xl mx-auto px-6 pt-20">
         <div className="grid md:grid-cols-[260px_1fr] gap-12 lg:gap-16 items-start">
           <DocsToc />
@@ -50,13 +51,13 @@ const TOC_SECTIONS: TocSection[] = [
     subs: [
       { id: "quickstart", number: "2.1", title: "Quickstart" },
       { id: "protocol-2026", number: "2.2", title: "Protocol 2026-07-28" },
-      { id: "tool-list_analyses", number: "2.3", title: "list_analyses" },
-      { id: "tool-latest_analyses", number: "2.4", title: "latest_analyses" },
-      { id: "tool-get_analysis", number: "2.5", title: "get_analysis" },
-      { id: "tool-get_recommendations", number: "2.6", title: "get_recommendations" },
-      { id: "tool-latest_market_scan", number: "2.7", title: "latest_market_scan" },
-      { id: "tool-suggest_ticker", number: "2.8", title: "suggest_ticker" },
-      { id: "tool-get_suggestion_status", number: "2.9", title: "get_suggestion_status" },
+      { id: "tool-list_analyses", number: "2.3", title: "momentum_list_analyses" },
+      { id: "tool-latest_analyses", number: "2.4", title: "momentum_latest_analyses" },
+      { id: "tool-get_analysis", number: "2.5", title: "momentum_get_analysis" },
+      { id: "tool-get_recommendations", number: "2.6", title: "momentum_get_recommendations" },
+      { id: "tool-latest_market_scan", number: "2.7", title: "Market scan resource" },
+      { id: "tool-suggest_ticker", number: "2.8", title: "momentum_suggest_ticker" },
+      { id: "tool-get_suggestion_status", number: "2.9", title: "momentum_get_suggestion_status" },
       { id: "moderation", number: "2.10", title: "Moderation" },
     ],
   },
@@ -145,48 +146,6 @@ function TocSectionItem({ section, activeId }: { section: TocSection; activeId: 
         </div>
       )}
     </div>
-  )
-}
-
-/* ------------------------------------------------------------------ */
-/*  Nav                                                               */
-/* ------------------------------------------------------------------ */
-
-function NavBar() {
-  return (
-    <header className="pointer-events-none fixed inset-x-0 top-0 z-50 flex items-center justify-center px-4 pt-4">
-      {/* Floating monochrome pill (same style as the app header) */}
-      <Link
-        href="/"
-        className="pointer-events-auto flex items-center gap-2.5 rounded-full border border-outline-variant bg-[#faf9f6]/80 px-3 py-1.5 backdrop-blur-xl shadow-[0_1px_2px_rgba(0,0,0,0.05),0_14px_34px_-16px_rgba(0,0,0,0.25)]"
-      >
-        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-on-surface font-bold text-[11px] text-surface-lowest">
-          DC
-        </span>
-        <span className="text-sm font-semibold text-on-surface tracking-tight font-display">
-          Deep Copy
-        </span>
-      </Link>
-
-      {/* Floating right cluster */}
-      <div className="pointer-events-auto absolute right-4 flex items-center gap-4">
-        <a
-          href="https://github.com/kaligautier/trading-on-IBKR-with-ADK-"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="hidden md:flex items-center gap-1.5 text-xs text-on-surface-variant hover:text-on-surface transition"
-        >
-          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" /></svg>
-          Source
-        </a>
-        <a
-          href="https://deepcopy.fr"
-          className="text-xs font-medium text-on-surface-variant hover:text-on-surface transition"
-        >
-          deepcopy.fr
-        </a>
-      </div>
-    </header>
   )
 }
 
@@ -341,21 +300,21 @@ function McpSection() {
       </p>
 
       <CodeBlock
-        title="Call list_analyses"
+        title="Call momentum_list_analyses"
         language="bash"
         code={`curl https://mcp.deepcopy.fr \\
   -H 'Content-Type: application/json' \\
   -H 'Accept: application/json, text/event-stream' \\
   -H 'MCP-Protocol-Version: 2026-07-28' \\
   -H 'Mcp-Method: tools/call' \\
-  -H 'Mcp-Name: list_analyses' \\
+  -H 'Mcp-Name: momentum_list_analyses' \\
   --data-raw '{
     "jsonrpc": "2.0",
     "id": "list-1",
     "method": "tools/call",
     "params": {
-      "name": "list_analyses",
-      "arguments": {"ticker": "ASML", "limit": 10, "offset": 0},
+      "name": "momentum_list_analyses",
+      "arguments": {"ticker": "ASML", "page_size": 10},
       "_meta": {
         "io.modelcontextprotocol/protocolVersion": "2026-07-28",
         "io.modelcontextprotocol/clientInfo": {"name": "my-client", "version": "1.0.0"},
@@ -372,34 +331,36 @@ function McpSection() {
       <SectionTitle>MCP Tools</SectionTitle>
 
       <p className="mb-6 max-w-2xl text-sm text-on-surface-variant">
-        List tools return their arrays in <InlineCode>result.structuredContent.result</InlineCode>. Pass an item&apos;s <InlineCode>id</InlineCode> as <InlineCode>analysis_id</InlineCode> to <InlineCode>get_analysis</InlineCode>.
+        Tools are namespaced with a <InlineCode>momentum_</InlineCode> prefix. List tools return one page in <InlineCode>result.structuredContent</InlineCode> as <InlineCode>{"{"}items, next_page_token{"}"}</InlineCode>. To read the next page, call the same tool with the same filters and <InlineCode>page_token</InlineCode> set to the previous <InlineCode>next_page_token</InlineCode>; an empty token means there are no more pages. Pass an item&apos;s <InlineCode>id</InlineCode> as <InlineCode>analysis_id</InlineCode> to <InlineCode>momentum_get_analysis</InlineCode>.
       </p>
 
       <div className="mt-6">
         <ToolDoc
           id="tool-list_analyses"
-          name="list_analyses"
+          name="momentum_list_analyses"
           description="Paginated analyses with an optional ticker filter. Returns a summary: rating, price, RSI, trend and P/E ratio."
           params={[
             { name: "ticker", type: "str | None", default: "None", description: "Filter by symbol (e.g. AAPL)" },
-            { name: "limit", type: "int", default: "50", description: "Number of results (maximum 200)" },
-            { name: "offset", type: "int", default: "0", description: "Pagination offset" },
+            { name: "page_size", type: "int", default: "50", description: "Results in this page (1 to 100)" },
+            { name: "page_token", type: "str", default: '""', description: "next_page_token from the previous page" },
           ]}
           responseFields={["id", "analysis_date", "ticker", "rating", "executive_summary", "price_target", "entry_price", "stop_loss", "rsi", "rsi_signal", "trend_direction", "key_support", "key_resistance", "pe_ratio", "peg_ratio", "beta"]}
         />
         <ToolDoc
           id="tool-latest_analyses"
-          name="latest_analyses"
+          name="momentum_latest_analyses"
           description="Latest analysis for each ticker, with an optional portfolio rating filter."
           params={[
             { name: "ticker", type: "str | None", default: "None", description: "A single ticker" },
             { name: "rating", type: "str | None", default: "None", description: "Comma-separated: Buy,Overweight,Hold,Underweight,Sell" },
+            { name: "page_size", type: "int", default: "50", description: "Results in this page (1 to 100)" },
+            { name: "page_token", type: "str", default: '""', description: "next_page_token from the previous page" },
           ]}
           responseFields={["id", "ticker", "rating", "executive_summary", "price_target", "trader_action", "rsi", "trend_direction"]}
         />
         <ToolDoc
           id="tool-get_analysis"
-          name="get_analysis"
+          name="momentum_get_analysis"
           description="Full report: technical indicators, fundamentals, sentiment, news, bull/bear debates and portfolio decision."
           params={[
             { name: "analysis_id", type: "str (UUID)", default: "required", description: "Analysis identifier" },
@@ -408,24 +369,25 @@ function McpSection() {
         />
         <ToolDoc
           id="tool-get_recommendations"
-          name="get_recommendations"
+          name="momentum_get_recommendations"
           description="Active recommendations filtered by rating, for queries about potential purchases."
           params={[
             { name: "rating", type: "str", default: '"Buy,Overweight"', description: "Target ratings" },
-            { name: "limit", type: "int", default: "10", description: "Number of results (maximum 100)" },
+            { name: "page_size", type: "int", default: "10", description: "Results in this page (1 to 50)" },
+            { name: "page_token", type: "str", default: '""', description: "next_page_token from the previous page" },
           ]}
           responseFields={["id", "ticker", "rating", "price_target", "entry_price", "stop_loss", "position_size", "risk_reward_ratio"]}
         />
         <ToolDoc
           id="tool-latest_market_scan"
-          name="latest_market_scan"
-          description="Returns the latest daily market regime and normalized asset signals. No parameters: send an empty arguments object ({})."
+          name="momentum://market_scanner/market-scans/latest"
+          description="MCP resource, not a tool: read it with resources/read (Mcp-Method: resources/read, Mcp-Name and params.uri set to this URI). Returns the latest daily market regime and normalized asset signals as JSON text in result.contents[0].text."
           params={[]}
           responseFields={["id", "scan_date", "created_at", "regime", "summary", "recommendation", "assets", "signals", "session_id"]}
         />
         <ToolDoc
           id="tool-suggest_ticker"
-          name="suggest_ticker"
+          name="momentum_suggest_ticker"
           description="Suggest a ticker for analysis. An existing analysis or suggestion is returned without another write; otherwise, a single suggestion is created for moderation."
           params={[
             { name: "symbol", type: "str", default: "required", description: "Stock symbol (e.g. ASML)" },
@@ -435,10 +397,10 @@ function McpSection() {
         />
         <ToolDoc
           id="tool-get_suggestion_status"
-          name="get_suggestion_status"
+          name="momentum_get_suggestion_status"
           description="Read the moderation decision for a suggestion."
           params={[
-            { name: "suggestion_id", type: "str (UUID)", default: "required", description: "Identifier returned by suggest_ticker" },
+            { name: "suggestion_id", type: "str (UUID)", default: "required", description: "Identifier returned by momentum_suggest_ticker" },
           ]}
           responseFields={["id", "symbol", "status", "created_at", "reviewed_at", "review_reason"]}
         />
@@ -459,7 +421,7 @@ function ModerationWorkflow() {
         An unknown ticker is saved once with the status <InlineCode>pending</InlineCode>. If an analysis or suggestion already exists, it is returned without another write. An administrator can then approve or reject a new suggestion.
       </p>
       <div className="mt-5 grid gap-3 sm:grid-cols-3">
-        <WorkflowStep number="1" title="Suggestion" detail="The LLM calls suggest_ticker." />
+        <WorkflowStep number="1" title="Suggestion" detail="The LLM calls momentum_suggest_ticker." />
         <WorkflowStep number="2" title="Moderation" detail="An administrator reviews the request." />
         <WorkflowStep number="3" title="Analysis" detail="A job is created after approval." />
       </div>

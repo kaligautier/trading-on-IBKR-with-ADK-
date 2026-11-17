@@ -29,9 +29,9 @@ async def test_reader_restart_and_session_isolation():
                 transport=httpx.ASGITransport(app=application), base_url="http://test"
             ) as client,
         ):
-            assert (await client.get("/market-scans/latest")).status_code == 401
+            assert (await client.get("/v1/market-scans/latest")).status_code == 401
             response = await client.get(
-                "/market-scans/latest",
+                "/v1/market-scans/latest",
                 headers={"Authorization": "Bearer integration-test-token"},
             )
             assert response.status_code == 200

@@ -8,14 +8,18 @@ from time import perf_counter
 from typing import Protocol
 
 import httpx
-from pydantic import BaseModel, ValidationError
+from pydantic import ValidationError
 
+from momentum_public_mcp.api.momentum.dtos.response.analyses import ReaderPage
+from momentum_public_mcp.config.constants import (
+    MARKET_SCANNER_API_PREFIX,
+    MOMENTUM_API_PREFIX,
+)
 from momentum_public_mcp.domain import (
     AnalysisDetail,
     AnalysisId,
     AnalysisPage,
     AnalysisSummaries,
-    AnalysisSummary,
     MarketScan,
     Ratings,
     Suggestion,
@@ -23,16 +27,11 @@ from momentum_public_mcp.domain import (
     SuggestionReason,
     TickerSymbol,
 )
-from momentum_public_mcp.observability import emit, outbound_headers
+from momentum_public_mcp.observability import outbound_headers, record_upstream
 
 
 class MomentumApiError(RuntimeError):
     """Sanitized public API failure."""
-
-
-class ReaderPage(BaseModel):
-    items: list[AnalysisSummary]
-    next_page_token: str
 
 
 class IdentityTokenProvider(Protocol):
@@ -94,13 +93,16 @@ class MomentumPublicGateway(Protocol):
     ) -> AnalysisSummaries: ...
 
     async def latest_analyses(
-        self, ticker: TickerSymbol | None, ratings: Ratings | None
+        self,
+        ticker: TickerSymbol | None,
+        ratings: Ratings | None,
+        page: AnalysisPage,
     ) -> AnalysisSummaries: ...
 
     async def get_analysis(self, analysis_id: AnalysisId) -> AnalysisDetail: ...
 
     async def get_recommendations(
-        self, ratings: Ratings, limit: int
+        self, ratings: Ratings, page: AnalysisPage
     ) -> AnalysisSummaries: ...
 
     async def suggest_ticker(
@@ -165,63 +167,57 @@ class MomentumHttpGateway:
         parameters = {}
         if ticker is not None:
             parameters["ticker"] = ticker.value
-        return await self._pages("/v1/analyses", parameters, page.limit, page.offset)
+        return await self._page(f"{MOMENTUM_API_PREFIX}/analyses", parameters, page)
 
     async def latest_market_scan(self) -> MarketScan:
-        response = await self._market_scanner_request("GET", "/market-scans/latest")
+        response = await self._market_scanner_request(
+            "GET", f"{MARKET_SCANNER_API_PREFIX}/market-scans/latest"
+        )
         return self._model(response, MarketScan)
 
     async def latest_analyses(
         self,
         ticker: TickerSymbol | None,
         ratings: Ratings | None,
+        page: AnalysisPage,
     ) -> AnalysisSummaries:
         parameters = self._latest_parameters(ticker, ratings)
-        return await self._pages("/v1/analyses/latest", parameters)
+        return await self._page(
+            f"{MOMENTUM_API_PREFIX}/analyses/latest", parameters, page
+        )
 
     async def get_analysis(self, analysis_id: AnalysisId) -> AnalysisDetail:
-        response = await self._request("GET", f"/v1/analyses/{analysis_id.value}")
+        response = await self._request(
+            "GET", f"{MOMENTUM_API_PREFIX}/analyses/{analysis_id.value}"
+        )
         return self._model(response, AnalysisDetail)
 
     async def get_recommendations(
         self,
         ratings: Ratings,
-        limit: int,
+        page: AnalysisPage,
     ) -> AnalysisSummaries:
-        return await self._pages(
-            "/v1/recommendations", {"rating": ratings.as_csv()}, limit
+        return await self._page(
+            f"{MOMENTUM_API_PREFIX}/recommendations",
+            {"rating": ratings.as_csv()},
+            page,
         )
 
-    async def _pages(
-        self, path: str, parameters: dict, limit: int | None = None, offset: int = 0
+    async def _page(
+        self, path: str, parameters: dict, page: AnalysisPage
     ) -> AnalysisSummaries:
-        """Translate the original MCP window into the reader's cursor protocol.
-
-        Never return a silently truncated latest-per-ticker result. The enclosing
-        tool deadline bounds traversal; repeated cursors are an upstream error.
-        """
-        items: list[AnalysisSummary] = []
-        token = ""
-        seen: set[str] = set()
-        while True:
-            size = 100 if limit is None else min(100, offset + limit - len(items))
-            response = await self._request(
-                "GET",
-                path,
-                params={**parameters, "page_size": size, "page_token": token},
-            )
-            page = self._model(response, ReaderPage)
-            skipped = min(offset, len(page.items))
-            offset -= skipped
-            items.extend(page.items[skipped:])
-            if not page.next_page_token or (limit is not None and len(items) >= limit):
-                return AnalysisSummaries(tuple(items))
-            token = page.next_page_token
-            if token in seen:
-                raise MomentumApiError(
-                    "Momentum public API returned a repeated cursor."
-                )
-            seen.add(token)
+        """Return one upstream page without interpreting or following its cursor."""
+        response = await self._request(
+            "GET",
+            path,
+            params={
+                **parameters,
+                "page_size": page.page_size,
+                "page_token": page.page_token,
+            },
+        )
+        result = self._model(response, ReaderPage)
+        return AnalysisSummaries(tuple(result.items), result.next_page_token)
 
     async def suggest_ticker(
         self,
@@ -232,12 +228,17 @@ class MomentumHttpGateway:
         payload = {"symbol": symbol.value, "reason": reason.value}
         headers = self._signer.headers(caller_fingerprint)
         response = await self._request(
-            "POST", "/suggestions", json=payload, headers=headers
+            "POST",
+            f"{MOMENTUM_API_PREFIX}/suggestions",
+            json=payload,
+            headers=headers,
         )
         return self._model(response, Suggestion)
 
     async def get_suggestion_status(self, suggestion_id: SuggestionId) -> Suggestion:
-        response = await self._request("GET", f"/suggestions/{suggestion_id.value}")
+        response = await self._request(
+            "GET", f"{MOMENTUM_API_PREFIX}/suggestions/{suggestion_id.value}"
+        )
         return self._model(response, Suggestion)
 
     async def close(self) -> None:
@@ -294,12 +295,10 @@ class MomentumHttpGateway:
             error_type = type(error).__name__
             raise MomentumApiError("Momentum public API is unavailable.") from error
         finally:
-            emit(
-                "upstream_request",
+            record_upstream(
+                upstream,
                 started,
                 outcome=outcome,
-                upstream=upstream,
-                method=method,
                 status=status,
                 error_type=error_type,
             )

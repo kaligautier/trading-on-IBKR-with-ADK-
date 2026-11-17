@@ -1,0 +1,17 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "gradient-text",
+        "value": "*",
+        "files": [
+          "apps/frontend/src/components/motion/chromatic-text-reveal.module.css"
+        ],
+        "createdAt": "2026-10-29T20:23:00.521Z",
+        "reason": "User explicitly supplied and requested this chromatic gradient text animation; scope limited to the reveal component."
+      }
+    ]
+  }
+}

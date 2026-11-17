@@ -66,12 +66,13 @@ def should_accept_dispatch_without_running_the_workflow(monkeypatch):
     )
     monkeypatch.setattr(application, "dispatch_scan", dispatch)
     with TestClient(application.create_app()) as client:
-        assert client.post("/internal/daily-scan").status_code == 401
+        assert client.post("/internal/v1/scan-jobs").status_code == 401
         dispatch.assert_not_called()
         response = client.post(
-            "/internal/daily-scan", headers={"X-Market-Scanner-Token": "test-token"}
+            "/internal/v1/scan-jobs", headers={"X-Market-Scanner-Token": "test-token"}
         )
-    assert response.status_code == 200
+    assert response.status_code == 202
+    assert response.headers["cache-control"] == "no-store"
     assert response.json() == {"status": "accepted", "operation": dispatch.return_value}
     dispatch.assert_called_once_with(job)
 
@@ -87,7 +88,7 @@ def should_report_dispatch_failure_without_exposing_details(monkeypatch):
         application, "dispatch_scan", Mock(side_effect=RuntimeError("private details"))
     )
     with TestClient(application.create_app()) as client:
-        response = client.post("/internal/daily-scan")
+        response = client.post("/internal/v1/scan-jobs")
     assert response.status_code == 502
     assert response.json() == {"detail": "Scheduled scan dispatch failed"}
 
@@ -117,7 +118,7 @@ def should_reject_dispatch_without_a_configured_job(monkeypatch):
     dispatch = Mock()
     monkeypatch.setattr(application, "dispatch_scan", dispatch)
     with TestClient(application.create_app()) as client:
-        response = client.post("/internal/daily-scan")
+        response = client.post("/internal/v1/scan-jobs")
     assert response.status_code == 503
     dispatch.assert_not_called()
 
@@ -148,3 +149,43 @@ async def should_exit_with_worker_status_and_close_database(monkeypatch, failed)
     monkeypatch.setattr(daily_scan, "close_database", close)
     assert await daily_scan.main() == int(failed)
     close.assert_awaited_once()
+
+
+@pytest.mark.parametrize("method", ["GET", "POST", "HEAD", "OPTIONS"])
+def should_remove_unversioned_dispatch_without_starting_a_job(monkeypatch, method):
+    from unittest.mock import Mock
+
+    from app import application
+
+    dispatch = Mock()
+    monkeypatch.setattr(application, "dispatch_scan", dispatch)
+    with TestClient(application.create_app()) as client:
+        assert client.request(method, "/internal/daily-scan").status_code == 404
+    dispatch.assert_not_called()
+
+
+def should_not_use_worker_admission_for_job_submission(monkeypatch):
+    from contextlib import asynccontextmanager
+
+    from app.services.admission import ScannerBusyError
+
+    @asynccontextmanager
+    async def busy():
+        raise ScannerBusyError()
+        yield
+
+    monkeypatch.setattr("app.middleware.admission.admit_scan", busy)
+    monkeypatch.setattr(
+        application.settings,
+        "MARKET_SCANNER_JOB",
+        "projects/test/locations/europe-west1/jobs/scanner",
+    )
+    dispatch = Mock(return_value="operations/test")
+    monkeypatch.setattr(application, "dispatch_scan", dispatch)
+    with TestClient(application.create_app()) as client:
+        response = client.post("/internal/v1/scan-jobs")
+        disallowed = client.get("/internal/v1/scan-jobs")
+    assert response.status_code == 202
+    assert disallowed.status_code == 405
+    assert disallowed.headers["allow"] == "POST"
+    dispatch.assert_called_once()

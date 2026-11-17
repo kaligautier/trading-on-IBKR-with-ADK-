@@ -14,6 +14,7 @@ from app.domain.suggestions import (
     Suggestion,
     SuggestionInput,
     SuggestionRateLimitError,
+    SuggestionSubmission,
 )
 
 # Only public fields leave the repository; caller hashes and reviewer IDs stay private.
@@ -49,7 +50,7 @@ class SuggestionRepository:
         except (SQLAlchemyError, TimeoutError, OSError) as error:
             raise storage_error(error) from error
 
-    async def submit(self, request: SuggestionInput) -> Suggestion:
+    async def submit(self, request: SuggestionInput) -> SuggestionSubmission:
         try:
             async with self.engine.connect() as connection, connection.begin():
                 # Scoped to this transaction only. AnalysisRepository still forces
@@ -63,7 +64,7 @@ class SuggestionRepository:
                 )
                 existing = await self._find(connection, request.symbol)
                 if existing:
-                    return existing
+                    return SuggestionSubmission(existing, created=False)
                 await self._validate_policy(connection, request)
                 row = (
                     (
@@ -94,7 +95,7 @@ class SuggestionRepository:
                 )
                 if result is None:
                     raise RuntimeError("Suggestion disappeared during intake")
-                return result  # Context manager commits before the caller receives it.
+                return SuggestionSubmission(result, created=row is not None)
         except (SQLAlchemyError, TimeoutError, OSError) as error:
             raise storage_error(error) from error
 

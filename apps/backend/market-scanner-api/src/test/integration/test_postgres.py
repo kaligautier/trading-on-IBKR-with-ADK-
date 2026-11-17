@@ -95,11 +95,11 @@ async def test_reader_pagination_detail_and_concurrent_insert(database):
             headers=HEADERS,
         ) as client,
     ):
-        latest = await client.get("/market-scans/latest")
+        latest = await client.get("/v1/market-scans/latest")
         assert latest.status_code == 200
         assert latest.json()["id"] == str(UUID(int=5))
         assert latest.json()["report"] == REPORT
-        first = (await client.get("/market-scans", params={"page_size": 2})).json()
+        first = (await client.get("/v1/market-scans", params={"page_size": 2})).json()
         assert first["next_page_token"]
         ids = [row["id"] for row in first["items"]]
         # A newly committed latest scan must not shift the ongoing history.
@@ -108,13 +108,13 @@ async def test_reader_pagination_detail_and_concurrent_insert(database):
         while token:
             page = (
                 await client.get(
-                    "/market-scans", params={"page_size": 2, "page_token": token}
+                    "/v1/market-scans", params={"page_size": 2, "page_token": token}
                 )
             ).json()
             ids.extend(row["id"] for row in page["items"])
             token = page["next_page_token"]
         assert ids == [str(UUID(int=n)) for n in range(5, 0, -1)]
-        detail = await client.get(f"/market-scans/{UUID(int=1)}")
+        detail = await client.get(f"/v1/market-scans/{UUID(int=1)}")
         assert detail.json()["report"] == REPORT
         assert "session_id" not in detail.text
         assert (await client.get("/ready")).status_code == 200
@@ -149,15 +149,15 @@ async def test_empty_store_invalid_report_and_unavailable_schema(database):
             headers=HEADERS,
         ) as client,
     ):
-        assert (await client.get("/market-scans/latest")).status_code == 404
-        assert (await client.get("/market-scans")).json() == {
+        assert (await client.get("/v1/market-scans/latest")).status_code == 404
+        assert (await client.get("/v1/market-scans")).json() == {
             "items": [],
             "next_page_token": "",
         }
         await insert(admin, 1, report=None)
-        assert (await client.get("/market-scans/latest")).status_code == 500
+        assert (await client.get("/v1/market-scans/latest")).status_code == 500
         await admin.execute("DROP SCHEMA _analysis CASCADE")
-        response = await client.get("/market-scans/latest")
+        response = await client.get("/v1/market-scans/latest")
         assert response.status_code == 503
         assert "integration-only" not in response.text
 
@@ -178,7 +178,7 @@ async def test_other_schema_cannot_supply_a_report(database):
                 headers=HEADERS,
             ) as client,
         ):
-            assert (await client.get("/market-scans/latest")).status_code == 404
+            assert (await client.get("/v1/market-scans/latest")).status_code == 404
     finally:
         await admin.execute("DROP TABLE public.market_scans")
 

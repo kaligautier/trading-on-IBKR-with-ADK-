@@ -43,7 +43,7 @@ for attempt in range(50):
 else:
     raise AssertionError('Image did not become healthy')
 try:
-    urllib.request.urlopen('http://127.0.0.1:8080/market-scans/latest')
+    urllib.request.urlopen('http://127.0.0.1:8080/v1/market-scans/latest')
     raise AssertionError('Anonymous report access was allowed')
 except urllib.error.HTTPError as error:
     assert error.code == 401

@@ -152,7 +152,7 @@ class HTTPPolicy:
             raise APIError(404, "not-found")
         allowed = (
             {"POST", "OPTIONS"}
-            if route == "/suggestions"
+            if route == "/v1/suggestions"
             else {"GET", "HEAD", "OPTIONS"}
         )
         if method not in allowed:
@@ -314,7 +314,7 @@ class HTTPPolicy:
             ]
         )
         if route is not None and status in {204, 405}:
-            allowed = "POST, OPTIONS" if route == "/suggestions" else ALLOW
+            allowed = "POST, OPTIONS" if route == "/v1/suggestions" else ALLOW
             response_headers.append((b"allow", allowed.encode()))
         if status not in {204, 304}:
             response_headers.append((b"content-length", str(len(body)).encode()))

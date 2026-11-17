@@ -8,14 +8,16 @@ import httpx
 import uvicorn
 from pydantic import SecretStr
 
-from momentum_public_mcp.config import Settings
-from momentum_public_mcp.gateway import (
+from momentum_public_mcp.config.config import Settings
+from momentum_public_mcp.mcp.gateway import (
     CloudRunIdentityHeaders,
     DisabledIdentityTokenProvider,
     MetadataIdentityTokenProvider,
     MomentumHttpGateway,
     SuggestionSigner,
 )
+from momentum_public_mcp.mcp.resources import MomentumPublicResources
+from momentum_public_mcp.mcp.tools import MomentumPublicTools
 from momentum_public_mcp.observability import configure_logging
 from momentum_public_mcp.protocol import create_http_app
 from momentum_public_mcp.security import (
@@ -24,7 +26,6 @@ from momentum_public_mcp.security import (
     TrustedProxyNetworks,
 )
 from momentum_public_mcp.server import MomentumPublicMcpServer
-from momentum_public_mcp.tools import MomentumPublicTools
 
 
 class MomentumPublicApplication:
@@ -76,7 +77,12 @@ class MomentumPublicApplication:
             finally:
                 await gateway.close()
 
-        self.mcp = MomentumPublicMcpServer(tools, fingerprint, lifespan).server
+        self.mcp = MomentumPublicMcpServer(
+            tools,
+            fingerprint,
+            lifespan,
+            resources=MomentumPublicResources(gateway),
+        ).server
 
     @staticmethod
     def _backend_headers(settings, token: SecretStr) -> dict[str, str]:
@@ -93,7 +99,13 @@ class MomentumPublicApplication:
     def run(self) -> None:
         configure_logging(self._settings.GOOGLE_CLOUD_PROJECT)
         uvicorn.run(
-            create_http_app(self.mcp),
+            create_http_app(
+                self.mcp,
+                success_sample_rate=self._settings.LOG_SUCCESS_SAMPLE_RATE,
+                slow_request_ms=self._settings.LOG_SLOW_REQUEST_MS,
+                service=self._settings.K_SERVICE,
+                revision=self._settings.K_REVISION,
+            ),
             host="0.0.0.0",
             port=self._settings.PORT,
             proxy_headers=False,

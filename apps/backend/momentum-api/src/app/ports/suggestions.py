@@ -3,10 +3,10 @@
 from typing import Protocol
 from uuid import UUID
 
-from app.domain.suggestions import Suggestion, SuggestionInput
+from app.domain.suggestions import Suggestion, SuggestionInput, SuggestionSubmission
 
 
 class SuggestionStore(Protocol):
-    async def submit(self, request: SuggestionInput) -> Suggestion: ...
+    async def submit(self, request: SuggestionInput) -> SuggestionSubmission: ...
 
     async def get(self, suggestion_id: UUID) -> Suggestion | None: ...

@@ -32,7 +32,11 @@ async def suggestions(service, admin):
 
 async def test_persist_pending_and_read_after_reconnecting(suggestions, admin):
     repository, engine = suggestions
-    value = await repository.submit(SuggestionInput(" msft ", " rationale ", "a" * 64))
+    outcome = await repository.submit(
+        SuggestionInput(" msft ", " rationale ", "a" * 64)
+    )
+    assert outcome.created
+    value = outcome.suggestion
     assert value.symbol == "MSFT" and value.reason == "rationale"
     assert value.status == "pending" and value.source == "mcp"
     assert "suggested_by" not in asdict(value)
@@ -52,10 +56,12 @@ async def test_duplicate_returns_same_id_before_cooldown(suggestions):
     repository, _ = suggestions
     first = await repository.submit(SuggestionInput("MSFT", "first", "a" * 64))
     second = await repository.submit(SuggestionInput("MSFT", "second", "a" * 64))
-    assert first == second
+    assert first.created and not second.created
+    assert first.suggestion == second.suggestion
 
 
-async def test_atomic_cooldown_for_concurrent_intake(suggestions, admin):
+@pytest.mark.parametrize("same_ticker", [False, True])
+async def test_atomic_concurrent_intake(suggestions, admin, same_ticker):
     repository, _ = suggestions
     # Only this disposable test simulates two replicas; production retains one pool.
     await admin.execute("ALTER ROLE momentum_results_reader CONNECTION LIMIT 2")
@@ -71,14 +77,27 @@ async def test_atomic_cooldown_for_concurrent_intake(suggestions, admin):
         other = SuggestionRepository(other_engine)
         results = await asyncio.gather(
             repository.submit(SuggestionInput("MSFT", "", "a" * 64)),
-            other.submit(SuggestionInput("NVDA", "", "a" * 64)),
+            other.submit(
+                SuggestionInput(
+                    "MSFT" if same_ticker else "NVDA",
+                    "",
+                    ("b" if same_ticker else "a") * 64,
+                )
+            ),
             return_exceptions=True,
         )
     finally:
         await other_engine.dispose()
         await admin.execute("ALTER ROLE momentum_results_reader CONNECTION LIMIT 1")
-    assert sum(isinstance(value, SuggestionRateLimitError) for value in results) == 1
-    assert sum(not isinstance(value, Exception) for value in results) == 1
+    if same_ticker:
+        assert all(not isinstance(value, Exception) for value in results)
+        assert sum(value.created for value in results) == 1
+        assert results[0].suggestion == results[1].suggestion
+    else:
+        assert (
+            sum(isinstance(value, SuggestionRateLimitError) for value in results) == 1
+        )
+        assert sum(not isinstance(value, Exception) for value in results) == 1
 
 
 async def test_daily_limit_independent_of_cooldown(suggestions, admin):
@@ -113,7 +132,7 @@ async def test_original_analysis_expiry_policy(suggestions, admin, expiry, allow
     )
     request = SuggestionInput("T000", "", "a" * 64)
     if allowed:
-        assert (await repository.submit(request)).status == "pending"
+        assert (await repository.submit(request)).suggestion.status == "pending"
     else:
         with pytest.raises(CurrentAnalysisExistsError):
             await repository.submit(request)

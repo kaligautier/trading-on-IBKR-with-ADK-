@@ -34,6 +34,12 @@ class Suggestion:
     review_reason: str | None
 
 
+@dataclass(frozen=True)
+class SuggestionSubmission:
+    suggestion: Suggestion
+    created: bool
+
+
 class CurrentAnalysisExistsError(Exception):
     """A ticker with a current analysis cannot be proposed again."""
 

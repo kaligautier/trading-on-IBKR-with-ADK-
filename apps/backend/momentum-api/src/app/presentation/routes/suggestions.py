@@ -1,4 +1,4 @@
-"""Original DeepCopy intake/status routes; no review or execution endpoint."""
+"""Versioned suggestion intake/status routes; no review or execution endpoint."""
 
 import hashlib
 import hmac
@@ -7,7 +7,7 @@ from dataclasses import asdict
 from datetime import datetime
 from uuid import UUID
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Request, Response
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.config.settings import Settings
@@ -15,7 +15,7 @@ from app.domain.suggestions import CurrentAnalysisExistsError, SuggestionRateLim
 from app.presentation.http.problems import APIError
 from app.services.suggestion_service import SuggestionService
 
-router = APIRouter(prefix="/suggestions", tags=["suggestions"])
+router = APIRouter(prefix="/v1/suggestions", tags=["suggestions"])
 
 
 class SuggestionRequest(BaseModel):
@@ -57,28 +57,40 @@ def caller(request: Request) -> str:
 
 @router.post(
     "",
-    status_code=202,
+    status_code=201,
     response_model=SuggestionResponse,
     operation_id="submit_suggestion",
+    responses={
+        200: {"model": SuggestionResponse, "description": "Existing suggestion"}
+    },
 )
-async def submit(payload: SuggestionRequest, request: Request) -> SuggestionResponse:
+async def submit(
+    payload: SuggestionRequest, request: Request, response: Response
+) -> SuggestionResponse:
     if request.query_params:
         raise APIError(400, "invalid-argument")
     identity = caller(request)
     service: SuggestionService = request.app.state.suggestions
     try:
-        value = await service.submit(payload.symbol, payload.reason or "", identity)
+        result = await service.submit(payload.symbol, payload.reason or "", identity)
     except CurrentAnalysisExistsError as error:
         raise APIError(409, "current-analysis") from error
     except SuggestionRateLimitError as error:
         raise APIError(429, "suggestion-quota") from error
     except ValueError as error:
         raise APIError(400, "invalid-argument") from error
-    return SuggestionResponse(**asdict(value))
+    response.status_code = 201 if result.created else 200
+    response.headers["Location"] = str(
+        request.url_for("get_suggestion", suggestion_id=str(result.suggestion.id))
+    )
+    return SuggestionResponse(**asdict(result.suggestion))
 
 
 @router.get(
-    "/{suggestion_id}", response_model=SuggestionResponse, operation_id="get_suggestion"
+    "/{suggestion_id}",
+    response_model=SuggestionResponse,
+    operation_id="get_suggestion",
+    name="get_suggestion",
 )
 async def status(suggestion_id: UUID, request: Request) -> SuggestionResponse:
     if request.query_params:
