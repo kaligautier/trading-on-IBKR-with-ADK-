@@ -72,6 +72,11 @@ jobs:
           terraform -chdir=infra/bootstrap init -backend=false -input=false -lockfile=readonly
           terraform -chdir=infra/bootstrap validate
           terraform -chdir=infra/bootstrap test
+      - name: Validate and test drift detection identity
+        run: |
+          terraform -chdir=infra/drift init -backend=false -input=false -lockfile=readonly
+          terraform -chdir=infra/drift validate
+          terraform -chdir=infra/drift test
 
   dependencies:
     runs-on: ubuntu-24.04

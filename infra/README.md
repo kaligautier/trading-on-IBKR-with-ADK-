@@ -12,6 +12,7 @@ separately. Run commands from the repository root and pass the appropriate
 | `momentum/` | Private Momentum analysis runtime; [deployment guide](momentum/README.md). |
 | `budget-guard/` | Budget that disables Vertex AI when spend hits the cap; [guide](budget-guard/README.md). |
 | `litellm/` | Inference gateway and IAP-protected administration; [deployment guide](litellm/README.md). |
+| `drift/` | Read-only identity and inputs for the nightly drift workflow; [guide](drift/README.md). |
 | `litellm/governance/` | Teams, keys and per-agent budgets; [guide](litellm/governance/README.md). |
 | `litellm/governance/policy/` | Team/key policy module used by the governance root; [guide](litellm/governance/README.md). |
 | `frontend/build/` | Frontend builder and source storage; [build guide](frontend/README.md). |
@@ -31,7 +32,7 @@ module require 1.11 or later; CI uses 1.14.4). In a clean checkout:
 (
 set -e
 terraform fmt -check -recursive infra
-for root in infra/bootstrap infra/market-scanner infra/litellm infra/reader infra/budget-guard infra/momentum infra/momentum-api infra/momentum-public-mcp infra/frontend/build infra/frontend; do
+for root in infra/bootstrap infra/drift infra/market-scanner infra/litellm infra/reader infra/budget-guard infra/momentum infra/momentum-api infra/momentum-public-mcp infra/frontend/build infra/frontend; do
   terraform -chdir="$root" init -backend=false -input=false -lockfile=readonly
   terraform -chdir="$root" validate
   terraform -chdir="$root" test
