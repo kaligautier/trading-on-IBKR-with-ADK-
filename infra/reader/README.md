@@ -17,14 +17,17 @@ Prerequisites:
 5. Set explicit caller identities in `invoker_members` (usually a frontend/backend
    service account). Empty means no callers are granted by this root.
 
-Create ignored `release.local.tfvars` with `project_id`, `region`, `image`,
-`database_secret_version`, `ca_secret_version` and `invoker_members`.
-Initialize with the existing state bucket and the dedicated prefix:
+The preprod target and its deployed release values (image digest, secret
+versions) are versioned in `config/preprod.backend.hcl` and `config/preprod.tfvars`;
+update them in the same change as each deployment. The deployed state uses the
+`preprod/reader` prefix. Personal invoker identities stay in ignored
+`config/identities.local.tfvars` (`invoker_members = [...]`), because this
+repository is public:
 
 ```sh
-terraform init -backend-config='bucket=YOUR_STATE_BUCKET' \
-  -backend-config='prefix=market-scanner/reader'
-terraform plan -var-file=release.local.tfvars -out=reader.tfplan
+terraform init -backend-config=config/preprod.backend.hcl -lockfile=readonly
+terraform plan -var-file=config/preprod.tfvars \
+  -var-file=config/identities.local.tfvars -out=reader.tfplan
 # Review the concrete plan before applying it.
 terraform apply reader.tfplan
 ```
