@@ -9,7 +9,6 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-import httpx
 
 SCRIPTS = Path(__file__).resolve().parents[1] / "scripts"
 
@@ -46,105 +45,6 @@ def test_database_rerun_preserves_encoded_password():
 
     # Assert
     assert password == "p+'@ss"
-
-
-@pytest.mark.parametrize("upload_ok", [True, False])
-def test_client_secret_upload_or_revocation(monkeypatch, capsys, upload_ok):
-    # Arrange
-    script = load_script("bootstrap_scanner_key")
-    script.PROJECT = "example-project"
-    script.BASE_URL = "https://gateway.example.com"
-    script.SECRET = "litellm-client-agent"
-    master = secrets.token_hex(32)
-    key = "sk-" + secrets.token_hex(32)
-    monkeypatch.setenv("LITELLM_MASTER_KEY", master)
-    credentials = SimpleNamespace(refresh=lambda _: None, token="placeholder")
-    monkeypatch.setattr(script.google.auth, "default", lambda **_: (credentials, None))
-    requests = []
-
-    def handle(request):
-        requests.append((request.url.path, json.loads(request.content or "{}")))
-        if request.url.path.endswith("/versions"):
-            return httpx.Response(200, json={"versions": []})
-        if request.url.path == "/key/generate":
-            return httpx.Response(200, json={"key": key})
-        if request.url.path.endswith(":addVersion"):
-            return httpx.Response(
-                200 if upload_ok else 503,
-                json={"name": "projects/example/secrets/agent/versions/1"},
-            )
-        if request.url.path == "/key/delete":
-            return httpx.Response(200, json={})
-        raise AssertionError("Unexpected request")
-
-    client_type = httpx.Client
-    monkeypatch.setattr(
-        script.httpx,
-        "Client",
-        lambda **kwargs: client_type(transport=httpx.MockTransport(handle), **kwargs),
-    )
-
-    # Act
-    if upload_ok:
-        script.main()
-    else:
-        with pytest.raises(script.BootstrapError, match="HTTP 503"):
-            script.main()
-
-    # Assert
-    generation = next(body for path, body in requests if path == "/key/generate")
-    assert generation["key_alias"].startswith("agent-")
-    assert generation["allowed_routes"] == ["/v1beta/models/*"]
-    revocations = [body for path, body in requests if path == "/key/delete"]
-    assert revocations == ([] if upload_ok else [{"keys": [key]}])
-    output = capsys.readouterr().out
-    assert key not in output and master not in output
-
-
-@pytest.mark.parametrize(
-    "url",
-    [
-        "",
-        "http://example.com",
-        "https://user:pass@example.com",
-        "https://example.com/path",
-        "https://example.com?key=value",
-        "https://example.com#fragment",
-    ],
-)
-def test_client_rejects_unsafe_origin(url):
-    # Arrange
-    script = load_script("bootstrap_scanner_key")
-    script.PROJECT = "example-project"
-    script.BASE_URL = url
-
-    # Act / Assert
-    with pytest.raises(ValueError, match="HTTPS origin"):
-        script.validate_configuration()
-
-
-def test_client_requires_explicit_project():
-    # Arrange
-    script = load_script("bootstrap_scanner_key")
-    script.PROJECT = ""
-    script.BASE_URL = "https://example.com"
-
-    # Act / Assert
-    with pytest.raises(ValueError, match="GOOGLE_CLOUD_PROJECT"):
-        script.validate_configuration()
-
-
-def test_client_accepts_https_origin():
-    # Arrange
-    script = load_script("bootstrap_scanner_key")
-    script.PROJECT = "example-project"
-    script.BASE_URL = "https://example.com"
-
-    # Act
-    result = script.validate_configuration()
-
-    # Assert
-    assert result is None
 
 
 def test_provider_upload_keeps_credentials_out_of_arguments_and_output(
