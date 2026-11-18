@@ -52,3 +52,17 @@ terraform fmt -check -recursive
 terraform validate
 terraform test
 ```
+
+## Secret container
+
+Terraform manages the container of `market-scanner-reader-database-url`
+(`secrets.tf`); the URL itself is still uploaded outside Terraform. A project that
+already holds this secret adopts it on the first apply only:
+
+```sh
+terraform plan -var-file=config/preprod.tfvars -var-file=config/identities.local.tfvars \
+  -var=adopt_existing_secret=true
+```
+
+The plan must report `1 to import, 0 to add, 0 to change, 0 to destroy`. Later plans
+omit the flag.
