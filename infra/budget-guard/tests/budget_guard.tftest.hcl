@@ -37,8 +37,8 @@ run "function_is_private_and_least_privilege" {
     error_message = "The kill switch must not be callable from the internet."
   }
   assert {
-    condition     = toset(google_project_iam_custom_role.service_disabler.permissions) == toset(["serviceusage.services.disable", "serviceusage.services.get", "serviceusage.operations.get"])
-    error_message = "The function role must only allow disabling services."
+    condition     = toset(google_project_iam_custom_role.service_disabler.permissions) == toset(["serviceusage.services.disable", "serviceusage.services.get", "serviceusage.services.use", "serviceusage.operations.get"])
+    error_message = "The function role must only allow disabling services and using the project (needed by the Eventarc trigger)."
   }
 }
 
