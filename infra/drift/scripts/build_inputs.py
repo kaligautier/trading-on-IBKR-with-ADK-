@@ -10,11 +10,13 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
+# Ignored plan inputs, relative to each root directory.
 NAMES = (
-    "identities.local.tfvars",
-    "sso.local.tfvars",
-    "agent-governance.local.tfvars.json",
-    "key-alert.local.tfvars",
+    "config/identities.local.tfvars",
+    "config/sso.local.tfvars",
+    "config/agent-governance.local.tfvars.json",
+    "config/key-alert.local.tfvars",
+    "budget.local.tfvars",
 )
 
 
@@ -22,9 +24,9 @@ def main() -> int:
     inputs: dict[str, dict[str, str]] = {}
     for directory in sorted(ROOT.glob("*")) + sorted(ROOT.glob("*/*")):
         files = {
-            f"config/{name}": (directory / "config" / name).read_text()
+            name: (directory / name).read_text()
             for name in NAMES
-            if (directory / "config" / name).is_file()
+            if (directory / name).is_file()
         }
         if files:
             inputs[str(directory.relative_to(ROOT))] = files

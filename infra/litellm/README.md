@@ -19,7 +19,25 @@ cp infra/litellm/config/preprod.tfvars.example infra/litellm/config/preprod.loca
 cp infra/litellm/config/release.local.tfvars.example infra/litellm/config/release.local.tfvars
 ```
 
-Fill the local files with your state bucket, project, allowed IAP principals and
+### Preprod files
+
+The deployed preprod release is versioned in `config/preprod.release.tfvars`
+(stage, secret versions, agent service accounts, budget and release images) and
+`config/preprod-models.tfvars`. Update them in the same change as each deployment.
+This repository is public, so personal identities, external endpoints and key
+fingerprints stay in ignored files: `config/identities.local.tfvars` (IAP members
+and Redis endpoint, see the `.example`), `config/sso.local.tfvars`,
+`config/agent-governance.local.tfvars.json` and `config/key-alert.local.tfvars`.
+A preprod plan passes them in this order:
+
+```sh
+terraform -chdir=infra/litellm plan -var-file=config/preprod.release.tfvars \
+  -var-file=config/identities.local.tfvars -var-file=config/sso.local.tfvars \
+  -var-file=config/agent-governance.local.tfvars.json \
+  -var-file=config/key-alert.local.tfvars -var-file=config/preprod-models.tfvars
+```
+
+For another environment, fill the local files with your state bucket, project, allowed IAP principals and
 numeric secret versions. Verify model availability in your project and region.
 Local configuration, state, plans, credentials and OAuth downloads must stay out
 of Git. Examples contain placeholders only. Never put secret values in tfvars:
@@ -77,7 +95,7 @@ uv run --project apps/backend/market-scanner-adk --no-sync python infra/litellm/
 
 The script preserves existing enabled secret versions, checks role privileges,
 verifies TLS and SQL writes, and sets the dedicated role's connection limit to
-12 by default. If existing encrypted records have no recoverable salt, it stops
+2 (the only value the script accepts). If existing encrypted records have no recoverable salt, it stops
 instead of creating an incompatible salt. Check the service's total connection
 capacity before choosing the limit. Remove the temporary administrator file
 once bootstrap is complete.
@@ -315,7 +333,8 @@ references; API credentials do not belong in the catalog. Avoid manual model
 changes in the UI, which are outside this configuration's ownership.
 
 Both services share the image, config, database and runtime identity. Each uses
-a two-connection pool; size PostgreSQL for revision overlap and migrations.
+a one-connection pool (combined role limit of two); revision overlap is not supported, see
+[Shared connection capacity](#shared-connection-capacity).
 Without `redis_connection`, rate limits are process-local and counters may reset.
 Shared Redis coordinates counters across both services; asynchronous accounting
 can still overshoot budgets.
@@ -473,3 +492,11 @@ pools before publishing the new secret version and lowering the role limit.
 Prisma migrations run while both services are stopped, within the same role
 allocation. Follow `docs/database-connection-capacity.md`; a rolling overlap is
 not supported on the 15-connection tier. No production secret is modified by CI.
+
+## Release image repository
+
+Terraform manages the `litellm-release` Artifact Registry repository that holds the
+audited release images (`release_registry.tf`). A project that already has it
+adopts it on the first apply only, with `-var=adopt_existing_release_registry=true`;
+the plan must report `1 to import, 0 to add, 0 to change, 0 to destroy`. Later plans
+omit the flag.

@@ -7,17 +7,19 @@ Dependabot**; a valid configuration alone does not prove a successful update run
 
 | Ecosystem | Locations |
 | --- | --- |
-| uv | `apps/backend/market-scanner-adk`, `apps/backend/market-scanner-api` |
+| uv | `apps/backend/market-scanner-adk`, `apps/backend/market-scanner-api`, `apps/backend/momentum-api`, `apps/backend/momentum-public-mcp` |
 | npm | `apps/frontend` |
-| Docker | Both backend Dockerfiles and `database/Dockerfile` |
-| Terraform | `infra/market-scanner`, `infra/bootstrap`, `infra/litellm`, `infra/reader` |
+| Docker | `apps/backend/market-scanner-adk`, `market-scanner-api`, `momentum-api` and `momentum-public-mcp` Dockerfiles, plus `database/Dockerfile` |
+| Terraform | `infra/market-scanner`, `infra/bootstrap`, `infra/litellm`, `infra/reader`, `infra/momentum-api` |
 | GitHub Actions | `.github/workflows` (configured with directory `/`) |
+
+Not covered: `apps/backend/momentum-adk` and the `infra/momentum`, `infra/frontend`, `infra/momentum-public-mcp` Terraform roots.
 
 Each application has its own update entry to respect the one-component-per-PR
 policy. uv includes indirect locked dependencies as well as direct dependencies.
 Next.js and its ESLint configuration are grouped together; React, React DOM and
 their type packages form another group. Major upgrades remain eligible and need
-compatibility review. Version PRs are capped at three per entry (33 total);
+compatibility review. Version PRs are capped at three per entry (48 total across 16 entries);
 security PRs have a separate GitHub limit and do not wait for the weekly schedule.
 
 ## Security settings

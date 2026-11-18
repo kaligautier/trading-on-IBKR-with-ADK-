@@ -51,6 +51,6 @@ every root reports `No changes`.
 
 ## Scope
 
-`litellm/governance` is excluded: its provider reads the gateway master key. It is planned
+Every root with state is in the workflow matrix, including `budget-guard` (its ignored `budget.local.tfvars` is part of the private inputs). `litellm/governance` is excluded: its provider reads the gateway master key. It is planned
 by the `litellm-agent-governance` Cloud Run job. The matrix must list every root that has
 state; add a root here in the same change that creates it.

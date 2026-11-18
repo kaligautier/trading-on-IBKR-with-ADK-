@@ -32,6 +32,7 @@ jobs:
           - {root: bootstrap, prefix: preprod/bootstrap, vars: 'preprod.tfvars'}
           - {root: market-scanner, prefix: preprod/runtime, vars: 'config/preprod.tfvars config/preprod.release.tfvars config/identities.local.tfvars'}
           - {root: reader, prefix: preprod/reader, vars: 'config/preprod.tfvars config/identities.local.tfvars'}
+          - {root: budget-guard, prefix: budget-guard, vars: 'budget.local.tfvars'}
           - {root: momentum, prefix: preprod/momentum, vars: 'config/preprod.tfvars config/preprod.release.tfvars'}
           - {root: momentum-api, prefix: preprod/momentum-api, vars: 'config/preprod.tfvars config/identities.local.tfvars'}
           - {root: momentum-public-mcp, prefix: preprod/momentum-public-mcp, vars: 'config/preprod.tfvars'}
