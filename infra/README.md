@@ -11,6 +11,7 @@ separately. Run commands from the repository root and pass the appropriate
 | `reader/` | Private consultation API and read-only database access; [deployment guide](reader/README.md). |
 | `momentum/` | Private Momentum analysis runtime; [deployment guide](momentum/README.md). |
 | `litellm/` | Inference gateway and IAP-protected administration; [deployment guide](litellm/README.md). |
+| `drift/` | Read-only identity and inputs for the nightly drift workflow; [guide](drift/README.md). |
 | `litellm/governance/` | Teams, keys and per-agent budgets; [guide](litellm/governance/README.md). |
 | `litellm/governance/policy/` | Team/key policy module used by the governance root; [guide](litellm/governance/README.md). |
 | `frontend/build/` | Frontend builder and source storage; [build guide](frontend/README.md). |
@@ -28,7 +29,7 @@ Use Terraform 1.9 or later, below 2.0. In a clean checkout:
 (
 set -e
 terraform fmt -check -recursive infra
-for root in infra/bootstrap infra/market-scanner infra/litellm infra/reader infra/momentum infra/frontend/build infra/frontend; do
+for root in infra/bootstrap infra/drift infra/market-scanner infra/litellm infra/reader infra/momentum infra/frontend/build infra/frontend; do
   terraform -chdir="$root" init -backend=false -input=false -lockfile=readonly
   terraform -chdir="$root" validate
   terraform -chdir="$root" test
