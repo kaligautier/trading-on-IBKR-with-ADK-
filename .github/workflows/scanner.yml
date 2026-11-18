@@ -77,6 +77,11 @@ jobs:
           terraform -chdir=infra/drift init -backend=false -input=false -lockfile=readonly
           terraform -chdir=infra/drift validate
           terraform -chdir=infra/drift test
+      - name: Validate and test backend image builder
+        run: |
+          terraform -chdir=infra/backend-build init -backend=false -input=false -lockfile=readonly
+          terraform -chdir=infra/backend-build validate
+          terraform -chdir=infra/backend-build test
 
   dependencies:
     runs-on: ubuntu-24.04

@@ -61,7 +61,9 @@ pins the `momentum-mcp-caller-key` secret version shared with the public MCP;
 it adds only an accessor grant and secret-backed environment variable. The
 2026-10-24 release image and numeric secret versions are recorded in
 `config/preprod.tfvars`; preserve the existing private invoker list when planning.
-The build definition is `cloudbuild.yaml` (BuildKit required by the Dockerfile).
+The build definition is `cloudbuild.yaml` (BuildKit required by the Dockerfile). Submit it with the dedicated
+backend builder identity described in the [backend build guide](../backend-build/README.md),
+never the default compute account.
 
 ## Secret containers
 
