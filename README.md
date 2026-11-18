@@ -42,7 +42,7 @@ Open [Market Scanner](https://deepcopy.fr/#market-scanner) to read the daily ana
 
 The migrated backend uses FastMCP **4.1.3** with stateless HTTP. See the
 [backend contract and checks](apps/backend/momentum-public-mcp/README.md).
-The Cloud Run URL below serves all seven tools through Momentum API and Market
+The Cloud Run URL below serves all six tools and the latest-scan resource through Momentum API and Market
 Scanner API, including durable pending suggestions. The MCP has no database
 access. The old `mcp.deepcopy.fr` domain has not been migrated.
 

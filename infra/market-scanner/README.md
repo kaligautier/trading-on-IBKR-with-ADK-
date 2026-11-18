@@ -107,7 +107,7 @@ Never reuse an unrelated image digest solely because it is already deployed.
 
 Check the ready service revision and job image digest, then invoke
 `/internal/v1/scan-jobs` with a Cloud Run identity token from an allowed invoker.
-The route submits the Cloud Run Job and returns HTTP 200 with
+The route submits the Cloud Run Job and returns HTTP 202 with
 `{"status": "accepted", "operation": "projects/.../operations/..."}`.
 This acknowledges submission, not scan completion. It returns 503 if the job
 is unconfigured and 502 if submission fails. The service uses its attached

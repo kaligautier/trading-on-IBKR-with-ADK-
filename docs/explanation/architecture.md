@@ -26,7 +26,7 @@ live connectivity are configured.
   Its private ADK interface can also execute the shared workflow interactively.
 - Momentum runs as a separate Cloud Run Job. Its request arrives in
   `TA_ANALYSIS_REQUEST`; this checkout does not implement a Momentum dispatcher.
-- Both consultation APIs read persisted results with restricted database roles.
+- Both consultation APIs read persisted results with restricted database roles. The Momentum API also accepts ticker suggestions (`POST /v1/suggestions`, `_suggestions` schema), added after this model was generated.
   The current frontend is wired to the Scanner reader, not the Momentum reader.
 - Agent model calls use native Gemini transport through an internal-only Nginx
   route filter and LiteLLM sidecar, authenticated with virtual keys. Administration
@@ -80,9 +80,9 @@ session events remain a separate persistence path.
 
 | Existing documentation or integration | Current code evidence and treatment |
 | --- | --- |
-| README platform vision includes public MCP, an internal MCP layer and IBKR order execution. | This checkout contains MCP references and frontend links, but no implementations of those services or broker execution. They are excluded from current runtime views; this does not assert they do not exist elsewhere. |
+| README platform vision includes public MCP, an internal MCP layer and IBKR order execution. | Since this model was generated, `apps/backend/momentum-public-mcp` and `infra/momentum-public-mcp` were added (public stateless MCP with private Momentum API invocation); the diagrams predate them. This checkout still has no internal MCP layer or broker execution. |
 | Existing implementation diagrams focus on Scanner. | The new model also includes the Momentum job and its separate read-only API. |
-| `infra/README.md` lists infrastructure roots but omits `infra/momentum-api`. | That root exists and provisions the Momentum consultation service; it is included here. |
+| `infra/README.md` once omitted `infra/momentum-api`. | Fixed: the root is now listed. It provisions the Momentum consultation service and is included here. |
 | A Momentum tool can request the latest Scanner report. | `TA_MARKET_SCANNER_API_URL` is optional and not wired by the Momentum Terraform root; the tool does not attach a Cloud Run identity token. No active job-to-reader connection is asserted in these views. |
 | Momentum previously used a local Markdown memory log. | Commit `76ecf7c` wires `PostgresMemoryRepository` into `job_runner.py` and removes the local log. The diagram follows the current source path; deployment is not independently attested. |
 
