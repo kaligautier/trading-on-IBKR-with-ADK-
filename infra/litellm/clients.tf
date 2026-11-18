@@ -12,13 +12,31 @@ variable "client_service_accounts" {
 }
 
 resource "google_secret_manager_secret" "client_key" {
-  for_each            = var.client_service_accounts
+  for_each = setunion(
+    toset(keys(var.client_service_accounts)),
+    local.governance_enabled ? toset(keys(var.agent_governance.agents)) : toset([]),
+  )
   project             = var.project_id
   secret_id           = "litellm-client-${each.key}"
   version_destroy_ttl = "2592000s"
   replication {
     auto {}
   }
+  # Rotation is only a reminder: Secret Manager publishes to the topic, nothing rotates.
+  dynamic "topics" {
+    for_each = local.key_alert_enabled ? [google_pubsub_topic.key_rotation[0].id] : []
+    content {
+      name = topics.value
+    }
+  }
+  dynamic "rotation" {
+    for_each = local.key_alert_enabled ? [local.key_reminder_time] : []
+    content {
+      next_rotation_time = rotation.value
+      rotation_period    = "${var.key_expiry_alert.key_days * 86400}s"
+    }
+  }
+  depends_on = [google_pubsub_topic_iam_member.key_rotation_publisher]
   lifecycle {
     prevent_destroy = true
   }

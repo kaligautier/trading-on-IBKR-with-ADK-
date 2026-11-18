@@ -9,7 +9,7 @@ Prerequisites:
 
 1. Build/push the API image and resolve its immutable digest.
 2. Provision a reader URL secret named `market-scanner-reader-database-url`, using
-   `market_scanner_reader` and the existing `market_scanner` schema. Its URL must
+   `market_scanner_reader` and the existing `_analysis` schema (database `market_scanner`). Its URL must
    include `sslmode=verify-full&sslrootcert=/etc/database/ca.pem`.
 3. Provision the public Aiven project CA as `market-scanner-database-ca`, or set
    `ca_secret_id` to the existing CA secret for the same Aiven project.

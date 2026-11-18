@@ -46,6 +46,60 @@ and stored with `secret_data_wo` before registration. The key provider's write-o
 `key` receives the ephemeral secret; state contains only its SHA-256 identifier.
 Do not enable Terraform/provider debug logs while handling real credentials.
 
+## Rotate agent keys before the 30-day expiry
+
+Agent keys expire after 30 days (`duration = "30d"`, ignored on adopted keys) and
+nothing rotates them. An expired key returns `401 Authentication Error - Expired
+Key` from the gateway: the Scanner daily job failed from 2026-11-05 until the keys
+were rotated on 2026-11-17. Rotate every key before its expiry (check the
+`Expired`/`Expires` column of the admin UI Virtual Keys page).
+
+The agent key is a write-only attribute, so Terraform cannot see a changed key:
+omitting `secret_version`/`existing_token_id` only creates unregistered secret
+versions. Replace the key resources explicitly, in one run:
+
+```sh
+terraform plan -out=policy.tfplan \
+  '-replace=module.policy.litellm_key.agent["AGENT"]'   # one flag per agent
+```
+
+Check the plan: one new secret version and one replaced `litellm_key` per agent,
+nothing else. Then apply it and, in the same change, point each consumer's secret
+version (`litellm_gateway.key_version` for the Scanner, `llm_key_version` for
+Momentum) at the new version.
+
+Known pitfalls, all seen on 2026-11-17:
+
+- The destroy of the old key happens before the new one is registered. A failure
+  in between leaves the agent without any valid key until the apply is completed.
+- The governance service account lacks `secretmanager.versions.enable`. The
+  provider then fails right after creating the version, the new key is never
+  registered and the old one is already destroyed. Grant that permission to the
+  governance service account before rotating, or recover by registering the
+  existing version: set `secret_version` to it and `existing_token_id` to
+  `sha256` of its value, drop the key `import` block, run `terraform state rm` on
+  the errored `google_secret_manager_secret_version.agent[...]` entries so the
+  version is not destroyed, then plan and apply.
+- A deployed job that still carries the previous `secret_version`/`existing_token_id`
+  would replace the new key with the old one on its next `apply`. Update its
+  inputs after every rotation.
+- Release variables are not versioned: before planning a consumer root, compare
+  every secret version in its local file with the deployed service (a stale file
+  rolled the Scanner API and Momentum database secrets back from version 2 to 1).
+
+An automated rotation, or a longer `duration` for agent keys, would remove this
+recurring outage; it needs a decision on key lifetime.
+
+### Expiry alert
+
+When `key_expiry_alert` is set in the `infra/litellm` root, Secret Manager publishes
+a rotation reminder for every agent-key secret `lead_days` (default 5) before the
+30-day expiry, and Cloud Monitoring e-mails the configured address. A second alert
+fires on any `Expired Key` error in Cloud Run logs. Nothing is rotated
+automatically. After each rotation, set `key_expiry_alert.rotated_at` to the
+creation time of the new secret versions and apply the root, or the next reminder
+keeps the old schedule.
+
 ## Adopt existing keys
 
 For an existing team, set `team_id` to its actual ID and `import_team = true`.

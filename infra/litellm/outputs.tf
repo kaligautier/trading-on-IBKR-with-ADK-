@@ -1,6 +1,6 @@
 output "ui_url" {
   value       = local.runtime_enabled ? "${local.base_url}/ui" : null
-  description = "Protected by Google IAP; LiteLLM also requires its own admin login."
+  description = "Protected by Google IAP; LiteLLM signs in with Google when google_sso is configured, otherwise its admin login."
 }
 
 output "migration_job" {
@@ -33,6 +33,6 @@ output "agent_governance" {
     gateway_url     = local.runtime_enabled ? local.gateway_url : null
     models          = [for model in yamldecode(local.proxy_config).model_list : model.model_name]
     service_account = google_service_account.governance.email
-    agents          = keys(var.client_service_accounts)
+    agents          = local.governance_enabled ? keys(var.agent_governance.agents) : keys(var.client_service_accounts)
   }
 }
