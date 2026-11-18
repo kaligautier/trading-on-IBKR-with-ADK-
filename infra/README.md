@@ -14,6 +14,7 @@ separately. Run commands from the repository root and pass the appropriate
 | `litellm/governance/` | Teams, keys and per-agent budgets; [guide](litellm/governance/README.md). |
 | `litellm/governance/policy/` | Team/key policy module used by the governance root; [guide](litellm/governance/README.md). |
 | `frontend/build/` | Frontend builder and source storage; [build guide](frontend/README.md). |
+| `momentum-api/` | Private Momentum consultation API; [deployment guide](momentum-api/README.md). |
 | `momentum-public-mcp/` | Public stateless MCP and private reader invocation; [deployment guide](momentum-public-mcp/README.md). |
 | `frontend/` | Public frontend and reader invocation rights; [deployment guide](frontend/README.md). |
 
@@ -22,13 +23,14 @@ Secret values are supplied separately and never enter Terraform state.
 
 ## Validation
 
-Use Terraform 1.9 or later, below 2.0. In a clean checkout:
+Use Terraform 1.9 or later, below 2.0 (the `litellm/governance/` root and its policy
+module require 1.11 or later; CI uses 1.14.4). In a clean checkout:
 
 ```sh
 (
 set -e
 terraform fmt -check -recursive infra
-for root in infra/bootstrap infra/market-scanner infra/litellm infra/reader infra/momentum infra/frontend/build infra/frontend; do
+for root in infra/bootstrap infra/market-scanner infra/litellm infra/reader infra/momentum infra/momentum-api infra/momentum-public-mcp infra/frontend/build infra/frontend; do
   terraform -chdir="$root" init -backend=false -input=false -lockfile=readonly
   terraform -chdir="$root" validate
   terraform -chdir="$root" test

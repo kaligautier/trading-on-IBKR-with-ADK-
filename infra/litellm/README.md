@@ -77,7 +77,7 @@ uv run --project apps/backend/market-scanner-adk --no-sync python infra/litellm/
 
 The script preserves existing enabled secret versions, checks role privileges,
 verifies TLS and SQL writes, and sets the dedicated role's connection limit to
-12 by default. If existing encrypted records have no recoverable salt, it stops
+2 (the only value the script accepts). If existing encrypted records have no recoverable salt, it stops
 instead of creating an incompatible salt. Check the service's total connection
 capacity before choosing the limit. Remove the temporary administrator file
 once bootstrap is complete.
@@ -315,7 +315,8 @@ references; API credentials do not belong in the catalog. Avoid manual model
 changes in the UI, which are outside this configuration's ownership.
 
 Both services share the image, config, database and runtime identity. Each uses
-a two-connection pool; size PostgreSQL for revision overlap and migrations.
+a one-connection pool (combined role limit of two); revision overlap is not supported, see
+[Shared connection capacity](#shared-connection-capacity).
 Without `redis_connection`, rate limits are process-local and counters may reset.
 Shared Redis coordinates counters across both services; asynchronous accounting
 can still overshoot budgets.

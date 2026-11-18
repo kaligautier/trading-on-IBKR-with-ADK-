@@ -91,7 +91,7 @@ For Terraform changes, run these checks from the repository root:
 (
 set -e
 terraform fmt -check -recursive infra
-for root in infra/bootstrap infra/market-scanner infra/litellm infra/reader infra/frontend/build infra/frontend; do
+for root in infra/bootstrap infra/market-scanner infra/litellm infra/reader infra/momentum infra/momentum-api infra/momentum-public-mcp infra/frontend/build infra/frontend; do
   terraform -chdir="$root" init -backend=false -input=false -lockfile=readonly
   terraform -chdir="$root" validate
   terraform -chdir="$root" test
