@@ -32,8 +32,11 @@ the current deployment; an old image digest or secret version can propose a roll
 Run a full baseline plan with those inputs. Keep deployments serialized throughout
 the comparison.
 
-Copy only the required ignored `config/release.local.tfvars` into this root with
-mode 0600. Leave `.terraform/`, state files, plans and diagnostic logs behind.
+The deployed release values are versioned in `config/preprod.release.tfvars`;
+update that file in the same change as each deployment. Personal identities
+(`invoker_members`) stay in the ignored `config/identities.local.tfvars` (see
+`config/identities.local.tfvars.example`); copy it into this root with mode 0600.
+Leave `.terraform/`, state files, plans and diagnostic logs behind.
 Use a clean checkout for this operational check, separate from mock tests:
 
 ```sh
@@ -42,7 +45,7 @@ terraform -chdir=infra/market-scanner workspace show
 # If different, select the previously recorded workspace before reading state.
 # Do not create a workspace if the expected one is missing.
 terraform -chdir=infra/market-scanner state list
-terraform -chdir=infra/market-scanner plan -input=false -detailed-exitcode -var-file=config/preprod.tfvars -var-file=config/release.local.tfvars
+terraform -chdir=infra/market-scanner plan -input=false -detailed-exitcode -var-file=config/preprod.tfvars -var-file=config/preprod.release.tfvars -var-file=config/identities.local.tfvars
 ```
 
 The state lineage and resource inventory must match the baseline. State snapshots
@@ -78,9 +81,10 @@ before starting the scanner.
    bootstrapped `market-scanner` repository, and resolve its immutable digest.
    The optional [image publication workflow](../../docs/adk-litellm.md#image-publication)
    automates this step after the scanner checks pass.
-4. Copy `config/release.local.tfvars.example` to `config/release.local.tfvars`.
-   Set the image digest, numeric database secret version, explicit invoker identities,
-   and required `litellm_gateway` object. Provision its scanner key and access grant
+4. Set the image digest, numeric database secret version and required
+   `litellm_gateway` object in `config/preprod.release.tfvars`. Copy
+   `config/identities.local.tfvars.example` to `config/identities.local.tfvars`
+   and set the explicit invoker identities. Provision its scanner key and access grant
    in `../litellm/` first; see [ADK integration](../../docs/adk-litellm.md).
 5. Initialize and review a runtime plan before applying:
 
@@ -88,7 +92,8 @@ before starting the scanner.
 terraform -chdir=infra/market-scanner init -backend-config=config/preprod.backend.hcl
 terraform -chdir=infra/market-scanner plan \
   -var-file=config/preprod.tfvars \
-  -var-file=config/release.local.tfvars \
+  -var-file=config/preprod.release.tfvars \
+  -var-file=config/identities.local.tfvars \
   -out=release.tfplan
 terraform -chdir=infra/market-scanner apply release.tfplan
 ```
