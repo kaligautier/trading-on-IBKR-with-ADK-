@@ -5,8 +5,6 @@ with recovered suggestion intake in `momentum._suggestions`. Analysis access
 remains read-only.
 FastAPI models/routes and HTTP policy define the executable contract;
 [openapi.json](openapi.json) is its deterministic export.
-The [product specification](../../../docs/specs/momentum-consultation-api.md)
-and [RFC profile](../../../docs/specs/momentum-http-rfc-profile.md) explain the scope.
 
 ## Operations
 
@@ -281,5 +279,4 @@ removed and return 404; clients must migrate with this release. A new suggestion
 returns 201; an existing ticker returns 200. Both include `Location` for the
 canonical status resource. The record remains pending moderation. GET/HEAD
 retrieval is safe; POST is not a general-purpose retry guarantee. Payloads,
-caller authentication and quotas are unchanged. See the
-[versioning specification](../../../docs/specs/rest-api-versioning.md).
+caller authentication and quotas are unchanged.
