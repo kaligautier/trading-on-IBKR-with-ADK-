@@ -12,7 +12,10 @@ variable "client_service_accounts" {
 }
 
 resource "google_secret_manager_secret" "client_key" {
-  for_each            = var.client_service_accounts
+  for_each = setunion(
+    toset(keys(var.client_service_accounts)),
+    local.governance_enabled ? toset(keys(var.agent_governance.agents)) : toset([]),
+  )
   project             = var.project_id
   secret_id           = "litellm-client-${each.key}"
   version_destroy_ttl = "2592000s"

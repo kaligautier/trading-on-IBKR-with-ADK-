@@ -116,9 +116,10 @@ Never apply a saved plan from a previous checkout.
 
 IAP protects the admin service, including its `run.app` URL. Cloud Run IAM checks
 remain enabled; only the IAP service agent gets invocation access. Allowlisted
-users still sign in to LiteLLM as `admin` with the separate UI password. IAP
-does not create LiteLLM users. Keep the bootstrap login until a named admin has
-been created and tested, then consider `disable_env_credential_login=true`.
+users sign in to LiteLLM separately, using Google SSO when configured below or
+the bootstrap `admin` password otherwise. IAP does not create LiteLLM users.
+Keep the bootstrap login until a named admin has been created and tested, then
+consider `disable_env_credential_login=true`.
 
 For projects requiring a custom OAuth client, complete the Google console setup
 and register `https://iap.googleapis.com/v1/oauth/clientIds/CLIENT_ID:handleRedirect`.
@@ -132,6 +133,78 @@ python3 infra/litellm/scripts/configure_iap_oauth.py /PROTECTED_PATH/client.json
 
 This updates project-level IAP OAuth credentials, preserves other settings, and
 refuses to replace a different client. It does not store credentials in state.
+
+### Google SSO inside the admin UI
+
+IAP and LiteLLM are separate OAuth consumers. Enabling IAP alone still leaves
+LiteLLM's password screen. The optional `google_sso` object enables native
+[Google SSO](https://docs.litellm.ai/docs/proxy/admin_ui_sso); the documented free
+allowance is up to five SSO users, with an Enterprise license required beyond it.
+
+Terraform manages the secret container, its runtime accessor permission, the
+pinned secret reference, the admin container's SSO settings and callback output.
+The OAuth web client, consent/audience settings and authorized redirect URIs are
+external prerequisites managed in Google Auth Platform. Google has
+[retired the IAP OAuth Admin API](https://docs.cloud.google.com/iap/docs/deprecations/migrate-oauth-client),
+so this setup consumes a pre-created client instead of using the deprecated
+`google_iap_client` resource. Uploading the secret value stays outside Terraform
+to keep it out of plans and state; only its version is an input.
+
+1. For first-time setup, prepare the empty `litellm-google-client-secret` Secret
+   Manager container by applying a reviewed plan with the existing release files
+   and `google_sso` unset. Preserve the running service stage. This also creates
+   the callback output in state; do not use this bootstrap step to update an
+   already enabled SSO configuration.
+2. Read `terraform -chdir=infra/litellm output -raw google_sso_callback_url`
+   after that apply. Register this exact URL as an authorized
+   redirect URI on a Google OAuth **web application**. If reusing the IAP client,
+   preserve its existing IAP redirect URI. Keep the OAuth audience/test users
+   consistent with `iap_members`.
+3. Upload the client secret outside Terraform, for example from a protected
+   file containing only its value:
+
+   ```sh
+   gcloud secrets versions add litellm-google-client-secret \
+     --project=YOUR_PROJECT --data-file=/PROTECTED_PATH/client-secret.txt
+   ```
+
+4. Copy `config/sso.local.tfvars.example` to `config/sso.local.tfvars`. Set the
+   client ID, the uploaded numeric secret version, and the administrator's
+   LiteLLM **User ID**, copied from the account menu after signing in with Google.
+   If the ID is not yet known, omit `admin_id` for the first deployment, sign in,
+   then add the observed ID and apply again. The fallback admin remains available.
+   An existing account matched by email can retain a UUID instead of the Google
+   subject (`sub`); do not infer this ID from a Google token or email address.
+   `PROXY_ADMIN_ID` grants that account the LiteLLM admin role. Keep the account
+   explicitly allowed in IAP, then sign in again after applying the correct ID.
+5. Add `-var-file=config/sso.local.tfvars` to the normal **service-stage** plan,
+   keeping every existing release/provider variable file. Review and apply the
+   new plan; retain this file in future deployments. No image upgrade or database
+   migration is required by this configuration change.
+
+   ```sh
+   terraform -chdir=infra/litellm plan -var-file=config/preprod.local.tfvars \
+     -var-file=config/release.local.tfvars -var-file=config/sso.local.tfvars \
+     -var=stage=service -out=sso.tfplan
+   terraform -chdir=infra/litellm apply sso.tfplan
+   ```
+
+   Include any existing provider/Redis/client variable files in this command too.
+   Stop if the plan proposes unrelated replacements or deletions; reconcile the
+   checkout, release inputs and state before applying.
+6. Open the `ui_url`, complete Google sign-in and verify the named account has
+   admin access. Test sign-out/sign-in, anonymous IAP denial and the existing
+   fallback at `/fallback/login`. A successful Terraform plan or redirect alone
+   is not proof of a completed SSO login.
+
+Only the admin container receives `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` and
+`PROXY_ADMIN_ID`; the private inference gateway continues using virtual keys.
+The OAuth secret payload never enters Terraform. The existing bootstrap login
+remains available during rollout; to revert to it, set `google_sso = null` and
+apply a reviewed plan. The OAuth secret container is retained.
+The admin role granted by `PROXY_ADMIN_ID` persists in LiteLLM's database:
+changing or removing `admin_id` does not revoke a previous administrator.
+Manage that user's role explicitly through Internal Users or `/user/update`.
 
 ## Optional API-key providers
 
@@ -185,38 +258,55 @@ The Scanner application uses this gateway; see
 [ADK configuration](../../docs/adk-litellm.md). Its dedicated verification job
 exercises the gateway with the same service account.
 
-### Key provisioning and verification jobs
+### Agent policy managed by Terraform
 
-Set `client_tools_image` to a digest-pinned Python image containing `httpx`,
-`google-auth`, `google-genai` and `pydantic`. The existing Scanner image has these
-dependencies. The optional jobs use Direct VPC egress; no IAP authentication is
-implemented in their scripts.
+The [governance root](governance/README.md) uses the official `BerriAI/litellm`
+provider to manage the `Agents` team and one key per application. Each key defaults
+to **3 USD per day**, with configurable budgets/windows and rate limits. For
+example, an agent can have `max_budget = 4` and `budget_duration = "7d"`.
+The team has no shared budget; the optional global proxy budget still applies.
 
-After applying the service stage, run `litellm-key-CLIENT_NAME`. Its dedicated
-bootstrap identity can read the master secret, list its client-key versions and
-add a version; it cannot read the client key back or destroy versions. It creates
-an inference-only virtual key inside the VPC and uploads it directly to Secret
-Manager. Credential payloads never appear in Terraform arguments or logs.
+Deploy this infrastructure root first. It creates the private endpoint, client
+secret containers, per-agent secret access and a separate Terraform governance
+identity. Run the governance root from a VPC-connected Terraform runner; it needs
+admin API access and Secret Manager access. There is no Python provisioning job
+and no `litellm-key-CLIENT_NAME` execution. A governance `terraform apply` creates
+or imports the team/keys and applies their policies directly.
 
-```sh
-gcloud run jobs execute litellm-key-CLIENT_NAME --wait --project=YOUR_PROJECT --region=europe-west1
-```
+Agents configured in `agent_governance.agents` receive a secret container even
+before their application identity exists. Adding `client_service_accounts` later
+grants access to that same secret. The legacy Momentum secret moves to
+`google_secret_manager_secret.client_key["momentum"]`, retaining its versions.
 
-Pin the returned numeric version in the ignored configuration:
+Existing keys are adopted by SHA-256 token ID and a pinned Secret Manager version,
+preserving their credential, alias, spend and expiry. New credentials are generated
+ephemerally, written directly to Secret Manager, then registered with LiteLLM.
+Raw credentials stay out of Terraform state and plan files. New keys expire after
+30 days; ordinary policy updates do not renew their expiry.
 
-```hcl
-client_key_versions = { CLIENT_NAME = "1" }
-```
+For inference verification, set `client_tools_image` to a digest-pinned Python
+image with `httpx`, `google-auth`, `google-genai` and `pydantic`; copy the governance
+`client_key_versions` output into this root's ignored variables, apply, then run
+`litellm-verify-CLIENT_NAME`. This job uses the agent identity and only its own key.
+See the governance README for initial adoption, rotation and provider limitations.
 
-Reapply and run `litellm-verify-CLIENT_NAME`. The verification identity is the
-agent SA, with only its own key mounted, and the job calls the internal endpoint
-with no IAP or Google identity token.
+Set `agent_governance` to deploy the private `litellm-agent-governance` Cloud Run
+Job with an official, digest-pinned Terraform image. The job embeds this root's
+governance files, uses its dedicated service account and locks the separate GCS
+state. Existing flat team/key state addresses move into `module.policy` without
+recreating objects. The default execution only plans; execute with
+`--update-env-vars=GOVERNANCE_ACTION=apply` to apply the saved plan and require a
+second plan with no changes. The runner contains no Python and mounts no keys.
 
-Keys permit `/v1beta/models/*` and the configured model catalog. Limits are
-10 requests/minute, 100,000 tokens/minute, two concurrent requests, a $10 30-day
-accounting budget and 30-day expiry. Bootstrap reruns preserve existing enabled
-versions; they do not prove the key is unexpired or perform rotation. Rotate
-explicitly and verify the replacement before revoking the old key.
+The committed [preprod model catalog](config/preprod-models.tfvars) supplies
+`model` and `additional_vertex_models`. Pass it last with `-var-file` when planning
+this root. Terraform generates the proxy's `model_list` and both services use
+that configuration; the governance runner derives the team's and keys' allowed
+models from the same list. Add or remove models here, then apply infrastructure
+and execute the governance apply to synchronize endpoints and permissions.
+Additional providers use `provider_models` and Secret Manager environment
+references; API credentials do not belong in the catalog. Avoid manual model
+changes in the UI, which are outside this configuration's ownership.
 
 Both services share the image, config, database and runtime identity. Each uses
 a two-connection pool; size PostgreSQL for revision overlap and migrations.
