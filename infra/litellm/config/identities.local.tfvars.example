@@ -1,0 +1,8 @@
+# Personal identities and external endpoints stay out of this public repository.
+iap_members = ["user:YOUR_GOOGLE_ACCOUNT"]
+redis_connection = {
+  host             = "YOUR_VALKEY_HOST"
+  port             = 12345
+  username         = "default"
+  password_version = "1"
+}

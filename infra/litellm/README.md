@@ -19,7 +19,25 @@ cp infra/litellm/config/preprod.tfvars.example infra/litellm/config/preprod.loca
 cp infra/litellm/config/release.local.tfvars.example infra/litellm/config/release.local.tfvars
 ```
 
-Fill the local files with your state bucket, project, allowed IAP principals and
+### Preprod files
+
+The deployed preprod release is versioned in `config/preprod.release.tfvars`
+(stage, secret versions, agent service accounts, budget and release images) and
+`config/preprod-models.tfvars`. Update them in the same change as each deployment.
+This repository is public, so personal identities, external endpoints and key
+fingerprints stay in ignored files: `config/identities.local.tfvars` (IAP members
+and Redis endpoint, see the `.example`), `config/sso.local.tfvars`,
+`config/agent-governance.local.tfvars.json` and `config/key-alert.local.tfvars`.
+A preprod plan passes them in this order:
+
+```sh
+terraform -chdir=infra/litellm plan -var-file=config/preprod.release.tfvars \
+  -var-file=config/identities.local.tfvars -var-file=config/sso.local.tfvars \
+  -var-file=config/agent-governance.local.tfvars.json \
+  -var-file=config/key-alert.local.tfvars -var-file=config/preprod-models.tfvars
+```
+
+For another environment, fill the local files with your state bucket, project, allowed IAP principals and
 numeric secret versions. Verify model availability in your project and region.
 Local configuration, state, plans, credentials and OAuth downloads must stay out
 of Git. Examples contain placeholders only. Never put secret values in tfvars:
