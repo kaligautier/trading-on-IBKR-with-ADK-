@@ -54,7 +54,7 @@ network services or source repository. Each application has its own environment;
 do not add sibling applications to `PYTHONPATH`.
 
 Install dependencies through the committed `uv.lock`. The application and wheel
-require OpenTelemetry API/SDK 1.45.1 to fix CVE-2026-114603. ADK 2.6.1 still caps
+require OpenTelemetry API/SDK 1.45.2 to fix CVE-2026-114603 and CVE-2026-126360. ADK 2.6.1 still caps
 these dependencies at 1.42.1, so the project contains a narrow, tested uv override.
 A standalone resolver without that override fails rather than silently installing
 the vulnerable version. For an internal wheel, first prepare the frozen environment
