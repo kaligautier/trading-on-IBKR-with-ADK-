@@ -90,6 +90,16 @@ Known pitfalls, all seen on 2026-11-17:
 An automated rotation, or a longer `duration` for agent keys, would remove this
 recurring outage; it needs a decision on key lifetime.
 
+### Expiry alert
+
+When `key_expiry_alert` is set in the `infra/litellm` root, Secret Manager publishes
+a rotation reminder for every agent-key secret `lead_days` (default 5) before the
+30-day expiry, and Cloud Monitoring e-mails the configured address. A second alert
+fires on any `Expired Key` error in Cloud Run logs. Nothing is rotated
+automatically. After each rotation, set `key_expiry_alert.rotated_at` to the
+creation time of the new secret versions and apply the root, or the next reminder
+keeps the old schedule.
+
 ## Adopt existing keys
 
 For an existing team, set `team_id` to its actual ID and `import_team = true`.
