@@ -473,3 +473,11 @@ pools before publishing the new secret version and lowering the role limit.
 Prisma migrations run while both services are stopped, within the same role
 allocation. Follow `docs/database-connection-capacity.md`; a rolling overlap is
 not supported on the 15-connection tier. No production secret is modified by CI.
+
+## Release image repository
+
+Terraform manages the `litellm-release` Artifact Registry repository that holds the
+audited release images (`release_registry.tf`). A project that already has it
+adopts it on the first apply only, with `-var=adopt_existing_release_registry=true`;
+the plan must report `1 to import, 0 to add, 0 to change, 0 to destroy`. Later plans
+omit the flag.
