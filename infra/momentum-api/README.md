@@ -21,7 +21,7 @@ terraform plan -var=project_id=YOUR_PROJECT \
 
 Use a dedicated `momentum-api` state prefix. Review the saved plan before applying.
 Each process has a pool of one, each revision has at most one requested instance,
-and the reader role enforces a two-connection ceiling for revision overlap.
+and the reader role enforces a one-connection ceiling, so avoid revision overlap.
 Cloud Run instance ceilings can be temporarily exceeded by the platform; database
 role limits remain authoritative. Deployments must respect that connection budget.
 The service sets AUTH_MODE=cloud_run and relies on Google's audience-bound IAM
