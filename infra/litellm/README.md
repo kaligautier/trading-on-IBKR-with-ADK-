@@ -110,8 +110,11 @@ terraform -chdir=infra/litellm output -raw ui_url
 ```
 
 After deployment, set `stage = "service"` in the local release file and always
-include it in subsequent plans. Returning to an earlier stage proposes service
-deletion; deletion protection blocks it. Regenerate plans after code changes.
+include it in subsequent plans. Returning to an earlier stage proposes deleting
+both services and their IAP bindings; deletion protection covers only the services.
+The `stage=migrations` sequence above is for the first deployment only; upgrades
+follow [Upgrading a deployed release](#upgrading-a-deployed-release). Regenerate
+plans after code changes.
 Never apply a saved plan from a previous checkout.
 
 IAP protects the admin service, including its `run.app` URL. Cloud Run IAM checks
@@ -423,9 +426,31 @@ logging, redact key details, and retain usage accounting. Provider timeout is
 cross-provider fallback. These controls do not determine provider retention or
 guarantee upstream errors never contain request content.
 
-For upgrades, back up PostgreSQL, update/apply the migration image, run its job,
-then update the proxy digest and deploy. Keep prior config secret versions for
-rollback; database rollback depends on upstream migration compatibility.
+### Upgrading a deployed release
+
+Never plan an existing deployment with `stage=migrations`. Keep `stage=service`
+and every current variable file, compare each pinned secret version with the
+deployed services first, then:
+
+1. Back up PostgreSQL.
+2. Update only the migrations job and run it:
+
+   ```sh
+   terraform -chdir=infra/litellm plan -var-file=config/preprod.local.tfvars \
+     -var-file=config/release.local.tfvars -var=stage=service \
+     '-target=google_cloud_run_v2_job.migrations[0]' -out=migrations.tfplan
+   terraform -chdir=infra/litellm apply migrations.tfplan
+   gcloud run jobs execute litellm-migrations --wait --project=YOUR_PROJECT --region=europe-west1
+   ```
+
+3. Plan the whole stage again without `-target`, check that it destroys nothing
+   but deposed secret versions, and apply it. Cloud Run keeps the previous
+   revisions serving if a new one fails to start; check both services are Ready.
+
+The 1.108.0 upgrade needed more memory than 1.103.1: an out-of-memory start on
+both new revisions was fixed by raising the limits (#311). Keep prior config
+secret versions for rollback; database rollback depends on upstream migration
+compatibility.
 Before deployment, review upstream release notes, keep both images on the same
 version, and rerun the checks above. The image audit defaults to `linux/amd64`,
 the Cloud Run architecture; use `--platform=linux/arm64` for an additional local
