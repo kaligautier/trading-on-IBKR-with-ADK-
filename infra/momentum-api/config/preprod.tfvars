@@ -1,8 +1,9 @@
 project_id = "preprod-deep-copy"
 region     = "europe-west1"
-# Cloud Build f56460a8-4e9f-47ce-9f88-3140728fbb26, 2026-10-24.
-image                   = "europe-west1-docker.pkg.dev/preprod-deep-copy/market-scanner/momentum-api@sha256:78eaddc64c8959a8ddab865e04a1616c9164d0313d81670c587f904441dccdde"
+# Deployed release. Update it in the same change as each deployment.
+# Cloud Build 9b531a53-81fa-47c8-b9e3-2462bcb2d25f, 2026-11-17.
+image                   = "europe-west1-docker.pkg.dev/preprod-deep-copy/market-scanner/momentum-api@sha256:3849be698a7f473f0aea93e766365cb38e99b55e59562f7eb402ee1bc54cfce1"
 database_secret_version = "1"
 ca_secret_version       = "1"
 suggestion_key_version  = "1"
-# Preserve explicit invokers in the existing private release variables.
+# Personal invoker identities stay in ignored config/identities.local.tfvars.
