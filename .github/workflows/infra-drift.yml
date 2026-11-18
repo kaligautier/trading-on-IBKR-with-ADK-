@@ -1,0 +1,144 @@
+name: Infrastructure drift
+
+# Proves every night that origin/main describes production: each Terraform root is
+# planned read-only and a non-empty plan opens an issue. The public log never shows
+# plan output, only resource addresses and actions.
+on:
+  schedule:
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: infra-drift
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    # litellm/governance is excluded: its provider reads the gateway master key.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      id-token: write
+      issues: write
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        include:
+          - {root: bootstrap, prefix: preprod/bootstrap, vars: 'preprod.tfvars'}
+          - {root: market-scanner, prefix: preprod/runtime, vars: 'config/preprod.tfvars config/preprod.release.tfvars config/identities.local.tfvars'}
+          - {root: reader, prefix: preprod/reader, vars: 'config/preprod.tfvars config/identities.local.tfvars'}
+          - {root: budget-guard, prefix: budget-guard, vars: 'budget.local.tfvars'}
+          - {root: momentum, prefix: preprod/momentum, vars: 'config/preprod.tfvars config/preprod.release.tfvars'}
+          - {root: momentum-api, prefix: preprod/momentum-api, vars: 'config/preprod.tfvars config/identities.local.tfvars'}
+          - {root: momentum-public-mcp, prefix: preprod/momentum-public-mcp, vars: 'config/preprod.tfvars'}
+          - {root: momentum-public-mcp/build, prefix: preprod/momentum-public-mcp-build, vars: ''}
+          - {root: frontend, prefix: market-scanner/frontend, vars: 'preprod.tfvars'}
+          - {root: frontend/build, prefix: market-scanner/frontend-build, vars: ''}
+          - {root: litellm, prefix: preprod/litellm, vars: 'config/preprod.release.tfvars config/identities.local.tfvars config/sso.local.tfvars config/agent-governance.local.tfvars.json config/key-alert.local.tfvars config/preprod-models.tfvars'}
+    env:
+      ROOT: ${{ matrix.root }}
+      PREFIX: ${{ matrix.prefix }}
+      PLAN_VARS: ${{ matrix.vars }}
+      GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+      STATE_BUCKET: ${{ vars.DRIFT_STATE_BUCKET }}
+    steps:
+      - name: Require the drift configuration
+        env:
+          PROVIDER: ${{ vars.DRIFT_WORKLOAD_IDENTITY_PROVIDER }}
+          ACCOUNT: ${{ vars.DRIFT_SERVICE_ACCOUNT }}
+        run: |
+          set -euo pipefail
+          [[ "$GCP_PROJECT_ID" =~ ^[a-z][a-z0-9-]{4,28}[a-z0-9]$ ]]
+          [[ "$STATE_BUCKET" =~ ^[a-z0-9][a-z0-9._-]{2,62}$ ]]
+          [[ "$PROVIDER" =~ ^projects/[0-9]+/locations/global/workloadIdentityPools/[a-z0-9-]+/providers/[a-z0-9-]+$ ]]
+          [[ "$ACCOUNT" == *@"$GCP_PROJECT_ID".iam.gserviceaccount.com ]]
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3
+        with:
+          terraform_version: '1.14.4'
+          terraform_wrapper: false
+      - id: auth
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
+        with:
+          project_id: ${{ vars.GCP_PROJECT_ID }}
+          workload_identity_provider: ${{ vars.DRIFT_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.DRIFT_SERVICE_ACCOUNT }}
+      - name: Fetch the private plan inputs
+        run: |
+          set -euo pipefail
+          umask 077
+          gcloud secrets versions access latest --secret=infra-drift-inputs \
+            --project="$GCP_PROJECT_ID" > "$RUNNER_TEMP/inputs.json"
+          python3 - <<'PY'
+          import json, os, pathlib
+          root = os.environ["ROOT"]
+          files = json.load(open(os.path.join(os.environ["RUNNER_TEMP"], "inputs.json"))).get(root, {})
+          for name, content in files.items():
+              target = pathlib.Path("infra") / root / name
+              target.parent.mkdir(parents=True, exist_ok=True)
+              target.write_text(content)
+          PY
+          rm -f "$RUNNER_TEMP/inputs.json"
+      - id: plan
+        name: Plan read-only
+        working-directory: infra
+        run: |
+          set -uo pipefail
+          cd "$ROOT"
+          [[ "$ROOT" == bootstrap ]] && cp backend.remote.tf.example backend.tf
+          args=()
+          for file in $PLAN_VARS; do args+=("-var-file=$file"); done
+          if ! terraform init -input=false -lockfile=readonly \
+               -backend-config="bucket=$STATE_BUCKET" -backend-config="prefix=$PREFIX" >init.log 2>&1; then
+            grep -E '^(Error|│ Error)' init.log | head -3 || true
+            echo "status=error" >> "$GITHUB_OUTPUT"; exit 1
+          fi
+          # Plan output can contain values: keep it out of the public log.
+          terraform plan -input=false -lock=false -detailed-exitcode -out=drift.tfplan "${args[@]}" >plan.log 2>&1
+          code=$?
+          case "$code" in
+            0) echo "status=clean" >> "$GITHUB_OUTPUT"; echo "No changes in $ROOT" ;;
+            2) terraform show -json drift.tfplan \
+                 | jq -r '.resource_changes[] | select(.change.actions != ["no-op"] or .change.importing != null) | "- `\(.address)`: \(.change.actions | join(","))"' \
+                 > "$RUNNER_TEMP/drift.md"
+               echo "status=drift" >> "$GITHUB_OUTPUT"
+               echo "Drift in $ROOT: $(wc -l < "$RUNNER_TEMP/drift.md") resource(s); see the issue" ;;
+            *) grep -E '^(Error|│ Error)' plan.log | head -3 || true
+               echo "status=error" >> "$GITHUB_OUTPUT" ;;
+          esac
+          exit 0
+      - name: Open or update the drift issue
+        if: steps.plan.outputs.status == 'drift'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          gh label create infra-drift --color B60205 --description "Terraform plan is not empty" --force
+          title="Infra drift: $ROOT"
+          {
+            echo "The nightly plan of \`infra/$ROOT\` is not empty on \`main\`. Resources and actions only; values are never published."
+            echo
+            cat "$RUNNER_TEMP/drift.md"
+            echo
+            echo "Run: $RUN_URL"
+          } > "$RUNNER_TEMP/body.md"
+          number=$(gh issue list --label infra-drift --state open --search "\"$title\" in:title" --json number,title \
+                   --jq "map(select(.title == \"$title\"))[0].number // empty")
+          if [[ -n "$number" ]]; then
+            gh issue comment "$number" --body-file "$RUNNER_TEMP/body.md"
+          else
+            gh issue create --title "$title" --label infra-drift --body-file "$RUNNER_TEMP/body.md"
+          fi
+      - name: Fail on drift or plan error
+        if: steps.plan.outputs.status != 'clean'
+        run: |
+          echo "Root $ROOT: ${{ steps.plan.outputs.status || 'error' }}"
+          exit 1

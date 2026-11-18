@@ -73,8 +73,8 @@ python3 infra/momentum-public-mcp/deploy.py "$IMAGE_WITH_SHA256"
 ```
 
 `deploy.py` validates the release inputs, saves and applies a Terraform plan, then
-runs `verify_live.py` against the resulting URL. Verification calls the five
-consultation tools, `server/discover` and `tools/list` without initialization or
+runs `verify_live.py` against the resulting URL. Verification calls the four
+consultation tools, reads the scanner resource, and calls `server/discover` and `tools/list` without initialization or
 sessions. It validates persisted analysis/report fields, tool errors, correlation
 headers and rejection of legacy handshakes. It never submits a suggestion.
 An existing analysis and nonempty scanner report are required to pass.

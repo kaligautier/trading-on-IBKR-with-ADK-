@@ -9,7 +9,7 @@ Prerequisites:
 
 1. Build/push the API image and resolve its immutable digest.
 2. Provision a reader URL secret named `market-scanner-reader-database-url`, using
-   `market_scanner_reader` and the existing `market_scanner` schema. Its URL must
+   `market_scanner_reader` and the existing `_analysis` schema (database `market_scanner`). Its URL must
    include `sslmode=verify-full&sslrootcert=/etc/database/ca.pem`.
 3. Provision the public Aiven project CA as `market-scanner-database-ca`, or set
    `ca_secret_id` to the existing CA secret for the same Aiven project.
@@ -17,14 +17,17 @@ Prerequisites:
 5. Set explicit caller identities in `invoker_members` (usually a frontend/backend
    service account). Empty means no callers are granted by this root.
 
-Create ignored `release.local.tfvars` with `project_id`, `region`, `image`,
-`database_secret_version`, `ca_secret_version` and `invoker_members`.
-Initialize with the existing state bucket and the dedicated prefix:
+The preprod target and its deployed release values (image digest, secret
+versions) are versioned in `config/preprod.backend.hcl` and `config/preprod.tfvars`;
+update them in the same change as each deployment. The deployed state uses the
+`preprod/reader` prefix. Personal invoker identities stay in ignored
+`config/identities.local.tfvars` (`invoker_members = [...]`), because this
+repository is public:
 
 ```sh
-terraform init -backend-config='bucket=YOUR_STATE_BUCKET' \
-  -backend-config='prefix=market-scanner/reader'
-terraform plan -var-file=release.local.tfvars -out=reader.tfplan
+terraform init -backend-config=config/preprod.backend.hcl -lockfile=readonly
+terraform plan -var-file=config/preprod.tfvars \
+  -var-file=config/identities.local.tfvars -out=reader.tfplan
 # Review the concrete plan before applying it.
 terraform apply reader.tfplan
 ```
@@ -49,3 +52,17 @@ terraform fmt -check -recursive
 terraform validate
 terraform test
 ```
+
+## Secret container
+
+Terraform manages the container of `market-scanner-reader-database-url`
+(`secrets.tf`); the URL itself is still uploaded outside Terraform. A project that
+already holds this secret adopts it on the first apply only:
+
+```sh
+terraform plan -var-file=config/preprod.tfvars -var-file=config/identities.local.tfvars \
+  -var=adopt_existing_secret=true
+```
+
+The plan must report `1 to import, 0 to add, 0 to change, 0 to destroy`. Later plans
+omit the flag.

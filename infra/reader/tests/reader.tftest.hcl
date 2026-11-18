@@ -59,3 +59,11 @@ run "domain_analysis_schema" {
     error_message = "The reader must use the domain analysis schema."
   }
 }
+
+run "reader_secret_container_is_managed_and_protected" {
+  command = plan
+  assert {
+    condition     = google_secret_manager_secret.database.secret_id == "market-scanner-reader-database-url"
+    error_message = "Manage the reader URL secret container."
+  }
+}

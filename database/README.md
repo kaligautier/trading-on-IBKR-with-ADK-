@@ -7,11 +7,12 @@ application state, analysis results, and migration metadata inside that database
 | Database | Schemas | Runtime identities | Migration owner |
 | --- | --- | --- | --- |
 | `market_scanner` | `_analysis`, `_sessions`, `liquibase` | `market_scanner_writer`, `market_scanner_reader` | `database_migrator`, Liquibase |
-| `momentum` | `_analysis`, `_sessions`, `liquibase` | `momentum_sessions_writer`, `momentum_results_writer`, `momentum_results_reader` | `database_migrator`, Liquibase |
+| `momentum` | `_analysis`, `_sessions`, `_suggestions`, `liquibase` | `momentum_sessions_writer`, `momentum_results_writer`, `momentum_results_reader` | `database_migrator`, Liquibase |
 | `litellm` | `public` | `litellm` | Official LiteLLM image, Prisma |
 
-Scanner has three analysis tables and five ADK tables; Momentum has twelve analysis
-tables and five ADK tables. LiteLLM's upstream schema stays in its dedicated database;
+Scanner has three analysis tables and five ADK tables; Momentum has thirteen analysis
+tables (twelve in the baseline plus `trading_memory` from migration 001), five ADK tables
+and the `_suggestions.ticker_suggestions` table from migration 002. LiteLLM's upstream schema stays in its dedicated database;
 application Liquibase never manages it. Provider-internal databases are outside this layout.
 
 ## Where things belong

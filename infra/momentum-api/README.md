@@ -21,7 +21,7 @@ terraform plan -var=project_id=YOUR_PROJECT \
 
 Use a dedicated `momentum-api` state prefix. Review the saved plan before applying.
 Each process has a pool of one, each revision has at most one requested instance,
-and the reader role enforces a two-connection ceiling for revision overlap.
+and the reader role enforces a one-connection ceiling, so avoid revision overlap.
 Cloud Run instance ceilings can be temporarily exceeded by the platform; database
 role limits remain authoritative. Deployments must respect that connection budget.
 The service sets AUTH_MODE=cloud_run and relies on Google's audience-bound IAM
@@ -64,3 +64,18 @@ it adds only an accessor grant and secret-backed environment variable. The
 The build definition is `cloudbuild.yaml` (BuildKit required by the Dockerfile). Submit it with the dedicated
 backend builder identity described in the [backend build guide](../backend-build/README.md),
 never the default compute account.
+
+## Secret containers
+
+Terraform manages the containers of the reader URL and CA secrets (`secrets.tf`);
+their values are still uploaded outside Terraform. A project that already holds them
+adopts them on the first apply only:
+
+```sh
+terraform plan -var-file=config/preprod.tfvars -var-file=config/identities.local.tfvars \
+  -var=adopt_existing_secrets=true
+```
+
+The plan reports `2 to import, 0 to add, 2 to change, 0 to destroy`; the two changes
+only record the existing `application` and `component` labels in state. Later plans
+omit the flag.
