@@ -62,3 +62,18 @@ it adds only an accessor grant and secret-backed environment variable. The
 2026-10-24 release image and numeric secret versions are recorded in
 `config/preprod.tfvars`; preserve the existing private invoker list when planning.
 The build definition is `cloudbuild.yaml` (BuildKit required by the Dockerfile).
+
+## Secret containers
+
+Terraform manages the containers of the reader URL and CA secrets (`secrets.tf`);
+their values are still uploaded outside Terraform. A project that already holds them
+adopts them on the first apply only:
+
+```sh
+terraform plan -var-file=config/preprod.tfvars -var-file=config/identities.local.tfvars \
+  -var=adopt_existing_secrets=true
+```
+
+The plan reports `2 to import, 0 to add, 2 to change, 0 to destroy`; the two changes
+only record the existing `application` and `component` labels in state. Later plans
+omit the flag.
