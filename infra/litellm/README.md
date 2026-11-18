@@ -245,8 +245,11 @@ Keep NGINX first in the container list: the provider preserves computed ports
 by list index when updating the original single-container service. Each service
 scales from zero to one instance and uses instance-based billing (`cpu_idle = false`)
 so LiteLLM can persist its 60-second batched spend updates between requests.
-The admin container is limited to 1 vCPU and 1 GiB; the gateway has two containers,
-each limited to 1 vCPU and 512 MiB. Size memory from measured workload peaks.
+The admin container is limited to 1 vCPU and 2 GiB; the gateway has two containers,
+the NGINX filter at 1 vCPU and 512 MiB and the proxy at 1 vCPU and 1 GiB. LiteLLM
+1.108.0 exceeded the previous 1 GiB (admin) and 1 GiB total (gateway) limits at
+startup and the revisions failed with out-of-memory. Size memory from measured
+workload peaks.
 CPU and memory are billed for the full instance lifetime, including idle periods;
 scaling to zero remains enabled and cold starts remain possible. LiteLLM also
 attempts to flush pending spend on graceful shutdown, but this does not guarantee
