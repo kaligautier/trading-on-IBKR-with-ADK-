@@ -51,8 +51,8 @@ jobs:
     steps:
       - name: Require the deploy configuration
         env:
-          PROVIDER: ${{ vars.DEPLOY_WORKLOAD_IDENTITY_PROVIDER }}
-          ACCOUNT: ${{ vars.DEPLOY_SERVICE_ACCOUNT }}
+          PROVIDER: ${{ secrets.DEPLOY_WORKLOAD_IDENTITY_PROVIDER }}
+          ACCOUNT: ${{ secrets.DEPLOY_SERVICE_ACCOUNT }}
         run: |
           set -euo pipefail
           [[ "$GCP_PROJECT_ID" =~ ^[a-z][a-z0-9-]{4,28}[a-z0-9]$ ]]
@@ -74,8 +74,8 @@ jobs:
         uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
         with:
           project_id: ${{ vars.GCP_PROJECT_ID }}
-          workload_identity_provider: ${{ vars.DEPLOY_WORKLOAD_IDENTITY_PROVIDER }}
-          service_account: ${{ vars.DEPLOY_SERVICE_ACCOUNT }}
+          workload_identity_provider: ${{ secrets.DEPLOY_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.DEPLOY_SERVICE_ACCOUNT }}
       - id: image
         name: Build the image, or check the digest to roll out
         env:
@@ -145,8 +145,10 @@ jobs:
             echo
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
-          python3 "$GITHUB_WORKSPACE/infra/deploy/scripts/check_image_only_plan.py" plan.json "$IMAGE" >guard.out
-          status=$?
+          # GitHub runs this step with `bash -e`: capture the guard's exit code explicitly,
+          # or a refusal would end the step before its reasons are printed.
+          status=0
+          python3 "$GITHUB_WORKSPACE/infra/deploy/scripts/check_image_only_plan.py" plan.json "$IMAGE" >guard.out || status=$?
           cat guard.out
           cat guard.out >> "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"

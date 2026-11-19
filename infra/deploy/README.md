@@ -68,9 +68,11 @@ terraform -chdir=infra/deploy apply deploy.tfplan
 terraform -chdir=infra/deploy output repository_variables
 ```
 
-Set the two printed values as GitHub Actions **repository variables**
-(`DEPLOY_WORKLOAD_IDENTITY_PROVIDER`, `DEPLOY_SERVICE_ACCOUNT`; identifiers, not secrets).
-The workflow also reuses `GCP_PROJECT_ID` and `DRIFT_STATE_BUCKET` from the drift check.
+Store the two printed values as GitHub Actions **repository secrets**
+(`DEPLOY_WORKLOAD_IDENTITY_PROVIDER`, `DEPLOY_SERVICE_ACCOUNT`). They are identifiers, not
+credentials, but the repository is public: secrets keep them out of the settings page and
+masked in logs, as the drift check does. The workflow also reuses the variables
+`GCP_PROJECT_ID` and `DRIFT_STATE_BUCKET`.
 
 Create the protected environment. With one maintainer the approval is a deliberate pause,
 not a separation of duties, so self-review stays allowed:
