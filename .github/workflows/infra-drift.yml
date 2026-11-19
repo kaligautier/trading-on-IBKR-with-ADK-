@@ -104,6 +104,8 @@ jobs:
           diagnose() {
             grep -E '^│ +with ' "$1" | sort -u | head -5 || true
             grep -o -E 'Error [0-9]{3}' "$1" | sort -u | head -3 || true
+            # Error titles only, with quoted names, e-mail addresses and long numbers masked.
+            grep -E '^│ Error: ' "$1" | sed -E 's/^│ Error: //; s/"[^"]*"/"…"/g; s/[A-Za-z0-9._+-]+@[A-Za-z0-9._-]+/…/g; s/[0-9]{6,}/…/g' | cut -c1-120 | sort -u | head -3 || true
           }
           if ! terraform init -no-color -input=false -lockfile=readonly \
                -backend-config="bucket=$STATE_BUCKET" -backend-config="prefix=$PREFIX" >init.log 2>&1; then
