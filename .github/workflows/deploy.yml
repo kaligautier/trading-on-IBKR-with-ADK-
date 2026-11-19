@@ -127,14 +127,20 @@ jobs:
           args=()
           for file in $PLAN_VARS; do args+=("-var-file=$file"); done
           # -var must come after the -var-file arguments: the last one given wins.
-          # Plan output can contain values: keep it out of the public log.
-          if ! terraform init -input=false -lockfile=readonly \
+          # Error text can contain account identifiers and the log is public, so only
+          # resource addresses, HTTP status codes and masked error titles are printed.
+          diagnose() {
+            grep -E '^│ +with ' "$1" | sort -u | head -5 || true
+            grep -o -E 'Error [0-9]{3}' "$1" | sort -u | head -3 || true
+            grep -E '^│ Error: ' "$1" | sed -E 's/^│ Error: //; s/"[^"]*"/"…"/g; s/[A-Za-z0-9._+-]+@[A-Za-z0-9._-]+/…/g; s/[0-9]{6,}/…/g' | cut -c1-120 | sort -u | head -3 || true
+          }
+          if ! terraform init -no-color -input=false -lockfile=readonly \
                -backend-config="bucket=$STATE_BUCKET" -backend-config="prefix=$PREFIX" >init.log 2>&1; then
-            grep -E '^(Error|│ Error)' init.log | head -3 || true
+            echo "terraform init failed in $ROOT"; diagnose init.log
             exit 1
           fi
-          if ! terraform plan -input=false -out=release.tfplan "${args[@]}" -var="image=$IMAGE@$DIGEST" >plan.log 2>&1; then
-            grep -E '^(Error|│ Error)' plan.log | head -3 || true
+          if ! terraform plan -no-color -input=false -out=release.tfplan "${args[@]}" -var="image=$IMAGE@$DIGEST" >plan.log 2>&1; then
+            echo "terraform plan failed in $ROOT"; diagnose plan.log
             exit 1
           fi
           terraform show -json release.tfplan > plan.json
@@ -164,16 +170,23 @@ jobs:
         run: |
           set -uo pipefail
           cd "$ROOT"
-          if ! terraform apply -input=false release.tfplan >apply.log 2>&1; then
-            grep -E '^(Error|│ Error)' apply.log | head -5 || true
+          # Error text can contain account identifiers and the log is public, so only
+          # resource addresses, HTTP status codes and masked error titles are printed.
+          diagnose() {
+            grep -E '^│ +with ' "$1" | sort -u | head -5 || true
+            grep -o -E 'Error [0-9]{3}' "$1" | sort -u | head -3 || true
+            grep -E '^│ Error: ' "$1" | sed -E 's/^│ Error: //; s/"[^"]*"/"…"/g; s/[A-Za-z0-9._+-]+@[A-Za-z0-9._-]+/…/g; s/[0-9]{6,}/…/g' | cut -c1-120 | sort -u | head -3 || true
+          }
+          if ! terraform apply -no-color -input=false release.tfplan >apply.log 2>&1; then
+            echo "terraform apply failed in $ROOT"; diagnose apply.log
             exit 1
           fi
           grep -E '^Apply complete' apply.log
           # A second plan proves the services run the new digest and state is consistent.
           args=()
           for file in $PLAN_VARS; do args+=("-var-file=$file"); done
-          terraform plan -input=false -lock=false -detailed-exitcode "${args[@]}" -var="image=$IMAGE@$DIGEST" >verify.log 2>&1 \
-            || { echo "Verification plan is not empty"; exit 1; }
+          terraform plan -no-color -input=false -lock=false -detailed-exitcode "${args[@]}" -var="image=$IMAGE@$DIGEST" >verify.log 2>&1 \
+            || { echo "Verification plan is not empty or failed"; diagnose verify.log; exit 1; }
           echo "applied=true" >> "$GITHUB_OUTPUT"
 
   record:
