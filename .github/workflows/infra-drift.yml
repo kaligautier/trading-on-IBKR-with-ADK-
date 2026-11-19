@@ -148,6 +148,19 @@ jobs:
           else
             gh issue create --title "$title" --label infra-drift --body-file "$RUNNER_TEMP/body.md"
           fi
+      - name: Close the drift issue once the root is clean
+        if: steps.plan.outputs.status == 'clean'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          title="Infra drift: $ROOT"
+          number=$(gh issue list --label infra-drift --state open --search "\"$title\" in:title" --json number,title \
+                   --jq "map(select(.title == \"$title\"))[0].number // empty")
+          if [[ -n "$number" ]]; then
+            gh issue close "$number" --comment "The nightly plan of \`infra/$ROOT\` is clean again. Run: $RUN_URL"
+          fi
       - name: Fail on drift or plan error
         if: steps.plan.outputs.status != 'clean'
         run: |
