@@ -98,14 +98,20 @@ jobs:
           [[ "$ROOT" == bootstrap ]] && cp backend.remote.tf.example backend.tf
           args=()
           for file in $PLAN_VARS; do args+=("-var-file=$file"); done
-          if ! terraform init -input=false -lockfile=readonly \
+          # GitHub runs this script with -e: tolerate the exit codes we classify below.
+          # Error text can contain account identifiers and the log is public, so only
+          # resource addresses and HTTP status codes are ever printed.
+          diagnose() {
+            grep -E '^│ +with ' "$1" | sort -u | head -5 || true
+            grep -o -E 'Error [0-9]{3}' "$1" | sort -u | head -3 || true
+          }
+          if ! terraform init -no-color -input=false -lockfile=readonly \
                -backend-config="bucket=$STATE_BUCKET" -backend-config="prefix=$PREFIX" >init.log 2>&1; then
-            grep -E '^(Error|│ Error)' init.log | head -3 || true
+            echo "terraform init failed in $ROOT"; diagnose init.log
             echo "status=error" >> "$GITHUB_OUTPUT"; exit 1
           fi
-          # Plan output can contain values: keep it out of the public log.
-          terraform plan -input=false -lock=false -detailed-exitcode -out=drift.tfplan "${args[@]}" >plan.log 2>&1
-          code=$?
+          code=0
+          terraform plan -no-color -input=false -lock=false -detailed-exitcode -out=drift.tfplan "${args[@]}" >plan.log 2>&1 || code=$?
           case "$code" in
             0) echo "status=clean" >> "$GITHUB_OUTPUT"; echo "No changes in $ROOT" ;;
             2) terraform show -json drift.tfplan \
@@ -113,7 +119,7 @@ jobs:
                  > "$RUNNER_TEMP/drift.md"
                echo "status=drift" >> "$GITHUB_OUTPUT"
                echo "Drift in $ROOT: $(wc -l < "$RUNNER_TEMP/drift.md") resource(s); see the issue" ;;
-            *) grep -E '^(Error|│ Error)' plan.log | head -3 || true
+            *) echo "terraform plan failed in $ROOT (exit $code)"; diagnose plan.log
                echo "status=error" >> "$GITHUB_OUTPUT" ;;
           esac
           exit 0
