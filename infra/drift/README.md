@@ -44,9 +44,11 @@ terraform -chdir=infra/drift apply drift.tfplan
 terraform -chdir=infra/drift output repository_variables
 ```
 
-Set the printed values as GitHub Actions **repository variables** (they are identifiers,
-not secrets): `GCP_PROJECT_ID`, `DRIFT_WORKLOAD_IDENTITY_PROVIDER`, `DRIFT_SERVICE_ACCOUNT`
-and `DRIFT_STATE_BUCKET`. Then run the workflow once with **Run workflow** and check that
+Set the printed values in GitHub. The service account and the provider are **repository
+secrets** (`DRIFT_SERVICE_ACCOUNT`, `DRIFT_WORKLOAD_IDENTITY_PROVIDER`), so their names stay
+out of the public settings; the project and bucket are **repository variables**
+(`GCP_PROJECT_ID`, `DRIFT_STATE_BUCKET`). No service account key exists: federation issues
+a short-lived token. Then run the workflow once with **Run workflow** and check that
 every root reports `No changes`.
 
 ## Scope
