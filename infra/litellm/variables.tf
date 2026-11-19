@@ -93,6 +93,16 @@ variable "additional_vertex_models" {
   }
 }
 
+variable "global_vertex_models" {
+  description = "Subset of additional_vertex_models served only by the Vertex global endpoint (e.g. Gemini 4); all others use vertex_location."
+  type        = set(string)
+  default     = []
+  validation {
+    condition     = alltrue([for model in var.global_vertex_models : contains(var.additional_vertex_models, model)])
+    error_message = "Every global Vertex model must also be listed in additional_vertex_models."
+  }
+}
+
 variable "global_budget_usd" {
   description = "Optional global LLM spend budget in USD over 30 days, shared through the proxy database. Excludes infrastructure costs."
   type        = number

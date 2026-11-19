@@ -33,7 +33,7 @@ locals {
       litellm_params = {
         model           = "vertex_ai/${model}"
         vertex_project  = var.project_id
-        vertex_location = var.vertex_location
+        vertex_location = contains(var.global_vertex_models, model) ? "global" : var.vertex_location
       }
     }], local.provider_models)
     general_settings = merge(local.runtime_settings.general_settings, {
