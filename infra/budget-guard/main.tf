@@ -83,7 +83,7 @@ resource "google_project_iam_custom_role" "service_disabler" {
   project     = var.project_id
   role_id     = "budgetGuardServiceDisabler"
   title       = "Budget guard service disabler"
-  permissions = ["serviceusage.services.disable", "serviceusage.services.get", "serviceusage.operations.get"]
+  permissions = ["serviceusage.services.disable", "serviceusage.services.get", "serviceusage.services.use", "serviceusage.operations.get"]
 }
 
 resource "google_service_account" "guard" {
