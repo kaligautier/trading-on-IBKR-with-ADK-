@@ -82,6 +82,12 @@ jobs:
           terraform -chdir=infra/backend-build init -backend=false -input=false -lockfile=readonly
           terraform -chdir=infra/backend-build validate
           terraform -chdir=infra/backend-build test
+      - name: Validate and test the application release identity and guard
+        run: |
+          terraform -chdir=infra/deploy init -backend=false -input=false -lockfile=readonly
+          terraform -chdir=infra/deploy validate
+          terraform -chdir=infra/deploy test
+          python3 -m unittest discover -s infra/deploy/tests -p 'test_*.py' -v
 
   dependencies:
     runs-on: ubuntu-24.04
