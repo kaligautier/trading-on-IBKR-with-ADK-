@@ -34,7 +34,7 @@ created console budgets for the same project, delete them or they will duplicate
 the alerts.
 
 Verify after applying: publish a test message on the topic with
-`{"costAmount": 31, "budgetAmount": 30, "budgetDisplayName": "test"}` on a
+`{"costAmount": 51, "budgetAmount": 50, "budgetDisplayName": "test"}` on a
 throwaway project (it really disables the API), and confirm below-budget messages
 (`costAmount` 5) only log.
 

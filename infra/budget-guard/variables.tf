@@ -20,7 +20,7 @@ variable "billing_account_id" {
 }
 variable "budget_amount" {
   type        = number
-  default     = 30
+  default     = 50
   description = "Monthly budget. Services are disabled once spend reaches it."
   validation {
     condition     = var.budget_amount > 0

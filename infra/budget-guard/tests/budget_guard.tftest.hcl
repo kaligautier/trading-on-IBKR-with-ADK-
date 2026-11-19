@@ -21,8 +21,8 @@ run "caps_the_project_and_disables_vertex" {
     error_message = "The budget must be scoped to the target project only."
   }
   assert {
-    condition     = google_billing_budget.guard.amount[0].specified_amount[0].units == "30" && google_billing_budget.guard.amount[0].specified_amount[0].currency_code == "EUR"
-    error_message = "Default budget is 30 EUR."
+    condition     = google_billing_budget.guard.amount[0].specified_amount[0].units == "50" && google_billing_budget.guard.amount[0].specified_amount[0].currency_code == "EUR"
+    error_message = "Default budget is 50 EUR."
   }
   assert {
     condition     = google_cloudfunctions2_function.guard.service_config[0].environment_variables.SERVICES_TO_DISABLE == "aiplatform.googleapis.com"
