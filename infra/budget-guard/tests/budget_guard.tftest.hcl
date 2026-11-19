@@ -11,7 +11,7 @@ mock_provider "archive" {
 
 variables {
   project_id         = "preprod-deep-copy"
-  billing_account_id = "015EB3-0696C4-48FD90"
+  billing_account_id = "ABCDEF-012345-6789AB"
 }
 
 run "caps_the_project_and_disables_vertex" {
