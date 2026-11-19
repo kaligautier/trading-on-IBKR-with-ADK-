@@ -99,6 +99,10 @@ def main():
             "/%6cogin",
             "/ui%2flogin",
             "/v1/chat/completions",
+            "/v1/decisions/",
+            "/v1/decisions/extra",
+            "/v1/systemone/",
+            "/v1/systemone/extra",
             "/v1beta/models/model:futureMethod",
         ]:
             for auth in [None, "synthetic-admin-key"]:
@@ -112,6 +116,8 @@ def main():
             "/team/new",
             "/team/update",
             "/team/delete",
+            "/v1/decisions",
+            "/v1/systemone",
             "/v1beta/models/model:generateContent",
             "/v1beta/models/model:countTokens",
         ]:
@@ -132,7 +138,7 @@ def main():
             with request(route, "POST") as response:
                 assert response.status == 405
         print(
-            "PASS: gateway denies login/UI/admin routes; allowed routes preserve auth and stream SSE",
+            "PASS: gateway denies login/UI/admin routes; allowed routes (including decisions) preserve auth and stream SSE",
             flush=True,
         )
     finally:
