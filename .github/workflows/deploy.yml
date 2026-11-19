@@ -1,0 +1,208 @@
+name: Deploy application releases
+
+# Builds one backend image from main, plans its Terraform root, refuses any plan that is
+# not an image update, and applies it once a reviewer approves the `preprod-deploy`
+# environment. A second job then pushes a branch pinning the new digest, so main keeps
+# describing production. The public log never shows plan or apply output.
+on:
+  workflow_dispatch:
+    inputs:
+      root:
+        description: Terraform root to release
+        type: choice
+        required: true
+        options: [market-scanner, reader, momentum-api, momentum]
+      digest:
+        description: 'Existing image digest to roll out or back (sha256:...); empty builds main'
+        type: string
+        required: false
+        default: ''
+      dry_run:
+        description: Build and plan only, apply nothing
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: infra-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    environment: preprod-deploy
+    permissions:
+      contents: read
+      id-token: write
+    outputs:
+      applied: ${{ steps.apply.outputs.applied }}
+      digest: ${{ steps.image.outputs.digest }}
+    env:
+      ROOT: ${{ inputs.root }}
+      DIGEST_INPUT: ${{ inputs.digest }}
+      DRY_RUN: ${{ inputs.dry_run }}
+      GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+      STATE_BUCKET: ${{ vars.DRIFT_STATE_BUCKET }}
+      REGION: europe-west1
+    steps:
+      - name: Require the deploy configuration
+        env:
+          PROVIDER: ${{ vars.DEPLOY_WORKLOAD_IDENTITY_PROVIDER }}
+          ACCOUNT: ${{ vars.DEPLOY_SERVICE_ACCOUNT }}
+        run: |
+          set -euo pipefail
+          [[ "$GCP_PROJECT_ID" =~ ^[a-z][a-z0-9-]{4,28}[a-z0-9]$ ]]
+          [[ "$STATE_BUCKET" =~ ^[a-z0-9][a-z0-9._-]{2,62}$ ]]
+          [[ "$PROVIDER" =~ ^projects/[0-9]+/locations/global/workloadIdentityPools/[a-z0-9-]+/providers/[a-z0-9-]+$ ]]
+          [[ "$ACCOUNT" == *@"$GCP_PROJECT_ID".iam.gserviceaccount.com ]]
+          [[ -z "$DIGEST_INPUT" || "$DIGEST_INPUT" =~ ^sha256:[0-9a-f]{64}$ ]]
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3
+        with:
+          terraform_version: '1.14.4'
+          terraform_wrapper: false
+      - id: release
+        name: Read the release settings
+        run: python3 infra/deploy/scripts/release.py config "$ROOT"
+      - id: auth
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
+        with:
+          project_id: ${{ vars.GCP_PROJECT_ID }}
+          workload_identity_provider: ${{ vars.DEPLOY_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.DEPLOY_SERVICE_ACCOUNT }}
+      - id: image
+        name: Build the image, or check the digest to roll out
+        env:
+          APP: ${{ steps.release.outputs.app }}
+          IMAGE: ${{ steps.release.outputs.image }}
+        run: |
+          set -euo pipefail
+          if [[ -n "$DIGEST_INPUT" ]]; then
+            gcloud artifacts docker images describe "$IMAGE@$DIGEST_INPUT" --format='value(image_summary.digest)' >/dev/null
+            digest="$DIGEST_INPUT"
+          else
+            digest=$(gcloud builds submit "$APP" \
+              --project="$GCP_PROJECT_ID" --region="$REGION" \
+              --config=infra/backend-build/cloudbuild.yaml \
+              --substitutions="_IMAGE=$IMAGE" \
+              --service-account="projects/$GCP_PROJECT_ID/serviceAccounts/backend-builder@$GCP_PROJECT_ID.iam.gserviceaccount.com" \
+              --gcs-source-staging-dir="gs://$GCP_PROJECT_ID-backend-build-sources/source" \
+              --suppress-logs --format='value(results.images[0].digest)')
+          fi
+          [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
+          echo "digest=$digest" >> "$GITHUB_OUTPUT"
+      - name: Fetch the private plan inputs
+        run: |
+          set -euo pipefail
+          umask 077
+          gcloud secrets versions access latest --secret=infra-drift-inputs \
+            --project="$GCP_PROJECT_ID" > "$RUNNER_TEMP/inputs.json"
+          python3 - <<'PY'
+          import json, os, pathlib
+          root = os.environ["ROOT"]
+          files = json.load(open(os.path.join(os.environ["RUNNER_TEMP"], "inputs.json"))).get(root, {})
+          for name, content in files.items():
+              target = pathlib.Path("infra") / root / name
+              target.parent.mkdir(parents=True, exist_ok=True)
+              target.write_text(content)
+          PY
+          rm -f "$RUNNER_TEMP/inputs.json"
+      - id: plan
+        name: Plan and refuse anything but an image update
+        working-directory: infra
+        env:
+          IMAGE: ${{ steps.release.outputs.image }}
+          PREFIX: ${{ steps.release.outputs.prefix }}
+          PLAN_VARS: ${{ steps.release.outputs.plan_vars }}
+          DIGEST: ${{ steps.image.outputs.digest }}
+        run: |
+          set -uo pipefail
+          cd "$ROOT"
+          args=()
+          for file in $PLAN_VARS; do args+=("-var-file=$file"); done
+          # -var must come after the -var-file arguments: the last one given wins.
+          # Plan output can contain values: keep it out of the public log.
+          if ! terraform init -input=false -lockfile=readonly \
+               -backend-config="bucket=$STATE_BUCKET" -backend-config="prefix=$PREFIX" >init.log 2>&1; then
+            grep -E '^(Error|│ Error)' init.log | head -3 || true
+            exit 1
+          fi
+          if ! terraform plan -input=false -out=release.tfplan "${args[@]}" -var="image=$IMAGE@$DIGEST" >plan.log 2>&1; then
+            grep -E '^(Error|│ Error)' plan.log | head -3 || true
+            exit 1
+          fi
+          terraform show -json release.tfplan > plan.json
+          {
+            echo "### Release of \`$ROOT\`"
+            echo
+            echo "Image digest: \`$DIGEST\`. Mode: $([[ "$DRY_RUN" == true ]] && echo 'dry run, nothing applied' || echo apply)."
+            echo
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          python3 "$GITHUB_WORKSPACE/infra/deploy/scripts/check_image_only_plan.py" plan.json "$IMAGE" >guard.out
+          status=$?
+          cat guard.out
+          cat guard.out >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          exit "$status"
+      - id: apply
+        name: Apply the plan
+        if: inputs.dry_run == false && steps.plan.outputs.changed != '0'
+        working-directory: infra
+        env:
+          IMAGE: ${{ steps.release.outputs.image }}
+          PLAN_VARS: ${{ steps.release.outputs.plan_vars }}
+          DIGEST: ${{ steps.image.outputs.digest }}
+        run: |
+          set -uo pipefail
+          cd "$ROOT"
+          if ! terraform apply -input=false release.tfplan >apply.log 2>&1; then
+            grep -E '^(Error|│ Error)' apply.log | head -5 || true
+            exit 1
+          fi
+          grep -E '^Apply complete' apply.log
+          # A second plan proves the services run the new digest and state is consistent.
+          args=()
+          for file in $PLAN_VARS; do args+=("-var-file=$file"); done
+          terraform plan -input=false -lock=false -detailed-exitcode "${args[@]}" -var="image=$IMAGE@$DIGEST" >verify.log 2>&1 \
+            || { echo "Verification plan is not empty"; exit 1; }
+          echo "applied=true" >> "$GITHUB_OUTPUT"
+
+  record:
+    needs: deploy
+    if: needs.deploy.outputs.applied == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    env:
+      ROOT: ${{ inputs.root }}
+      DIGEST: ${{ needs.deploy.outputs.digest }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Push a branch that pins the deployed digest
+        run: |
+          set -euo pipefail
+          [[ "$DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]
+          file="infra/$ROOT/$(python3 infra/deploy/scripts/release.py config "$ROOT" | sed -n 's/^release_file=//p')"
+          python3 infra/deploy/scripts/release.py record "$file" "$DIGEST"
+          branch="release/$ROOT-$GITHUB_RUN_ID"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git switch -c "$branch"
+          git add "$file"
+          git commit -m "chore($ROOT): record the release deployed by run $GITHUB_RUN_ID" \
+            -m "Image digest $DIGEST, applied through the deploy workflow."
+          git push origin "$branch"
+          {
+            echo "### Record the release"
+            echo
+            echo "Open a pull request to keep main equal to production:"
+            echo "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/compare/main...$branch?expand=1"
+          } >> "$GITHUB_STEP_SUMMARY"
