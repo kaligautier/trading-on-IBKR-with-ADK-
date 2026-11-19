@@ -1,0 +1,30 @@
+{
+  "market-scanner": {
+    "app": "apps/backend/market-scanner-adk",
+    "image": "europe-west1-docker.pkg.dev/preprod-deep-copy/market-scanner/market-scanner-adk",
+    "prefix": "preprod/runtime",
+    "release_file": "config/preprod.release.tfvars",
+    "plan_vars": ["config/preprod.tfvars", "config/preprod.release.tfvars", "config/identities.local.tfvars"]
+  },
+  "reader": {
+    "app": "apps/backend/market-scanner-api",
+    "image": "europe-west1-docker.pkg.dev/preprod-deep-copy/market-scanner/market-scanner-api",
+    "prefix": "preprod/reader",
+    "release_file": "config/preprod.tfvars",
+    "plan_vars": ["config/preprod.tfvars", "config/identities.local.tfvars"]
+  },
+  "momentum-api": {
+    "app": "apps/backend/momentum-api",
+    "image": "europe-west1-docker.pkg.dev/preprod-deep-copy/market-scanner/momentum-api",
+    "prefix": "preprod/momentum-api",
+    "release_file": "config/preprod.tfvars",
+    "plan_vars": ["config/preprod.tfvars", "config/identities.local.tfvars"]
+  },
+  "momentum": {
+    "app": "apps/backend/momentum-adk",
+    "image": "europe-west1-docker.pkg.dev/preprod-deep-copy/momentum/worker",
+    "prefix": "preprod/momentum",
+    "release_file": "config/preprod.release.tfvars",
+    "plan_vars": ["config/preprod.tfvars", "config/preprod.release.tfvars"]
+  }
+}
