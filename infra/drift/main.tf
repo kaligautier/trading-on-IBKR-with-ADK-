@@ -48,6 +48,15 @@ variable "github_owner_id" {
   }
 }
 
+variable "billing_account_id" {
+  description = "Billing account whose budgets the nightly plan reads (XXXXXX-XXXXXX-XXXXXX). Keep it in an ignored billing.local.tfvars: the repository is public."
+  type        = string
+  validation {
+    condition     = can(regex("^[0-9A-F]{6}-[0-9A-F]{6}-[0-9A-F]{6}$", var.billing_account_id))
+    error_message = "Use a billing account ID such as 012345-6789AB-CDEF01."
+  }
+}
+
 variable "state_bucket" {
   type    = string
   default = "preprod-deep-copy-tfstate"
@@ -82,6 +91,14 @@ resource "google_project_iam_member" "read" {
   project  = var.project_id
   role     = each.value
   member   = "serviceAccount:${google_service_account.drift.email}"
+}
+
+# Refreshing google_billing_budget needs billing.budgets.get on the billing account,
+# which no project-level role grants. Read-only, and scoped to this one account.
+resource "google_billing_account_iam_member" "billing_reader" {
+  billing_account_id = var.billing_account_id
+  role               = "roles/billing.viewer"
+  member             = "serviceAccount:${google_service_account.drift.email}"
 }
 
 resource "google_storage_bucket_iam_member" "state_reader" {

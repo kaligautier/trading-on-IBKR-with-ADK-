@@ -5,6 +5,7 @@ variables {
   github_repository    = "example-owner/example-repo"
   github_repository_id = "111"
   github_owner_id      = "222"
+  billing_account_id   = "ABCDEF-012345-6789AB"
 }
 
 run "identity_is_read_only" {
@@ -40,4 +41,18 @@ run "inputs_secret_is_protected_and_unreadable_by_others" {
     condition     = google_secret_manager_secret.inputs.secret_id == "infra-drift-inputs" && google_secret_manager_secret_iam_member.inputs.role == "roles/secretmanager.secretAccessor"
     error_message = "Only the drift identity reads the plan inputs."
   }
+}
+
+run "billing_access_is_read_only_and_account_scoped" {
+  command = plan
+  assert {
+    condition     = google_billing_account_iam_member.billing_reader.role == "roles/billing.viewer" && google_billing_account_iam_member.billing_reader.billing_account_id == "ABCDEF-012345-6789AB"
+    error_message = "The drift identity may only view the billing account."
+  }
+}
+
+run "reject_malformed_billing_account" {
+  command = plan
+  variables { billing_account_id = "not-an-id" }
+  expect_failures = [var.billing_account_id]
 }
