@@ -15,6 +15,7 @@ This root creates a read-only identity, reachable only by the reviewed workflow 
 
 - `roles/viewer` and `roles/iam.securityReviewer` on the project, to refresh a plan;
 - `roles/storage.objectViewer` on the state bucket (state is read, never written);
+- `roles/billing.viewer` on the billing account only (planning `budget-guard` reads its budget);
 - `secretAccessor` on `infra-drift-inputs` only.
 
 If the first run reports a permission error on a refreshed resource, add the narrowest
@@ -39,7 +40,7 @@ because it must follow the plan inputs. Re-run the command whenever an input fil
 
 ```sh
 terraform -chdir=infra/drift init -backend-config=preprod.backend.hcl
-terraform -chdir=infra/drift plan -var-file=preprod.tfvars -out=drift.tfplan
+terraform -chdir=infra/drift plan -var-file=preprod.tfvars -var-file=billing.local.tfvars -out=drift.tfplan
 terraform -chdir=infra/drift apply drift.tfplan
 terraform -chdir=infra/drift output repository_variables
 ```
@@ -56,3 +57,5 @@ every root reports `No changes`.
 Every root with state is in the workflow matrix, including `budget-guard` (its ignored `budget.local.tfvars` is part of the private inputs). `litellm/governance` is excluded: its provider reads the gateway master key. It is planned
 by the `litellm-agent-governance` Cloud Run job. The matrix must list every root that has
 state; add a root here in the same change that creates it.
+
+`billing.local.tfvars` holds `billing_account_id = "XXXXXX-XXXXXX-XXXXXX"`. It stays ignored: the repository is public. `build_inputs.py` uploads it with the other private inputs, because the nightly plan of this root needs it too.

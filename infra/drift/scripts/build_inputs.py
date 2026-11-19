@@ -17,6 +17,7 @@ NAMES = (
     "config/agent-governance.local.tfvars.json",
     "config/key-alert.local.tfvars",
     "budget.local.tfvars",
+    "billing.local.tfvars",
 )
 
 
