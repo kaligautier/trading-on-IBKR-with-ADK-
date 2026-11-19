@@ -256,8 +256,12 @@ The gateway is internal-only, with a VPC, Private Google Access and private
 `run.app` DNS. Cloud Run agents must attach to the supplied subnet and route
 this traffic through the VPC. The admin endpoint retains IAP plus LiteLLM login.
 Only the gateway's NGINX container receives ingress. It forwards native Gemini
-generation, streaming and token-count routes, readiness/liveness, and the
-master-key-protected key generation/deletion routes. Other routes, including
+generation, streaming and token-count routes, the exact POST routes
+`/v1/decisions` and `/v1/systemone` for
+[Decision models](https://docs.litellm.ai/docs/decisions), readiness/liveness, and
+the master-key-protected key generation/deletion routes. Agent keys only permit
+`/v1beta/models/*` (`allowed_routes` in `governance/policy`), so they cannot call
+the Decision routes until that list is extended per agent. Other routes, including
 login, UI, SSO and administration, return 404. The proxy listens on port 4001;
 it receives no UI username or password. LiteLLM still authenticates forwarded
 requests. The NGINX image is pinned by `gateway_filter_digest` and mirrored
