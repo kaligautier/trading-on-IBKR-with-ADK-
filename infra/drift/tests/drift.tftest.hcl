@@ -11,7 +11,7 @@ variables {
 run "identity_is_read_only" {
   command = plan
   assert {
-    condition     = toset([for grant in google_project_iam_member.read : grant.role]) == toset(["roles/viewer", "roles/iam.securityReviewer"])
+    condition     = toset([for grant in google_project_iam_member.read : grant.role]) == toset(["roles/viewer", "roles/iam.securityReviewer", "roles/serviceusage.serviceUsageConsumer"])
     error_message = "The drift identity may only hold read roles."
   }
   assert {

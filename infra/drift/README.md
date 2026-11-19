@@ -14,6 +14,7 @@ This root creates a read-only identity, reachable only by the reviewed workflow 
 `main` of this repository through Workload Identity Federation:
 
 - `roles/viewer` and `roles/iam.securityReviewer` on the project, to refresh a plan;
+- `roles/serviceusage.serviceUsageConsumer` on the project: providers that set `user_project_override` (budget-guard) bill their calls to it, and need `serviceusage.services.use`;
 - `roles/storage.objectViewer` on the state bucket (state is read, never written);
 - `roles/billing.viewer` on the billing account only (planning `budget-guard` reads its budget);
 - `secretAccessor` on `infra-drift-inputs` only.
