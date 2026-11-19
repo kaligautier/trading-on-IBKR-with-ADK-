@@ -86,8 +86,10 @@ resource "google_service_account" "drift" {
   display_name = "Nightly Terraform drift detection (read-only)"
 }
 
+# serviceUsageConsumer lets providers that set user_project_override (budget-guard) bill their
+# calls to this project; it grants no permission on the APIs themselves.
 resource "google_project_iam_member" "read" {
-  for_each = toset(["roles/viewer", "roles/iam.securityReviewer"])
+  for_each = toset(["roles/viewer", "roles/iam.securityReviewer", "roles/serviceusage.serviceUsageConsumer"])
   project  = var.project_id
   role     = each.value
   member   = "serviceAccount:${google_service_account.drift.email}"
