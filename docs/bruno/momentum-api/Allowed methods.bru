@@ -18,7 +18,7 @@ script:post-response {
   test("HTTP 204", () => expect(res.getStatus()).to.equal(204));
   test("Private cache policy", () => expect(res.getHeader("Cache-Control")).to.eql("no-store"));
   test("Request ID", () => expect(res.getHeader("Request-ID")).to.match(/^[0-9a-f-]{36}$/));
-  test("Bodyless response", () => expect(JSON.stringify(res.getBody())).to.eql(""));
+  test("Bodyless response", () => expect(String(res.getBody() ?? "")).to.eql(""));
 }
 
 settings {
