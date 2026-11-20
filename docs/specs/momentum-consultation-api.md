@@ -226,7 +226,7 @@ apps/backend/momentum-api/
 infra/momentum-api/         Dedicated Terraform root and tests
 database/domains/momentum/  Baseline and additive reader migrations
 .github/workflows/          Dedicated application/infrastructure verification
-docs/postman/               Reusable local requests/examples; preserve old collection
+docs/bruno/                 Reusable local requests/examples (Bruno collections)
 ```
 
 FastAPI models/routes are the executable source of truth; CI compares their

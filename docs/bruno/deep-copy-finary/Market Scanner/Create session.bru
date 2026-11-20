@@ -1,0 +1,40 @@
+meta {
+  name: Create session
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{scannerAdkUrl}}/apps/{{scannerAppName}}/users/{{scannerUserId}}/sessions
+  body: json
+  auth: inherit
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {}
+}
+
+script:pre-request {
+  const token = bru.getVar('scannerToken');
+  if (token) req.setHeader('X-Market-Scanner-Token', token);
+}
+
+script:post-response {
+  test('Status 200', () => expect(res.getStatus()).to.equal(200));
+  const session = res.getBody();
+  test('Session created', () => expect(session.id).to.be.a('string').and.not.empty);
+  bru.setEnvVar('scannerSessionId', session.id);
+}
+
+settings {
+  encodeUrl: true
+  forwardAuthorizationHeader: false
+}
+
+docs {
+  Create an ADK session and capture scannerSessionId before Run scanner.
+}

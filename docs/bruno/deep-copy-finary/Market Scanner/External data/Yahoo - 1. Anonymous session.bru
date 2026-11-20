@@ -1,0 +1,37 @@
+meta {
+  name: Yahoo - 1. Anonymous session
+  type: http
+  seq: 1
+}
+
+get {
+  url: https://fc.yahoo.com
+  body: none
+  auth: none
+}
+
+headers {
+  Accept: */*
+  User-Agent: Mozilla/5.0
+}
+
+script:pre-request {
+  bru.deleteEnvVar('scannerYahooCrumb');
+}
+
+script:post-response {
+  test('Yahoo session: expected response', () => expect([200, 204, 404]).to.include(res.getStatus()));
+  test('Anonymous Yahoo cookie received', () => {
+    const cookies = res.headerList.all().filter(h => h.key.toLowerCase() === 'set-cookie');
+    expect(cookies.some(h => /(?:^|;\s*)A3=/.test(h.value))).to.eql(true);
+  });
+}
+
+settings {
+  encodeUrl: true
+  forwardAuthorizationHeader: false
+}
+
+docs {
+  Initialize the Yahoo cookie in the Postman cookie jar. This URL may return 404; the test requires an A3 cookie. Keep cookies enabled. No scanner account or token is sent. Yahoo consent may require user interaction depending on the network.
+}

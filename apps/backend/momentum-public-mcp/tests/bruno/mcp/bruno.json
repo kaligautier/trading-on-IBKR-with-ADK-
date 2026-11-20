@@ -1,0 +1,9 @@
+{
+  "version": "1",
+  "name": "Momentum MCP stateless migration",
+  "type": "collection",
+  "ignore": [
+    "node_modules",
+    ".git"
+  ]
+}

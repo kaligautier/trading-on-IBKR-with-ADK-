@@ -1,0 +1,65 @@
+meta {
+  name: Yahoo - 3. Daily history
+  type: http
+  seq: 3
+}
+
+get {
+  url: https://query2.finance.yahoo.com/v8/finance/chart/{{scannerYahooSymbolEncoded}}?range={{scannerYahooRange}}&interval=1d&includePrePost=false&events=div%2Csplits%2CcapitalGains
+  body: none
+  auth: none
+}
+
+params:query {
+  range: {{scannerYahooRange}}
+  interval: 1d
+  includePrePost: false
+  events: div%2Csplits%2CcapitalGains
+}
+
+headers {
+  Accept: application/json
+  User-Agent: Mozilla/5.0
+}
+
+script:pre-request {
+  const symbol = bru.getVar('scannerYahooSymbol');
+  if (!symbol) throw new Error('Set scannerYahooSymbol in the environment.');
+  bru.setVar('scannerYahooSymbolEncoded', encodeURIComponent(symbol));
+  const crumb = bru.getVar('scannerYahooCrumb');
+  if (crumb) req.getUrl().query.upsert({key: 'crumb', value: encodeURIComponent(crumb)});
+  else req.getUrl().query.remove('crumb');
+}
+
+script:post-response {
+  test('Status 200', () => expect(res.getStatus()).to.equal(200));
+  if (res.getStatus() === 200) {
+    const body = res.getBody();
+    test('No provider error', () => expect(body.chart.error).to.eql(null));
+    const result = body.chart.result && body.chart.result[0];
+    test('Requested series is present', () => {
+      expect(result).to.be.an('object');
+      expect(result.meta.symbol).to.eql(bru.getVar('scannerYahooSymbol'));
+    });
+    if (result) {
+      test('Dates and closes align with at least one valid observation', () => {
+        const dates = result.timestamp;
+        const closes = result.indicators.quote[0].close;
+        expect(dates).to.be.an('array').and.not.empty;
+        expect(closes.length).to.eql(dates.length);
+        expect(dates.every(t => Number.isFinite(t) && t <= Date.now() / 1000)).to.eql(true);
+        expect(closes.every(v => v === null || Number.isFinite(v))).to.eql(true);
+        expect(closes.some(v => Number.isFinite(v))).to.eql(true);
+      });
+    }
+  }
+}
+
+settings {
+  encodeUrl: true
+  forwardAuthorizationHeader: false
+}
+
+docs {
+  Native Yahoo response. Set scannerYahooSymbol to ^GSPC (S&P 500), ^VIX, ^NDX, BTC-USD, GC=F, etc. Defaults: ^GSPC, range=10y. timestamp and indicators.quote[0].close arrays align by position. observed_on is constructed later by the Python client, not supplied by Yahoo. The current value may be provisional. Postman calculates no horizons and does not adjust prices. If Yahoo requires a session, run steps 1 and 2 in this same Postman session.
+}

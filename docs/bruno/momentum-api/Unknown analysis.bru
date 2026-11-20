@@ -1,0 +1,64 @@
+meta {
+  name: Unknown analysis
+  type: http
+  seq: 8
+}
+
+get {
+  url: {{momentum_api_base_url}}/v1/analyses/ffffffff-ffff-ffff-ffff-ffffffffffff
+  body: none
+  auth: inherit
+}
+
+headers {
+  Accept: application/json, application/problem+json
+}
+
+script:post-response {
+  test("HTTP 404", () => expect(res.getStatus()).to.equal(404));
+  test("Private cache policy", () => expect(res.getHeader("Cache-Control")).to.eql("no-store"));
+  test("Request ID", () => expect(res.getHeader("Request-ID")).to.match(/^[0-9a-f-]{36}$/));
+  test("Problem Details", () => { const p = res.getBody(); expect(p.status).to.eql(404); expect(p.type).to.match(/^https:/); expect(res.getHeader("Content-Type")).to.eql("application/problem+json"); });
+}
+
+settings {
+  encodeUrl: true
+  forwardAuthorizationHeader: false
+}
+
+example {
+  name: Synthetic example
+  
+  request: {
+    url: {{momentum_api_base_url}}/v1/analyses/ffffffff-ffff-ffff-ffff-ffffffffffff
+    method: GET
+    mode: none
+    headers: {
+      Accept: application/json, application/problem+json
+    }
+  }
+  
+  response: {
+    headers: {
+      Content-Type: application/problem+json
+    }
+  
+    status: {
+      code: 404
+      text: Not Found
+    }
+  
+    body: {
+      type: text
+      content: '''
+        {
+          "type": "https://github.com/kaligautier/trading-on-IBKR-with-ADK-/blob/main/apps/backend/momentum-api/README.md#analysis-not-found",
+          "title": "Not Found",
+          "status": 404,
+          "detail": "The requested analysis does not exist.",
+          "code": "ANALYSIS_NOT_FOUND"
+        }
+      '''
+    }
+  }
+}

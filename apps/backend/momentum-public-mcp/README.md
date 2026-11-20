@@ -90,7 +90,7 @@ uv sync --locked --python 3.12
 uv run --locked pytest -q
 uv run --locked ruff check src tests scripts
 uv run --locked ruff format --check src tests scripts
-# With Postman CLI >=1.73.0 installed (no login or cloud publication):
+# With Bruno CLI >=4 (`npm i -g @usebruno/cli`) and Node installed:
 uv run --locked python scripts/simulation.py
 docker build -t local/momentum-public-mcp:verify .
 uv run --locked python scripts/container_smoke.py local/momentum-public-mcp:verify
@@ -173,7 +173,7 @@ Hatchling toolchain and installs only runtime dependencies in the final non-root
 image. It does not run a floating OS upgrade during the build. Dependabot tracks
 base images and Python dependencies; FastMCP remains explicitly pinned to 4.1.3.
 The container smoke check verifies the entrypoint, protocol, validation errors,
-non-root user and absence of development/build tools. The Postman simulation
+non-root user and absence of development/build tools. The Bruno simulation
 separately exercises the real HTTP clients against contract-derived upstreams.
 
 ## Canonical-event release verified on 2026-10-24

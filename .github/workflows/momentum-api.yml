@@ -7,7 +7,7 @@ on:
       - 'apps/backend/momentum-adk/app/infrastructure/models.py'
       - 'database/**'
       - 'infra/momentum-api/**'
-      - 'docs/postman/momentum-api.postman_collection.json'
+      - 'docs/bruno/momentum-api/**'
       - '.github/workflows/momentum-api.yml'
   push:
     branches: [main]
@@ -17,7 +17,7 @@ on:
       - 'apps/backend/momentum-adk/app/infrastructure/models.py'
       - 'database/**'
       - 'infra/momentum-api/**'
-      - 'docs/postman/momentum-api.postman_collection.json'
+      - 'docs/bruno/momentum-api/**'
       - '.github/workflows/momentum-api.yml'
   workflow_dispatch:
 permissions:
@@ -48,17 +48,9 @@ jobs:
       - name: Real Liquibase, PostgreSQL and effective reader permissions
         run: bash scripts/test_database.sh verify --cov=app --cov-branch --cov-report=term-missing --cov-fail-under=90 -q
       - run: uv build --out-dir dist
-      - name: Install pinned Postman CLI for local-only assertions
-        run: |
-          curl --fail --location --silent --show-error \
-            https://dl-cli.pstmn.io/download/version/1.73.0/linux64 \
-            --output "$RUNNER_TEMP/postman.tgz"
-          printf '%s  %s\n' 8f95dfcfc113a7af796783f88e19de26cc7606c9438b414e8cc485199b205817 "$RUNNER_TEMP/postman.tgz" | sha256sum --check -
-          mkdir "$RUNNER_TEMP/momentum-postman"
-          tar -xzf "$RUNNER_TEMP/postman.tgz" -C "$RUNNER_TEMP/momentum-postman"
-          mv "$RUNNER_TEMP/momentum-postman/postman-cli" "$RUNNER_TEMP/momentum-postman/postman"
-          echo "$RUNNER_TEMP/momentum-postman" >> "$GITHUB_PATH"
-      - name: Build and exercise release image and saved requests
+      - name: Install pinned Bruno CLI
+        run: npm install --global @usebruno/cli@4.3.0
+      - name: Build and exercise release image and saved Bruno requests
         run: |
           bash scripts/test_database.sh start
           docker build --platform linux/amd64 --tag local/momentum-api:verify .

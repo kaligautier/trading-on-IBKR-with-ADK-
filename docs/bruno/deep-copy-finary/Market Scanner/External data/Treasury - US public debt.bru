@@ -1,0 +1,68 @@
+meta {
+  name: Treasury - US public debt
+  type: http
+  seq: 4
+}
+
+get {
+  url: https://api.fiscaldata.treasury.gov/services/api/fiscal_service/v2/accounting/od/debt_to_penny?fields=record_date%2Ctot_pub_debt_out_amt&filter=record_date%3Agte%3A{{scannerTreasuryStartResolved}}%2Crecord_date%3Alte%3A{{scannerTreasuryAsOfResolved}}&sort=-record_date&page%5Bsize%5D=10000
+  body: none
+  auth: none
+}
+
+params:query {
+  fields: record_date%2Ctot_pub_debt_out_amt
+  filter: record_date%3Agte%3A{{scannerTreasuryStartResolved}}%2Crecord_date%3Alte%3A{{scannerTreasuryAsOfResolved}}
+  sort: -record_date
+  page%5Bsize%5D: 10000
+}
+
+headers {
+  Accept: application/json
+  User-Agent: DeepCopy-MarketScanner/2
+}
+
+script:pre-request {
+  const asOf = bru.getVar('scannerTreasuryAsOf') || new Date().toISOString().slice(0, 10);
+  function parseDate(value) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) throw new Error('Expected date format: YYYY-MM-DD');
+    const d = new Date(value + 'T00:00:00Z');
+    if (!Number.isFinite(d.getTime()) || d.toISOString().slice(0, 10) !== value) throw new Error('Invalid date');
+    return d;
+  }
+  const end = parseDate(asOf);
+  if (asOf > new Date().toISOString().slice(0, 10)) throw new Error('The end date cannot be in the future.');
+  const year = end.getUTCFullYear() - 10, month = end.getUTCMonth();
+  const day = Math.min(end.getUTCDate(), new Date(Date.UTC(year, month + 1, 0)).getUTCDate());
+  const start = new Date(Date.UTC(year, month, day));
+  start.setUTCDate(start.getUTCDate() - 14);
+  const startText = bru.getVar('scannerTreasuryStart') || start.toISOString().slice(0, 10);
+  if (parseDate(startText) > end) throw new Error('The start date is later than the end date.');
+  bru.setVar('scannerTreasuryAsOfResolved', asOf);
+  bru.setVar('scannerTreasuryStartResolved', startText);
+}
+
+script:post-response {
+  test('Status 200', () => expect(res.getStatus()).to.equal(200));
+  if (res.getStatus() === 200) {
+    const body = res.getBody();
+    test('Complete Treasury history', () => {
+      expect(body.data).to.be.an('array').and.not.empty;
+      expect(Number(body.meta['total-pages'])).to.be.at.most(1);
+    });
+    test('Valid dates and exact decimal amounts', () => {
+      const start = bru.getVar('scannerTreasuryStartResolved');
+      const end = bru.getVar('scannerTreasuryAsOfResolved');
+      expect(body.data.every(row => /^\d{4}-\d{2}-\d{2}$/.test(row.record_date) && row.record_date >= start && row.record_date <= end && typeof row.tot_pub_debt_out_amt === 'string' && /^\d+(?:\.\d+)?$/.test(row.tot_pub_debt_out_amt))).to.eql(true);
+    });
+  }
+}
+
+settings {
+  encodeUrl: true
+  forwardAuthorizationHeader: false
+}
+
+docs {
+  Uses the same series and fields as TreasuryClient. Defaults: today in UTC and ten years of history plus fourteen days. scannerTreasuryAsOf and scannerTreasuryStart can fix the dates (YYYY-MM-DD). Amounts remain decimal strings: do not convert them to Number, which could lose cents. The test fails if additional pagination is required.
+}
