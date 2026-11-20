@@ -1,4 +1,4 @@
-"""Check real release-image HTTP and Postman against our synthetic local database."""
+"""Check real release-image HTTP and Bruno against our synthetic local database."""
 
 import json
 import subprocess
@@ -100,18 +100,18 @@ def main() -> None:
         assert schema == expected
         subprocess.run(
             [
-                "postman",
-                "collection",
+                "bru",
                 "run",
-                str(ROOT / "docs/postman/momentum-api.postman_collection.json"),
+                "--env",
+                "local",
                 "--env-var",
                 "momentum_api_base_url=" + BASE,
                 "--env-var",
                 "api_token=" + credential,
                 "--env-var",
                 "analysis_id=" + analysis_id,
-                "--no-report-events",
             ],
+            cwd=ROOT / "docs/bruno/momentum-api",
             check=True,
         )
         traced = call(
@@ -136,7 +136,7 @@ def main() -> None:
         assert credential not in logs and "fixture-user" not in logs
         print(
             "Release image: non-root, storage, auth, HEAD/304, "
-            "exact OpenAPI, structured logs and Postman passed."
+            "exact OpenAPI, structured logs and Bruno passed."
         )
     finally:
         subprocess.run(["docker", "stop", name], check=False, capture_output=True)

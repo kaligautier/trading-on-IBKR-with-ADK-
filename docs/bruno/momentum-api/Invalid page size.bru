@@ -1,0 +1,27 @@
+meta {
+  name: Invalid page size
+  type: http
+  seq: 10
+}
+
+get {
+  url: {{momentum_api_base_url}}/v1/analyses?page_size=101
+  body: none
+  auth: inherit
+}
+
+headers {
+  Accept: application/json, application/problem+json
+}
+
+script:post-response {
+  test("HTTP 400", () => expect(res.getStatus()).to.equal(400));
+  test("Private cache policy", () => expect(res.getHeader("Cache-Control")).to.eql("no-store"));
+  test("Request ID", () => expect(res.getHeader("Request-ID")).to.match(/^[0-9a-f-]{36}$/));
+  test("Problem Details", () => { const p = res.getBody(); expect(p.status).to.eql(400); expect(p.type).to.match(/^https:/); expect(res.getHeader("Content-Type")).to.eql("application/problem+json"); });
+}
+
+settings {
+  encodeUrl: true
+  forwardAuthorizationHeader: false
+}
