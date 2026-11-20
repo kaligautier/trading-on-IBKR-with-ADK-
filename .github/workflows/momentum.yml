@@ -36,7 +36,7 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
-      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           version: '0.9.17'
           enable-cache: true
@@ -63,7 +63,7 @@ jobs:
           runtime_python="$PWD/.venv/bin/python"
           uv pip install --python "$runtime_python" --no-deps --reinstall "${wheels[0]}"
           cd "$RUNNER_TEMP"
-          "$runtime_python" -I -c 'import app; from app.domain.contracts import AnalysisRequest; import importlib.metadata as m; required = m.requires("momentum-adk"); assert "opentelemetry-api==1.45.1" in required; assert "opentelemetry-sdk==1.45.1" in required; assert m.version("opentelemetry-api") == "1.45.1"; assert m.version("opentelemetry-sdk") == "1.45.1"'
+          "$runtime_python" -I -c 'import app; from app.domain.contracts import AnalysisRequest; import importlib.metadata as m; required = m.requires("momentum-adk"); assert "opentelemetry-api==1.45.2" in required; assert "opentelemetry-sdk==1.45.2" in required; assert m.version("opentelemetry-api") == "1.45.2"; assert m.version("opentelemetry-sdk") == "1.45.2"'
 
   database:
     runs-on: ubuntu-24.04
@@ -75,7 +75,7 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
-      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           version: '0.9.17'
       - run: uv sync --project apps/backend/momentum-adk --frozen --python 3.12
@@ -106,7 +106,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
-      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2
         with:
           version: '0.9.17'
       - run: uv export --project apps/backend/momentum-adk --frozen --no-dev --no-emit-project --format requirements-txt --output-file=/tmp/momentum-requirements.txt

@@ -90,3 +90,15 @@ run "no_floating_suggestion_key" {
   variables { suggestion_key_version = "latest" }
   expect_failures = [var.suggestion_key_version]
 }
+
+run "reader_secret_containers_are_managed" {
+  command = plan
+  assert {
+    condition     = toset(keys(google_secret_manager_secret.reader)) == toset(["momentum-results-reader-database-url", "momentum-database-ca"])
+    error_message = "Manage the reader URL and CA secret containers."
+  }
+  assert {
+    condition     = google_secret_manager_secret.reader["momentum-database-ca"].labels["component"] == "reader"
+    error_message = "Containers keep their deployed labels."
+  }
+}

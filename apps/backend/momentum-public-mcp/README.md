@@ -200,7 +200,7 @@ separately exercises the real HTTP clients against contract-derived upstreams.
   Revision `momentum-public-mcp-00004-bcc` received 100% of traffic after the
   verified release wrapper completed. A subsequent Terraform plan was empty.
 - Automatic read-only verification retrieved the AAPL analysis and the daily
-  scanner report with 25 assets, checked all seven advertised tools, rejected
+  scanner report with 25 assets, checked all six tools and the scanner resource, rejected
   legacy handshakes and validated correlation headers on successful/error RPCs.
 - Cloud Logging recorded matching trace IDs in MCP and Momentum API for a
   successful list and a missing-analysis lookup. The latter produced an upstream

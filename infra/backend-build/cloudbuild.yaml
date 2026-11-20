@@ -1,0 +1,9 @@
+# Submit from the application directory (its Dockerfile and ignore file apply).
+steps:
+  - name: gcr.io/cloud-builders/docker
+    env: ['DOCKER_BUILDKIT=1']
+    args: ['build', '--platform=linux/amd64', '-t', '${_IMAGE}:$BUILD_ID', '.']
+images: ['${_IMAGE}:$BUILD_ID']
+options:
+  logging: CLOUD_LOGGING_ONLY
+timeout: 1200s

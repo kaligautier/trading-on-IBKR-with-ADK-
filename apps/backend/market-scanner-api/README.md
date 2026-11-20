@@ -54,17 +54,17 @@ disabled. Storage failure logs include a safe exception category.
 
 ## Database and authentication
 
-Use the existing Aiven PostgreSQL **`market_scanner` schema** and
-**`market_scanner_reader` role**. The existing Liquibase changeset in
+Use the existing Aiven PostgreSQL **`_analysis` schema** (in the `market_scanner`
+database) and **`market_scanner_reader` role**. The existing Liquibase changeset in
 `database/domains/market_scanner/baseline.sql` already grants only SELECT.
 Runtime SQL is schema-qualified, parameterized and uses read-only transactions.
 The service never receives administrator, migrator or writer credentials.
 
-One process owns one connection by default (`DATABASE_POOL_SIZE=1`, maximum 2,
+One process owns one connection by default (`DATABASE_POOL_SIZE=1`, the only accepted value,
 no overflow). Pool wait defaults to five seconds; connection and statement timeouts
 are ten seconds. Dispose the pool through the FastAPI lifespan. Keep deployment
 replicas, revision overlap and other readers within the existing role connection
-limit of four. Increasing workers multiplies the pool; the image starts one worker.
+limit of one. Increasing workers multiplies the pool; the image starts one worker.
 
 Remote database URLs must use `sslmode=verify-full`; provide the Aiven project CA
 through `sslrootcert=/etc/database/ca.pem`. Only localhost can disable TLS.

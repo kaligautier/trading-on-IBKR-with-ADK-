@@ -34,7 +34,7 @@ jobs:
         working-directory: apps/backend/market-scanner-adk
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           version: '0.9.17'
           enable-cache: true
@@ -72,13 +72,29 @@ jobs:
           terraform -chdir=infra/bootstrap init -backend=false -input=false -lockfile=readonly
           terraform -chdir=infra/bootstrap validate
           terraform -chdir=infra/bootstrap test
+      - name: Validate and test drift detection identity
+        run: |
+          terraform -chdir=infra/drift init -backend=false -input=false -lockfile=readonly
+          terraform -chdir=infra/drift validate
+          terraform -chdir=infra/drift test
+      - name: Validate and test backend image builder
+        run: |
+          terraform -chdir=infra/backend-build init -backend=false -input=false -lockfile=readonly
+          terraform -chdir=infra/backend-build validate
+          terraform -chdir=infra/backend-build test
+      - name: Validate and test the application release identity and guard
+        run: |
+          terraform -chdir=infra/deploy init -backend=false -input=false -lockfile=readonly
+          terraform -chdir=infra/deploy validate
+          terraform -chdir=infra/deploy test
+          python3 -m unittest discover -s infra/deploy/tests -p 'test_*.py' -v
 
   dependencies:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           version: '0.9.17'
       - name: Export locked runtime dependencies

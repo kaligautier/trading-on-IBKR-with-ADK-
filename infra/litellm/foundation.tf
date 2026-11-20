@@ -10,8 +10,8 @@ locals {
   jobs_enabled    = var.stage != "foundation"
   secret_names    = toset(["database-url", "master-key", "salt-key", "ui-password", "database-ca"])
   image_prefix    = "${var.region}-docker.pkg.dev/${var.project_id}/${google_artifact_registry_repository.litellm.repository_id}/berriai"
-  proxy_image     = "${local.image_prefix}/litellm@${var.proxy_digest}"
-  migration_image = "${local.image_prefix}/litellm-migrations@${var.migrations_digest}"
+  proxy_image     = var.release_images == null ? "${local.image_prefix}/litellm@${var.proxy_digest}" : var.release_images.proxy
+  migration_image = var.release_images == null ? "${local.image_prefix}/litellm-migrations@${var.migrations_digest}" : var.release_images.migrations
   runtime_secrets = {
     DATABASE_URL       = "database-url"
     LITELLM_MASTER_KEY = "master-key"
@@ -33,7 +33,7 @@ locals {
       litellm_params = {
         model           = "vertex_ai/${model}"
         vertex_project  = var.project_id
-        vertex_location = var.vertex_location
+        vertex_location = contains(var.global_vertex_models, model) ? "global" : var.vertex_location
       }
     }], local.provider_models)
     general_settings = merge(local.runtime_settings.general_settings, {

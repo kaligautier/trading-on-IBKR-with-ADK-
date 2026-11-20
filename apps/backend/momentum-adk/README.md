@@ -1,8 +1,6 @@
 # Momentum ADK
 
-Independent Python 3.12 package for the private Momentum extraction described in
-the [specification](../../../docs/specs/momentum-service.md) and
-[execution checklist](../../../tasks/archive/momentum-worker-todo.md).
+Independent Python 3.12 package for the private Momentum analysis worker.
 
 ## Current implementation
 
@@ -12,11 +10,11 @@ T06–T08 provide migrated ADK session storage. T09–T10 provide 12 completed-r
 models and their migrations. T11 writes all financial sections and execution
 correlation in one transaction; failures roll back the whole result.
 The target is one database, `momentum`, with `_sessions` (5 ADK tables) and
-`_analysis` (12 result tables). Separate runtime logins restrict each connection
+`_analysis` (12 result tables plus the private `trading_memory` table). Separate runtime logins restrict each connection
 to its own schema; result access is INSERT/SELECT only. Both pools are bounded.
 The unified layout was applied and verified remotely on 2026-10-20; obsolete
 Momentum databases and the shared legacy schema were removed after private backups.
-Local validation passes 136 unit and 49 PostgreSQL integration cases.
+Local validation runs the unit suite and the PostgreSQL integration suite.
 The worker now includes the original market-data adapters, twelve agent roles,
 analyst/debate graph, execution memory and durable ADK runtime. All model roles use
 the native LiteLLM gateway exclusively. A shared gate permits two concurrent model
@@ -54,7 +52,7 @@ network services or source repository. Each application has its own environment;
 do not add sibling applications to `PYTHONPATH`.
 
 Install dependencies through the committed `uv.lock`. The application and wheel
-require OpenTelemetry API/SDK 1.45.1 to fix CVE-2026-114603. ADK 2.6.1 still caps
+require OpenTelemetry API/SDK 1.45.2 to fix CVE-2026-114603 and CVE-2026-126360. ADK 2.6.1 still caps
 these dependencies at 1.42.1, so the project contains a narrow, tested uv override.
 A standalone resolver without that override fails rather than silently installing
 the vulnerable version. For an internal wheel, first prepare the frozen environment

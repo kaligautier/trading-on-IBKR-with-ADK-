@@ -3,7 +3,9 @@ project_id      = "your-gcp-project"
 region          = "europe-west1"
 vertex_location = "eu"
 model           = "gemini-3.8-flash"
-additional_vertex_models = []
+# Gemini 4 models are served by the Vertex "global" endpoint only (not "eu").
+additional_vertex_models = ["gemini-4-argon", "gemini-4-carbon", "gemini-4-hydrogen", "gemini-4-neon"]
+global_vertex_models     = ["gemini-4-argon", "gemini-4-carbon", "gemini-4-hydrogen", "gemini-4-neon"]
 
 # Optional: existing identities for future application integration.
 client_service_accounts = {}
