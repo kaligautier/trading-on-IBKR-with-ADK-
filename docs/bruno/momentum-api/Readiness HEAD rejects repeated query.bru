@@ -17,7 +17,7 @@ headers {
 script:post-response {
   test("HTTP 400", () => expect(res.getStatus()).to.equal(400));
   test("Private cache policy", () => expect(res.getHeader("Cache-Control")).to.eql("no-store"));
-  test("Bodyless response", () => expect(JSON.stringify(res.getBody())).to.eql(""));
+  test("Bodyless response", () => expect(String(res.getBody() ?? "")).to.eql(""));
 }
 
 settings {
