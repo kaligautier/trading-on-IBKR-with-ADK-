@@ -95,11 +95,12 @@ Disposable fixture credentials over isolated test transports prove application
 behavior only. There is no configuration/network work at module import time.
 The packaged runtime owns one engine/pool and closes it on shutdown.
 
-[Postman requests](../../../docs/postman/momentum-api.postman_collection.json)
+[Bruno requests](../../../docs/bruno/momentum-api)
 use `momentum_api_base_url`, `api_token` and `analysis_id`. Configure a known
 retained UUID for the detail request. Leave secrets in local environment/secret
 variables. An unknown-ID test assumes its all-ones UUID is absent.
-Run with `postman collection run <collection-path> --no-report-events`; the
+Open the folder in Bruno, select the `local` environment, or run
+`bru run --env local` from the collection folder (Bruno CLI >= 4); the
 container smoke command supplies a synthetic retained analysis and disposable token.
 
 ## Authentication, storage and operation
@@ -259,7 +260,7 @@ Only the intake transaction temporarily uses READ WRITE; subsequent transactions
 return to the default READ ONLY setting. Liquibase owns the new schema.
 
 Reproducible integration check (after syncing both backend environments and
-installing the pinned Postman CLI):
+installing the pinned Bruno CLI, `npm i -g @usebruno/cli@4.3.0`):
 
 ```sh
 bash scripts/test_database.sh start
@@ -267,7 +268,7 @@ uv run --frozen python scripts/mcp_smoke.py
 bash scripts/test_database.sh stop
 ```
 
-This launches real loopback API/MCP processes, runs nine saved Postman requests,
+This launches real loopback API/MCP processes, runs nine saved Bruno requests,
 and independently reads PostgreSQL to prove the pending result was committed.
 It emulates Cloud Run ingress locally; IAM must also be verified after deployment.
 

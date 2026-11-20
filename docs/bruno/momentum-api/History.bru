@@ -1,0 +1,61 @@
+meta {
+  name: History
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{momentum_api_base_url}}/v1/analyses?page_size=20
+  body: none
+  auth: inherit
+}
+
+headers {
+  Accept: application/json, application/problem+json
+}
+
+script:post-response {
+  test("HTTP 200", () => expect(res.getStatus()).to.equal(200));
+  test("Private cache policy", () => expect(res.getHeader("Cache-Control")).to.eql("no-store"));
+  test("Request ID", () => expect(res.getHeader("Request-ID")).to.match(/^[0-9a-f-]{36}$/));
+  test("Bounded page", () => { const p = res.getBody(); expect(p.items).to.be.an("array"); expect(p.items.length).to.be.at.most(20); expect(p.next_page_token).to.be.a("string"); p.items.forEach(item => { ["user_id", "session_id", "invocation_id"].forEach(key => expect(item).not.to.have.property(key)); }); });
+}
+
+settings {
+  encodeUrl: true
+  forwardAuthorizationHeader: false
+}
+
+example {
+  name: Synthetic example
+  
+  request: {
+    url: {{momentum_api_base_url}}/v1/analyses?page_size=20
+    method: GET
+    mode: none
+    headers: {
+      Accept: application/json, application/problem+json
+    }
+  }
+  
+  response: {
+    headers: {
+      Content-Type: application/json
+    }
+  
+    status: {
+      code: 200
+      text: OK
+    }
+  
+    body: {
+      type: json
+      content: '''
+        {
+          "items": [],
+          "next_page_token": ""
+        }
+      '''
+    }
+  }
+}

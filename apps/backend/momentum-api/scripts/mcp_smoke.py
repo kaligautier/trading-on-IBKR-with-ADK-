@@ -1,4 +1,4 @@
-"""Real loopback MCP -> Momentum API -> owned PostgreSQL fixture, using Postman.
+"""Real loopback MCP -> Momentum API -> owned PostgreSQL fixture, using Bruno.
 
 The API's Cloud Run ingress is emulated only on loopback; this test proves HTTP
 and persistence, not IAM. The separate container smoke verifies bearer auth.
@@ -7,6 +7,7 @@ and persistence, not IAM. The separate container smoke verifies bearer auth.
 import asyncio
 import json
 import os
+import shutil
 import signal
 import socket
 import subprocess
@@ -174,29 +175,25 @@ def main() -> None:
             )
             processes.append(mcp)
             ready(8185, mcp)
-            collection = json.loads(
-                (MCP / "tests/postman/mcp.postman_collection.json").read_text()
-            )
             omitted = {
                 "latest_market_scan",
                 "Sanitized upstream failure",
                 "Cold-start latency",
             }
-            collection["item"] = [
-                i for i in collection["item"] if i["name"] not in omitted
-            ]
-            path = Path(directory) / "collection.json"
-            path.write_text(json.dumps(collection))
+            path = Path(directory) / "bruno-mcp"
+            shutil.copytree(MCP / "tests/bruno/mcp", path)
+            for name in omitted:
+                (path / f"{name}.bru").unlink()
             subprocess.run(
                 [
-                    "postman",
-                    "collection",
+                    "bru",
                     "run",
-                    str(path),
+                    "--env",
+                    "local",
                     "--env-var",
                     "mcpUrl=http://127.0.0.1:8185",
-                    "--report-events=false",
                 ],
+                cwd=path,
                 check=True,
             )
             success = True

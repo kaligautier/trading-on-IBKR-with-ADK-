@@ -1,0 +1,26 @@
+meta {
+  name: JSON charset is ignored
+  type: http
+  seq: 16
+}
+
+get {
+  url: {{momentum_api_base_url}}/health
+  body: none
+  auth: inherit
+}
+
+headers {
+  Accept: application/json;charset=utf-8
+}
+
+script:post-response {
+  test("HTTP 200", () => expect(res.getStatus()).to.equal(200));
+  test("Private cache policy", () => expect(res.getHeader("Cache-Control")).to.eql("no-store"));
+  test("JSON response", () => expect(res.getBody()).to.eql({status: "ok"}));
+}
+
+settings {
+  encodeUrl: true
+  forwardAuthorizationHeader: false
+}

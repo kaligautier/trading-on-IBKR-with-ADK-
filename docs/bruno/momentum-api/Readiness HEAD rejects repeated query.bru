@@ -1,0 +1,26 @@
+meta {
+  name: Readiness HEAD rejects repeated query
+  type: http
+  seq: 19
+}
+
+head {
+  url: {{momentum_api_base_url}}/ready?unexpected=1&unexpected=2
+  body: none
+  auth: inherit
+}
+
+headers {
+  Accept: application/json, application/problem+json
+}
+
+script:post-response {
+  test("HTTP 400", () => expect(res.getStatus()).to.equal(400));
+  test("Private cache policy", () => expect(res.getHeader("Cache-Control")).to.eql("no-store"));
+  test("Bodyless response", () => expect(JSON.stringify(res.getBody())).to.eql(""));
+}
+
+settings {
+  encodeUrl: true
+  forwardAuthorizationHeader: false
+}
