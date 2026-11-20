@@ -1,4 +1,4 @@
-"""Run the real requests client against the local Postman simulation."""
+"""Run the real requests client against the local Alpha Vantage fixture server."""
 
 import json
 import os
@@ -11,7 +11,7 @@ from app.infrastructure.market_data.alpha_vantage import (
     news,
 )
 
-common.API_BASE_URL = "http://127.0.0.1:4909/alpha/query"
+common.API_BASE_URL = "http://127.0.0.1:4909/query"
 os.environ["ALPHA_VANTAGE_API_KEY"] = "synthetic-only"
 for result in (
     news.get_news("AAPL", "2026-10-20", "2026-10-20"),

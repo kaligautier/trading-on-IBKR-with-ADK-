@@ -1,5 +1,0 @@
-simulation: momentum-market
-routing: path
-mocks:
-  - routeKey: alpha
-    path: ./mocks/alpha/config.yaml
