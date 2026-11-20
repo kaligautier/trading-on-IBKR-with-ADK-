@@ -168,7 +168,7 @@ run "providers_are_inactive_without_credentials" {
   command = plan
   assert {
     condition = (
-      length(google_secret_manager_secret.provider) == 3 &&
+      length(google_secret_manager_secret.provider) == 4 &&
       length(google_secret_manager_secret_iam_member.provider) == 0 &&
       length(yamldecode(local.proxy_config).model_list) == 1
     )

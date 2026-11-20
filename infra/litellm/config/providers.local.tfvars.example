@@ -10,4 +10,9 @@ provider_models          = {}
 #   openai-chat = { provider = "openai", model = "MODEL_ID" }
 # }
 # Other supported providers: anthropic, gemini (Google AI Studio).
+# TypeSafe decision model (served on /v1/systemone and /v1/decisions):
+# provider_secret_versions = { typesafe = "1" }
+# provider_models = {
+#   jev = { provider = "typesafe", model = "jev-latest" }
+# }
 # Vertex AI remains configured separately with the attached GCP identity.

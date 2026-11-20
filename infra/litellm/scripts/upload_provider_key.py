@@ -8,7 +8,9 @@ import sys
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("provider", choices=["openai", "anthropic", "gemini"])
+    parser.add_argument(
+        "provider", choices=["openai", "anthropic", "gemini", "typesafe"]
+    )
     parser.add_argument("--project", required=True)
     parser.add_argument("--account", required=True)
     args = parser.parse_args()
