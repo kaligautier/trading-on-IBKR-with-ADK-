@@ -1,8 +1,18 @@
 // Contract: pinned LiteLLM management API, exercised by the real TF provider.
 // Synthetic credentials only; no upstream calls.
 const http = require("http");
+const store = new Map();
+const pm = {state: {set: async (k, v) => store.set(k, v), get: async (k) => store.get(k)}};
+const createServer = (handler) => http.createServer((req, res) => {
+  const chunks = [];
+  req.on("data", (c) => chunks.push(c));
+  req.on("end", () => {
+    try { req.body = JSON.parse(Buffer.concat(chunks).toString() || "{}"); } catch { req.body = {}; }
+    handler(req, res);
+  });
+});
 const { createHash } = require("crypto");
-http.createServer(async (req, res) => {
+createServer(async (req, res) => {
   const url = new URL(req.url, "http://localhost");
   const path = url.pathname;
   const send = (status, body) => {
