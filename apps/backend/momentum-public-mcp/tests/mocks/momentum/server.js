@@ -1,7 +1,17 @@
 // Read contract: apps/backend/momentum-api/openapi.json.
 // Suggestions contract: recovered DeepCopy Momentum API. Synthetic local data.
 const http = require("http");
-http.createServer(async (req,res) => {
+const store = new Map();
+const pm = {state: {set: async (k, v) => store.set(k, v), get: async (k) => store.get(k)}};
+const createServer = (handler) => http.createServer((req, res) => {
+  const chunks = [];
+  req.on("data", (c) => chunks.push(c));
+  req.on("end", () => {
+    try { req.body = JSON.parse(Buffer.concat(chunks).toString() || "{}"); } catch { req.body = {}; }
+    handler(req, res);
+  });
+});
+createServer(async (req,res) => {
  const url = new URL(req.url,"http://localhost");
  const send = (status,body) => {res.writeHead(status,{"Content-Type":"application/json"});res.end(JSON.stringify(body));};
  if(req.headers["authorization"] !== "Bearer disposable-momentum-token") return send(401,{error:"invalid bearer"});
