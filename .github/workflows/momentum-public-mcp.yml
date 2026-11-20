@@ -54,6 +54,8 @@ jobs:
           tar -xzf "$RUNNER_TEMP/postman.tgz" -C "$RUNNER_TEMP/mcp-postman"
           mv "$RUNNER_TEMP/mcp-postman/postman-cli" "$RUNNER_TEMP/mcp-postman/postman"
           echo "$RUNNER_TEMP/mcp-postman" >> "$GITHUB_PATH"
+      - name: Install pinned Bruno CLI
+        run: npm install --global @usebruno/cli@4.3.0
       - name: Real MCP over HTTP against contract-derived upstreams
         run: uv run --locked python scripts/simulation.py
       - run: uv sync --project ../momentum-api --frozen --python 3.12

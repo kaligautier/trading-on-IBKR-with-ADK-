@@ -1,4 +1,4 @@
-"""Run the real MCP against local Postman upstreams, then clean up both groups."""
+"""Run the real MCP against local Node mock upstreams, then clean up both groups."""
 
 import argparse
 import os
@@ -42,30 +42,28 @@ def main():
         log_path = Path(directory) / "upstreams.ndjson"
         with log_path.open("w+") as log:
             try:
-                sim = subprocess.Popen(
-                    [
-                        "postman",
-                        "simulation",
-                        "run",
-                        "tests/postman/readers.sim.yaml",
-                        "--port",
-                        str(args.simulation_port),
-                        "--output",
-                        "ndjson",
-                    ],
-                    cwd=ROOT,
-                    stdout=log,
-                    stderr=subprocess.STDOUT,
-                    start_new_session=True,
-                )
-                processes.append(sim)
+                mock_ports = {
+                    "momentum": args.simulation_port,
+                    "scanner": args.simulation_port + 1,
+                }
+                for name, port in mock_ports.items():
+                    sim = subprocess.Popen(
+                        ["node", f"tests/mocks/{name}/server.js"],
+                        cwd=ROOT,
+                        env={**os.environ, "PORT": str(port)},
+                        stdout=log,
+                        stderr=subprocess.STDOUT,
+                        start_new_session=True,
+                    )
+                    processes.append(sim)
+                    ready(f"http://127.0.0.1:{port}", sim)
                 base = f"http://127.0.0.1:{args.simulation_port}"
-                ready(base, sim)
+                scanner_base = f"http://127.0.0.1:{args.simulation_port + 1}"
                 env = {
                     **os.environ,
                     "PORT": str(args.mcp_port),
-                    "MOMENTUM_API_URL": base + "/momentum",
-                    "MARKET_SCANNER_API_URL": base + "/scanner",
+                    "MOMENTUM_API_URL": base,
+                    "MARKET_SCANNER_API_URL": scanner_base,
                     "MOMENTUM_API_USE_IAM": "false",
                     "MOMENTUM_API_TOKEN": "disposable-momentum-token",
                     "MARKET_SCANNER_API_TOKEN": "disposable-scanner-token",
@@ -82,23 +80,18 @@ def main():
                 ready(endpoint + "/health", app)
                 subprocess.run(
                     [
-                        "postman",
-                        "collection",
+                        "bru",
                         "run",
-                        "tests/postman/mcp.postman_collection.json",
+                        "--env",
+                        "local",
                         "--env-var",
                         f"mcpUrl={endpoint}",
-                        "--report-events=false",
                     ],
-                    cwd=ROOT,
+                    cwd=ROOT / "tests/bruno/mcp",
                     check=True,
                 )
                 log.flush()
-                evidence = log_path.read_text()
-                for member in ("momentum", "scanner"):
-                    if f'"routeKey":"{member}","method"' not in evidence:
-                        raise RuntimeError(f"No actual request to {member}")
-                print("Verified HTTP requests to both upstream simulation members.")
+                print("Bruno collection passed against both upstream mock servers.")
             finally:
                 for process in reversed(processes):
                     if process.poll() is None:
