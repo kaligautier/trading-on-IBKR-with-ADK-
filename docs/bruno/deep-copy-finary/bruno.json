@@ -1,0 +1,9 @@
+{
+  "version": "1",
+  "name": "Deep Copy Finary - Market Scanner",
+  "type": "collection",
+  "ignore": [
+    "node_modules",
+    ".git"
+  ]
+}

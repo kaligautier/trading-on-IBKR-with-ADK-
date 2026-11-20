@@ -1,0 +1,26 @@
+meta {
+  name: Scanner ADK
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{scannerAdkUrl}}/health
+  body: none
+  auth: inherit
+}
+
+script:pre-request {
+  const token = bru.getVar('scannerToken');
+  if (token) req.setHeader('X-Market-Scanner-Token', token);
+}
+
+script:post-response {
+  test('Status 200', () => expect(res.getStatus()).to.equal(200));
+  test('Scanner healthy', () => expect(res.getBody().status).to.eql('ok'));
+}
+
+settings {
+  encodeUrl: true
+  forwardAuthorizationHeader: false
+}

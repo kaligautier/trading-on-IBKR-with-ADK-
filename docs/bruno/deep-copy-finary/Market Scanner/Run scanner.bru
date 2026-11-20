@@ -1,0 +1,46 @@
+meta {
+  name: Run scanner
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{scannerAdkUrl}}/run
+  body: json
+  auth: inherit
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "appName": "{{scannerAppName}}",
+    "userId": "{{scannerUserId}}",
+    "sessionId": "{{scannerSessionId}}",
+    "newMessage": {
+      "role": "user",
+      "parts": [{ "text": "{{scannerRunInstruction}}" }]
+    },
+    "streaming": false
+  }
+}
+
+script:pre-request {
+  const token = bru.getVar('scannerToken');
+  if (token) req.setHeader('X-Market-Scanner-Token', token);
+  if (!bru.getVar('scannerSessionId')) throw new Error('Run Create session before Run scanner.');
+}
+
+script:post-response {
+  test('Status 200', () => expect(res.getStatus()).to.equal(200));
+  const events = res.getBody();
+  test('ADK events returned', () => expect(events).to.be.an('array').and.not.empty);
+  test('No ADK error', () => expect(events.some(event => event.errorCode || event.errorMessage)).to.eql(false));
+}
+
+settings {
+  encodeUrl: true
+  forwardAuthorizationHeader: false
+}
