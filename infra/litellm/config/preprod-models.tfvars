@@ -7,12 +7,14 @@ additional_vertex_models = [
   "gemini-3.6-flash",
   "gemini-3.7-flash",
   "gemini-4-argon",
+  "gemini-4-carbon",
   "gemini-4-hydrogen",
   "gemini-4-neon",
 ]
 # Gemini 4 is served only by the Vertex global endpoint, not vertex_location (eu).
 global_vertex_models = [
   "gemini-4-argon",
+  "gemini-4-carbon",
   "gemini-4-hydrogen",
   "gemini-4-neon",
 ]

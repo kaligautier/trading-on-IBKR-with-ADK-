@@ -4,6 +4,7 @@ locals {
     openai    = "OPENAI_API_KEY"
     anthropic = "ANTHROPIC_API_KEY"
     gemini    = "GEMINI_API_KEY"
+    typesafe  = "TYPESAFE_API_KEY"
   }
   provider_models = [for alias, model in var.provider_models : {
     model_name = alias
@@ -20,9 +21,9 @@ variable "provider_secret_versions" {
   default     = {}
   validation {
     condition = alltrue([for provider, version in var.provider_secret_versions :
-      contains(["openai", "anthropic", "gemini"], provider) && can(regex("^[1-9][0-9]*$", version))
+      contains(keys(local.provider_environment), provider) && can(regex("^[1-9][0-9]*$", version))
     ])
-    error_message = "Use openai, anthropic or gemini with positive numeric secret versions."
+    error_message = "Use openai, anthropic, gemini or typesafe with positive numeric secret versions."
   }
 }
 
@@ -36,7 +37,7 @@ variable "provider_models" {
   validation {
     condition = alltrue([for alias, model in var.provider_models :
       can(regex("^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$", alias)) && alias != var.model && !contains(var.additional_vertex_models, alias) &&
-      contains(["openai", "anthropic", "gemini"], model.provider) &&
+      contains(keys(local.provider_environment), model.provider) &&
       contains(keys(var.provider_secret_versions), model.provider) &&
       can(regex("^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,199}$", model.model))
     ])
