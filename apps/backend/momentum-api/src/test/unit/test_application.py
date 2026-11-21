@@ -10,8 +10,8 @@ import pytest
 from app.app_factory import create_app
 from app.config.settings import Settings
 from app.domain.analyses.models import AnalysisPage
-from app.presentation.http.problems import APIError
 from app.services.analysis_service import AnalysisService
+from app.utils.error import AppError, ErrorCode
 
 BEARER = "Bearer disposable-reader-token"
 
@@ -37,7 +37,7 @@ async def client(reader):
 
     @app.get("/failure")
     async def failure():
-        raise APIError(503, "store-unavailable")
+        raise AppError(ErrorCode.STORE_UNAVAILABLE)
 
     @app.get("/crash")
     async def crash():

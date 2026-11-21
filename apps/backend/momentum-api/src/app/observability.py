@@ -5,6 +5,8 @@ import logging
 import re
 from datetime import UTC, datetime
 
+from app.utils.logging_messages import LoggingMessages
+
 LOGGER = logging.getLogger("momentum_api")
 type LogValue = str | int | float | bool | None
 
@@ -13,6 +15,7 @@ def log_event(level: int, event: str, **fields: LogValue) -> None:
     try:
         LOGGER.log(
             level,
+            LoggingMessages.STRUCTURED_EVENT,
             json.dumps(
                 {
                     "timestamp": datetime.now(UTC).isoformat().replace("+00:00", "Z"),

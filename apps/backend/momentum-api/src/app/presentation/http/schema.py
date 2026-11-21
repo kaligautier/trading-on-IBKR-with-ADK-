@@ -6,7 +6,8 @@ from typing import Any
 
 from fastapi import FastAPI
 
-from app.presentation.http.problems import DETAILS, PROBLEM_BASE, status_phrase
+from app.presentation.http.problems import PROBLEM_BASE, status_phrase
+from app.utils.error import ErrorCode
 
 ERRORS = {400, 401, 403, 404, 405, 406, 409, 412, 413, 415, 429, 500, 503}
 
@@ -179,7 +180,7 @@ def install_schema(app: FastAPI) -> None:
             "bodies and duplicate or unknown query parameters. Only list endpoints "
             "accept query parameters; OPTIONS does not validate them. Error types: "
             + PROBLEM_BASE
-            + ", ".join(DETAILS)
+            + ", ".join(code.value for code in ErrorCode)
         )
         app.openapi_schema = document
         return document

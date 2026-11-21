@@ -47,6 +47,7 @@ select = [
     "RUF", # additional correctness checks
     "PIE", # redundant statements
     "S", # security checks
+    "G004", # no f-strings in logging calls; use LoggingMessages templates
 ]
 ignore = []
 

@@ -12,9 +12,9 @@ from app.domain.analyses.search import (
     View,
 )
 from app.presentation.dto import AnalysisDetail, AnalysisPage
-from app.presentation.http.problems import APIError
 from app.presentation.mappers import detail_to_dto, page_to_dto
 from app.services.analysis_service import AnalysisService
+from app.utils.error import InvalidArgumentError
 
 router = APIRouter()
 
@@ -52,7 +52,7 @@ def parameters(
             view, ticker, rating, page_size, page_token
         )
     except ValueError:
-        raise APIError(400, "invalid-argument") from None
+        raise InvalidArgumentError() from None
 
 
 @router.get("/v1/analyses", operation_id="list_analyses", response_model=AnalysisPage)

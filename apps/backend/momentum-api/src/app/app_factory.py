@@ -11,12 +11,12 @@ from starlette.types import Scope
 
 from app.config.settings import Settings
 from app.domain.analyses.errors import ConsultationError
-from app.presentation.http.errors import application_problem
 from app.presentation.http.middleware import HTTPPolicy
-from app.presentation.http.problems import APIError, problem_bytes
+from app.presentation.http.problems import problem_bytes
 from app.presentation.http.schema import install_schema
 from app.presentation.routes.analyses import QUERY_PARAMETERS, router
 from app.presentation.routes.suggestions import router as suggestions_router
+from app.utils.error import AppError, InvalidArgumentError
 
 Lifespan = Callable[[FastAPI], AbstractAsyncContextManager[None]]
 
@@ -34,21 +34,21 @@ def create_app(settings: Settings, lifespan: Lifespan | None = None) -> FastAPI:
     async def health() -> dict[str, str]:
         return {"status": "ok"}
 
-    @app.exception_handler(APIError)
-    async def application_error(_: Request, error: APIError) -> Response:
+    @app.exception_handler(AppError)
+    async def application_error(_: Request, error: AppError) -> Response:
         return Response(
             problem_bytes(error),
-            status_code=error.status,
+            status_code=error.status_code,
             media_type="application/problem+json",
         )
 
     @app.exception_handler(RequestValidationError)
     async def validation_error(_: Request, error: RequestValidationError) -> Response:
-        return await application_error(_, APIError(400, "invalid-argument"))
+        return await application_error(_, InvalidArgumentError())
 
     @app.exception_handler(ConsultationError)
     async def consultation_error(_: Request, error: ConsultationError) -> Response:
-        return await application_error(_, application_problem(error))
+        return await application_error(_, AppError.from_domain(error))
 
     def route_name(scope: Scope) -> str | None:
         for route in [*app.routes, *router.routes, *suggestions_router.routes]:
