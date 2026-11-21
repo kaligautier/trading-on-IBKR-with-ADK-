@@ -66,7 +66,11 @@ def should_accept_dispatch_without_running_the_workflow(monkeypatch):
     )
     monkeypatch.setattr(application, "dispatch_scan", dispatch)
     with TestClient(application.create_app()) as client:
-        assert client.post("/internal/v1/scan-jobs").status_code == 401
+        unauthorized = client.post("/internal/v1/scan-jobs")
+        assert unauthorized.status_code == 401
+        assert unauthorized.json() == {
+            "error": {"code": "UNAUTHENTICATED", "message": "Unauthorized"}
+        }
         dispatch.assert_not_called()
         response = client.post(
             "/internal/v1/scan-jobs", headers={"X-Market-Scanner-Token": "test-token"}
@@ -90,7 +94,13 @@ def should_report_dispatch_failure_without_exposing_details(monkeypatch):
     with TestClient(application.create_app()) as client:
         response = client.post("/internal/v1/scan-jobs")
     assert response.status_code == 502
-    assert response.json() == {"detail": "Scheduled scan dispatch failed"}
+    assert response.json() == {
+        "error": {
+            "code": "SCAN_DISPATCH_FAILED",
+            "message": "Scheduled scan dispatch failed",
+        }
+    }
+    assert "private details" not in response.text
 
 
 async def should_fail_the_worker_when_persistence_fails(scheduled_workflow):
@@ -120,6 +130,12 @@ def should_reject_dispatch_without_a_configured_job(monkeypatch):
     with TestClient(application.create_app()) as client:
         response = client.post("/internal/v1/scan-jobs")
     assert response.status_code == 503
+    assert response.json() == {
+        "error": {
+            "code": "SCAN_JOB_NOT_CONFIGURED",
+            "message": "Scheduled scan job is not configured",
+        }
+    }
     dispatch.assert_not_called()
 
 
@@ -189,3 +205,14 @@ def should_not_use_worker_admission_for_job_submission(monkeypatch):
     assert disallowed.status_code == 405
     assert disallowed.headers["allow"] == "POST"
     dispatch.assert_called_once()
+
+
+def should_document_scan_job_errors_from_the_error_module():
+    schema = application.create_app().openapi()
+    responses = schema["paths"]["/internal/v1/scan-jobs"]["post"]["responses"]
+    assert responses["401"]["description"] == "`UNAUTHENTICATED`: Unauthorized"
+    assert "`SCAN_JOB_NOT_CONFIGURED`" in responses["503"]["description"]
+    assert "`SCAN_DISPATCH_FAILED`" in responses["502"]["description"]
+    assert responses["502"]["content"]["application/json"]["schema"] == {
+        "$ref": "#/components/schemas/ErrorResponse"
+    }

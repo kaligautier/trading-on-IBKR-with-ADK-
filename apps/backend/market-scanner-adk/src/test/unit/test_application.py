@@ -111,7 +111,8 @@ def should_map_app_errors_and_record_their_codes(error_type, status_code, code, 
         response = TestClient(app).get("/test-error")
 
     assert response.status_code == status_code
-    assert response.json() == {"error": "Test failure"}
+    assert response.json() == {"error": {"code": code, "message": "Test failure"}}
+    assert "^GSPC" not in response.text
     assert response.headers["x-request-id"]
     events = [r for r in caplog.records if getattr(r, "event", None) == "http.request"]
     assert len(events) == 1

@@ -13,6 +13,7 @@ from app.models.step_01_external_market_data import (
     ExternalMarketObservation,
 )
 from app.utils.error import AppError, MarketDataCollectionError
+from app.utils.logging_messages import LoggingMessages
 from app.utils.wide_event import wide_event
 
 logger = logging.getLogger(__name__)
@@ -107,7 +108,7 @@ class MarketDataCollectionService:
                 "market_data.errors",
                 {"symbol": asset.symbol, "source": asset.source, **app_error.to_dict()},
             )
-            logger.warning("Collection failed for %s: %s", asset.symbol, app_error)
+            logger.warning(LoggingMessages.COLLECTION_FAILED, asset.symbol, app_error)
             return ExternalMarketAsset(
                 **metadata,
                 retrieved_at=datetime.now(UTC),

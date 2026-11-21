@@ -83,6 +83,29 @@ def test_app_error_to_dict():
     assert error_dict["details"] == {"config": "test_config"}
 
 
+def test_app_error_to_response_hides_details():
+    """The public HTTP envelope carries the wire code and message only."""
+    error = AppError(
+        error_code=ErrorCode.SCAN_DISPATCH_FAILED,
+        details={"error_type": "RuntimeError"},
+    )
+
+    assert error.to_response() == {
+        "error": {
+            "code": "SCAN_DISPATCH_FAILED",
+            "message": "Scheduled scan dispatch failed",
+        }
+    }
+
+
+def test_http_error_codes_map_to_existing_statuses():
+    """HTTP failures keep the statuses served before the envelope change."""
+    assert HTTP_STATUS_CODES[ErrorCode.UNAUTHENTICATED] == 401
+    assert HTTP_STATUS_CODES[ErrorCode.SCANNER_BUSY] == 503
+    assert HTTP_STATUS_CODES[ErrorCode.SCAN_JOB_NOT_CONFIGURED] == 503
+    assert HTTP_STATUS_CODES[ErrorCode.SCAN_DISPATCH_FAILED] == 502
+
+
 def test_invalid_input_error():
     """Test InvalidInputError specialized exception."""
     error = InvalidInputError(message="Invalid parameter", details={"param": "value"})

@@ -3,6 +3,7 @@
 from starlette.responses import JSONResponse
 
 from app.services.admission import ScannerBusyError, admit_scan
+from app.utils.error import ScannerBusyHTTPError
 
 
 class ScannerAdmissionMiddleware:
@@ -23,8 +24,9 @@ class ScannerAdmissionMiddleware:
             if scope["type"] == "websocket":
                 await send({"type": "websocket.close", "code": 1013})
             else:
+                error = ScannerBusyHTTPError()
                 await JSONResponse(
-                    {"detail": "Scanner execution capacity is busy"},
-                    status_code=503,
+                    error.to_response(),
+                    status_code=error.status_code,
                     headers={"Retry-After": "30"},
                 )(scope, receive, send)

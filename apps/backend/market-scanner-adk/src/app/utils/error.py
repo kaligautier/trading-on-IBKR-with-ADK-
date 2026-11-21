@@ -1,6 +1,13 @@
-"""Error handling with structured exceptions and HTTP status mapping."""
+"""Error handling with structured exceptions and HTTP status mapping.
+
+Each ``ErrorCode`` name is the public wire code of the HTTP error envelope.
+``details`` carry internal, value-free context for logs and wide events and are
+never returned to HTTP clients.
+"""
 
 from enum import Enum
+
+from pydantic import JsonValue
 
 
 class ErrorCode(Enum):
@@ -14,9 +21,13 @@ class ErrorCode(Enum):
     MARKET_DATA_COLLECTION_ERROR = 3002
     MARKET_DATA_UNAVAILABLE = 3003
     LITELLM_ERROR = 3004
+    UNAUTHENTICATED = 4001
+    SCANNER_BUSY = 4002
+    SCAN_JOB_NOT_CONFIGURED = 4003
+    SCAN_DISPATCH_FAILED = 4004
 
 
-HTTP_STATUS_CODES = {
+HTTP_STATUS_CODES: dict[ErrorCode, int] = {
     ErrorCode.GENERIC_ERROR: 500,
     ErrorCode.INVALID_INPUT: 400,
     ErrorCode.CONFIGURATION_ERROR: 500,
@@ -25,10 +36,14 @@ HTTP_STATUS_CODES = {
     ErrorCode.MARKET_DATA_COLLECTION_ERROR: 502,
     ErrorCode.MARKET_DATA_UNAVAILABLE: 503,
     ErrorCode.LITELLM_ERROR: 502,
+    ErrorCode.UNAUTHENTICATED: 401,
+    ErrorCode.SCANNER_BUSY: 503,
+    ErrorCode.SCAN_JOB_NOT_CONFIGURED: 503,
+    ErrorCode.SCAN_DISPATCH_FAILED: 502,
 }
 
 
-ERROR_MESSAGES = {
+ERROR_MESSAGES: dict[ErrorCode, str] = {
     ErrorCode.GENERIC_ERROR: "An unexpected error occurred",
     ErrorCode.INVALID_INPUT: "Invalid input provided",
     ErrorCode.CONFIGURATION_ERROR: "Configuration error",
@@ -37,6 +52,10 @@ ERROR_MESSAGES = {
     ErrorCode.MARKET_DATA_COLLECTION_ERROR: "Market data collection failed",
     ErrorCode.MARKET_DATA_UNAVAILABLE: "No available market data for analysis",
     ErrorCode.LITELLM_ERROR: "LiteLLM gateway request failed",
+    ErrorCode.UNAUTHENTICATED: "Unauthorized",
+    ErrorCode.SCANNER_BUSY: "Scanner execution capacity is busy",
+    ErrorCode.SCAN_JOB_NOT_CONFIGURED: "Scheduled scan job is not configured",
+    ErrorCode.SCAN_DISPATCH_FAILED: "Scheduled scan dispatch failed",
 }
 
 
@@ -69,8 +88,12 @@ class AppError(Exception):
         detail_str = f", details={self.details}" if self.details else ""
         return f"[{self.error_code.name}] {self.message}{detail_str}"
 
+    def to_response(self) -> dict[str, dict[str, str]]:
+        """Public HTTP error envelope, without internal details."""
+        return {"error": {"code": self.error_code.name, "message": self.message}}
+
     def to_dict(self):
-        """Convert exception to dictionary for API responses."""
+        """Internal representation for logs and report data-quality entries."""
         return {
             "error_code": self.error_code.name,
             "message": self.message,
@@ -142,3 +165,31 @@ class ToolExecutionError(AppError):
             message=message,
             details=details,
         )
+
+
+class UnauthenticatedError(AppError):
+    """The request lacks the scanner token."""
+
+    def __init__(self) -> None:
+        super().__init__(ErrorCode.UNAUTHENTICATED)
+
+
+class ScannerBusyHTTPError(AppError):
+    """Scanner execution capacity is taken by another database-backed run."""
+
+    def __init__(self) -> None:
+        super().__init__(ErrorCode.SCANNER_BUSY)
+
+
+class ScanJobNotConfiguredError(AppError):
+    """The scheduled scan Cloud Run job is not configured."""
+
+    def __init__(self) -> None:
+        super().__init__(ErrorCode.SCAN_JOB_NOT_CONFIGURED)
+
+
+class ScanDispatchError(AppError):
+    """The scheduled scan job could not be dispatched."""
+
+    def __init__(self, details: dict[str, JsonValue] | None = None) -> None:
+        super().__init__(ErrorCode.SCAN_DISPATCH_FAILED, details=details)
