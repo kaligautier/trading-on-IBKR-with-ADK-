@@ -14,6 +14,7 @@ from starlette.datastructures import Headers
 from starlette.types import ASGIApp, Receive, Scope, Send
 
 from app.config.settings import settings
+from app.dto.response.error_response import error_responses
 from app.middleware.admission import ScannerAdmissionMiddleware
 from app.middleware.wide_event import WideEventMiddleware
 from app.services.database import close_database
@@ -22,10 +23,26 @@ from app.services.session_database import (
     ScannerSessionService,
     registered_session_service,
 )
-from app.utils.error import AppError
+from app.utils.error import (
+    AppError,
+    ErrorCode,
+    ScanDispatchError,
+    ScanJobNotConfiguredError,
+    UnauthenticatedError,
+)
+from app.utils.logging_messages import LoggingMessages
 from app.utils.wide_event import wide_event
 
 logger = logging.getLogger(__name__)
+
+
+def error_response(
+    error: AppError, headers: dict[str, str] | None = None
+) -> JSONResponse:
+    """Serialize a known failure as the public envelope with its HTTP status."""
+    return JSONResponse(
+        error.to_response(), status_code=error.status_code, headers=headers
+    )
 
 
 class ScannerRouteAuthorizer:
@@ -60,9 +77,7 @@ class ScannerAuthMiddleware:
             if scope["type"] == "websocket":
                 await send({"type": "websocket.close", "code": 1008})
             else:
-                await JSONResponse({"detail": "Unauthorized"}, status_code=401)(
-                    scope, receive, send
-                )
+                await error_response(UnauthenticatedError())(scope, receive, send)
             return
         await self.app(scope, receive, send)
 
@@ -107,10 +122,8 @@ def create_app() -> FastAPI:
             }
         )
         if error.status_code >= 500:
-            logger.warning("%s", error)
-        return JSONResponse(
-            status_code=error.status_code, content={"error": error.message}
-        )
+            logger.warning(LoggingMessages.APP_ERROR, error)
+        return error_response(error)
 
     app.add_middleware(ScannerAdmissionMiddleware)
     app.add_middleware(ScannerAuthMiddleware, authorizer=authorizer)
@@ -133,30 +146,42 @@ def create_app() -> FastAPI:
             status_code=200,
         )
 
-    @app.post("/internal/v1/scan-jobs", tags=["Operations"], status_code=202)
+    @app.post(
+        "/internal/v1/scan-jobs",
+        tags=["Operations"],
+        status_code=202,
+        summary="Dispatch the scheduled market scan job",
+        responses=error_responses(
+            ErrorCode.UNAUTHENTICATED,
+            ErrorCode.SCAN_JOB_NOT_CONFIGURED,
+            ErrorCode.SCAN_DISPATCH_FAILED,
+        ),
+    )
     async def daily_scan() -> JSONResponse:
-        """Acknowledge job submission without waiting for the scan."""
+        """Acknowledge job submission without waiting for the scan.
+
+        Failures raise ``AppError``; the application handler maps them to the
+        public envelope and HTTP status.
+        """
         if not settings.MARKET_SCANNER_JOB:
-            return JSONResponse(
-                {"detail": "Scheduled scan job is not configured"}, status_code=503
-            )
+            raise ScanJobNotConfiguredError()
         try:
             operation = await asyncio.to_thread(
                 dispatch_scan, settings.MARKET_SCANNER_JOB
             )
         except Exception as error:
             logger.error(
-                "scheduled scan dispatch failed",
+                LoggingMessages.SCAN_DISPATCH_FAILED,
                 extra={
                     "event": "scheduled_scan.dispatch_failed",
                     "error_type": type(error).__name__,
                 },
             )
-            return JSONResponse(
-                {"detail": "Scheduled scan dispatch failed"}, status_code=502
-            )
+            raise ScanDispatchError(
+                details={"error_type": type(error).__name__}
+            ) from None
         logger.info(
-            "scheduled scan accepted",
+            LoggingMessages.SCAN_DISPATCH_ACCEPTED,
             extra={"event": "scheduled_scan.accepted", "operation": operation},
         )
         return JSONResponse(
@@ -166,7 +191,7 @@ def create_app() -> FastAPI:
         )
 
     logger.info(
-        "application created",
+        LoggingMessages.APP_CREATED,
         extra={
             "event": "application.created",
             "app.name": settings.APP_NAME,

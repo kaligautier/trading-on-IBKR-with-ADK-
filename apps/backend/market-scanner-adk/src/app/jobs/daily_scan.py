@@ -19,6 +19,7 @@ from app.services.database import close_database
 from app.services.session_database import ScannerSessionService
 from app.utils.error import AppError, LiteLLMError
 from app.utils.logger import config_logger
+from app.utils.logging_messages import LoggingMessages
 
 logger = logging.getLogger(__name__)
 
@@ -74,13 +75,13 @@ async def main() -> int:
     try:
         result = await run_scan()
         logger.info(
-            "scheduled scan completed",
+            LoggingMessages.SCAN_COMPLETED,
             extra={"event": "scheduled_scan.completed", **result},
         )
         return 0
     except ScannerBusyError:
         logger.warning(
-            "scheduled scan deferred", extra={"event": "scheduled_scan.busy"}
+            LoggingMessages.SCAN_DEFERRED, extra={"event": "scheduled_scan.busy"}
         )
         return 75
     except Exception as error:
@@ -90,7 +91,7 @@ async def main() -> int:
             else {}
         )
         logger.error(
-            "scheduled scan failed",
+            LoggingMessages.SCAN_FAILED,
             extra={
                 "event": "scheduled_scan.failed",
                 "error_type": type(error).__name__,

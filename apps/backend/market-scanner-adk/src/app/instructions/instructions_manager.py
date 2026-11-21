@@ -6,6 +6,7 @@ import frontmatter
 from jinja2 import Environment, FileSystemLoader, StrictUndefined, TemplateError, meta
 
 from app.utils.error import InstructionError
+from app.utils.logging_messages import LoggingMessages
 
 logger = logging.getLogger(__name__)
 
@@ -49,21 +50,21 @@ class InstructionsManager:
         """
         env = InstructionsManager._get_env()
         template_path = f"{template}.j2"
-        logger.info(f"Loading instructions template: {template_path}")
+        logger.info(LoggingMessages.TEMPLATE_LOADING, template_path)
 
         try:
             with open(env.loader.get_source(env, template_path)[1]) as file:
                 post = frontmatter.load(file)
         except FileNotFoundError as e:
             error_msg = f"Template file not found: {template_path}"
-            logger.error(error_msg)
+            logger.error(LoggingMessages.TEMPLATE_NOT_FOUND, template_path)
             raise InstructionError(
                 message=error_msg,
                 details={"template": template, "template_path": template_path},
             ) from e
         except Exception as e:
             error_msg = f"Failed to load template: {template_path}"
-            logger.error(f"{error_msg}: {str(e)}")
+            logger.error(LoggingMessages.TEMPLATE_LOAD_FAILED, template_path, e)
             raise InstructionError(
                 message=error_msg,
                 details={
@@ -77,14 +78,11 @@ class InstructionsManager:
         try:
             rendered = template_obj.render(**kwargs)
             var_count = len(kwargs)
-            logger.debug(
-                f"Successfully rendered instructions '{template_path}' "
-                f"with {var_count} variables"
-            )
+            logger.debug(LoggingMessages.TEMPLATE_RENDERED, template_path, var_count)
             return rendered
         except TemplateError as e:
             error_msg = f"Error rendering template '{template_path}'"
-            logger.error(f"{error_msg}: {str(e)}")
+            logger.error(LoggingMessages.TEMPLATE_RENDER_FAILED, template_path, e)
             raise InstructionError(
                 message=error_msg,
                 details={
@@ -111,21 +109,21 @@ class InstructionsManager:
         """
         env = InstructionsManager._get_env()
         template_path = f"{template}.j2"
-        logger.info(f"Getting template info for: {template_path}")
+        logger.info(LoggingMessages.TEMPLATE_INFO_REQUESTED, template_path)
 
         try:
             with open(env.loader.get_source(env, template_path)[1]) as file:
                 post = frontmatter.load(file)
         except FileNotFoundError as e:
             error_msg = f"Template file not found: {template_path}"
-            logger.error(error_msg)
+            logger.error(LoggingMessages.TEMPLATE_NOT_FOUND, template_path)
             raise InstructionError(
                 message=error_msg,
                 details={"template": template, "template_path": template_path},
             ) from e
         except Exception as e:
             error_msg = f"Failed to load template: {template_path}"
-            logger.error(f"{error_msg}: {str(e)}")
+            logger.error(LoggingMessages.TEMPLATE_LOAD_FAILED, template_path, e)
             raise InstructionError(
                 message=error_msg,
                 details={
@@ -140,7 +138,7 @@ class InstructionsManager:
             variables = meta.find_undeclared_variables(ast)
         except Exception as e:
             error_msg = f"Failed to parse template: {template_path}"
-            logger.error(f"{error_msg}: {str(e)}")
+            logger.error(LoggingMessages.TEMPLATE_PARSE_FAILED, template_path, e)
             raise InstructionError(
                 message=error_msg,
                 details={
@@ -159,8 +157,10 @@ class InstructionsManager:
         }
 
         logger.debug(
-            f"Template '{template_path}' has {len(variables)} variables: "
-            f"{', '.join(variables)}"
+            LoggingMessages.TEMPLATE_VARIABLES,
+            template_path,
+            len(variables),
+            ", ".join(variables),
         )
 
         return info
