@@ -17,7 +17,7 @@ headers {
 script:post-response {
   test("HTTP 406", () => expect(res.getStatus()).to.equal(406));
   test("Private cache policy", () => expect(res.getHeader("Cache-Control")).to.eql("no-store"));
-  test("Problem code", () => expect(res.getBody().code).to.eql("NOT_ACCEPTABLE"));
+  test("Bodyless when JSON is refused", () => expect(res.getBody()).to.be.oneOf(["", undefined, null]));
 }
 
 settings {

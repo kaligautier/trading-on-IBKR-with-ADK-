@@ -82,5 +82,5 @@ async def test_application_failures_are_translated_only_at_http_boundary(
             "/failure", headers={"Authorization": "Bearer disposable-test-token"}
         )
     assert response.status_code == status
-    assert response.json()["code"] == code
+    assert response.json()["error"]["code"] == code
     assert "private driver message" not in response.text
