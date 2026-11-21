@@ -139,8 +139,14 @@ IAP protects the admin service, including its `run.app` URL. Cloud Run IAM check
 remain enabled; only the IAP service agent gets invocation access. Allowlisted
 users sign in to LiteLLM separately, using Google SSO when configured below or
 the bootstrap `admin` password otherwise. IAP does not create LiteLLM users.
-Keep the bootstrap login until a named admin has been created and tested, then
-consider `disable_env_credential_login=true`.
+The bootstrap login is a shared static secret (`UI_USERNAME`/`UI_PASSWORD`, or
+the master key when no UI password is set) that signs in as proxy admin. Keep it
+only until a named admin has signed in and been tested: either the Google SSO
+account set as `PROXY_ADMIN_ID`, or a database user with the `proxy_admin` role
+who set their own password through an invitation link. Then set
+`disable_env_credential_login = true` and apply. The master key keeps working over
+the API (`Authorization: Bearer`) to recover access; it no longer signs in to the UI.
+Preprod runs with the shared login disabled.
 
 For projects requiring a custom OAuth client, complete the Google console setup
 and register `https://iap.googleapis.com/v1/oauth/clientIds/CLIENT_ID:handleRedirect`.

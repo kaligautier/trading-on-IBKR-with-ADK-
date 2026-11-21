@@ -42,6 +42,7 @@ locals {
       database_connection_pool_limit   = 1
       allow_requests_on_db_unavailable = false
       store_model_in_db                = true
+      disable_env_credential_login     = var.disable_env_credential_login
     })
     litellm_settings = merge(local.runtime_settings.litellm_settings, {
       for name, value in { max_budget = var.global_budget_usd, budget_duration = "30d" } :

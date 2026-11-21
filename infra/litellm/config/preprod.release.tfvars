@@ -7,6 +7,9 @@ region          = "europe-west1"
 vertex_location = "eu"
 stage           = "service"
 
+# Named admins sign in with Google SSO; the shared admin login is disabled.
+disable_env_credential_login = true
+
 secret_versions = {
   database-url = "2"
   database-ca  = "1"
