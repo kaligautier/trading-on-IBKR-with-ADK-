@@ -11,10 +11,8 @@ variable "agent_governance" {
       rpm_limit             = optional(number, 10)
       tpm_limit             = optional(number, 100000)
       max_parallel_requests = optional(number, 2)
-      # Also allow the TypeSafe Decision routes (/v1/decisions, /v1/systemone).
-      decision_routes   = optional(bool, false)
-      secret_version    = optional(string)
-      existing_token_id = optional(string)
+      secret_version        = optional(string)
+      existing_token_id     = optional(string)
     }))
   })
   default = null
