@@ -5,10 +5,7 @@ from uuid import UUID
 from app.models.cursor import Cursor
 from app.models.market_scan import ScanSummary, StoredScan
 from app.repositories.scan_reader import ScanReader
-
-
-class ScanNotFoundError(Exception):
-    """No persisted run matches the request."""
+from app.utils.error import ScanNotFoundError
 
 
 class MarketScanService:

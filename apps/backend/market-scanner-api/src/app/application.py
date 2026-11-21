@@ -16,24 +16,21 @@ from starlette.exceptions import HTTPException
 from app.config.settings import Settings
 from app.database import create_engine
 from app.dependencies import get_repository
-from app.dto.response.market_scan_response_assembler import (
-    REPORT_SCHEMA,
-    InvalidStoredReportError,
-)
 from app.http_policy import ReadHTTPPolicy, install_head_schema
-from app.models.cursor import InvalidCursorError
 from app.repositories.market_scan_repository import MarketScanRepository
-from app.repositories.scan_reader import ScanReader, StoreUnavailableError
+from app.repositories.scan_reader import ScanReader
 from app.routes.market_scans import router
-from app.services.market_scan_service import ScanNotFoundError
+from app.schemas.report import REPORT_SCHEMA
+from app.utils.error import AppError, ErrorCode, InvalidArgumentError
 
 logger = logging.getLogger("market_scanner_api")
 
+FRAMEWORK_ERRORS = {404: ErrorCode.NOT_FOUND, 405: ErrorCode.METHOD_NOT_ALLOWED}
 
-def error_response(status: int, code: str, message: str) -> JSONResponse:
-    return JSONResponse(
-        {"error": {"code": code, "message": message}}, status_code=status
-    )
+
+def error_response(error: AppError, status_code: int | None = None) -> JSONResponse:
+    """Serialize a known failure as the public envelope with its HTTP status."""
+    return JSONResponse(error.to_dict(), status_code=status_code or error.status_code)
 
 
 def create_app(
@@ -102,9 +99,7 @@ def _install_middleware(application: FastAPI, configuration: Settings) -> None:
                 request.headers.get("Authorization", "").encode(), expected.encode()
             )
         ):
-            response: Response = error_response(
-                401, "UNAUTHENTICATED", "Authentication required"
-            )
+            response: Response = error_response(AppError(ErrorCode.UNAUTHENTICATED))
             response.headers["WWW-Authenticate"] = "Bearer"
         else:
             try:
@@ -120,9 +115,7 @@ def _install_middleware(application: FastAPI, configuration: Settings) -> None:
                         }
                     )
                 )
-                response = error_response(
-                    500, "INTERNAL_ERROR", "Internal server error"
-                )
+                response = error_response(AppError(ErrorCode.INTERNAL_ERROR))
         response.headers["X-Request-ID"] = request_id
         response.headers["Cache-Control"] = "no-store"
         return response
@@ -131,42 +124,29 @@ def _install_middleware(application: FastAPI, configuration: Settings) -> None:
 def _install_error_handlers(application: FastAPI) -> None:
     @application.exception_handler(HTTPException)
     async def http_error(_request: Request, error: HTTPException) -> JSONResponse:
-        code, message = {
-            404: ("NOT_FOUND", "Route not found"),
-            405: ("METHOD_NOT_ALLOWED", "Method not allowed"),
-        }.get(error.status_code, ("REQUEST_FAILED", "Request failed"))
-        response = error_response(error.status_code, code, message)
+        code = FRAMEWORK_ERRORS.get(error.status_code, ErrorCode.REQUEST_FAILED)
+        response = error_response(AppError(code), error.status_code)
         response.headers.update(error.headers or {})
         return response
 
-    @application.exception_handler(ScanNotFoundError)
-    async def missing(_request: Request, _error: ScanNotFoundError) -> JSONResponse:
-        return error_response(404, "SCAN_NOT_FOUND", "No market scan available")
-
-    @application.exception_handler(StoreUnavailableError)
-    async def unavailable(
-        request: Request, error: StoreUnavailableError
-    ) -> JSONResponse:
-        logger.warning(
-            json.dumps(
-                {
-                    "event": "storage.unavailable",
-                    "request_id": request.state.request_id,
-                    "error_type": error.category,
-                }
-            )
-        )
-        return error_response(503, "STORE_UNAVAILABLE", "Scan storage is unavailable")
-
-    @application.exception_handler(InvalidStoredReportError)
-    async def invalid_report(
-        _request: Request, _error: InvalidStoredReportError
-    ) -> JSONResponse:
-        return error_response(500, "INVALID_STORED_REPORT", "Stored report is invalid")
-
-    @application.exception_handler(InvalidCursorError)
     @application.exception_handler(RequestValidationError)
     async def invalid_request(
-        _request: Request, _error: RequestValidationError | InvalidCursorError
+        _request: Request, _error: RequestValidationError
     ) -> JSONResponse:
-        return error_response(422, "INVALID_ARGUMENT", "Invalid request parameters")
+        return error_response(InvalidArgumentError())
+
+    @application.exception_handler(AppError)
+    async def application_error(request: Request, error: AppError) -> JSONResponse:
+        if error.status_code >= 500:
+            # Details hold categories and field paths only, never stored values.
+            logger.warning(
+                json.dumps(
+                    {
+                        "event": "http.application_error",
+                        "request_id": request.state.request_id,
+                        "error_code": error.error_code.name,
+                        "details": error.details,
+                    }
+                )
+            )
+        return error_response(error)

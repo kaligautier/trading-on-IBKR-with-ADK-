@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 
 from app.models.cursor import Cursor
 from app.models.market_scan import ScanSummary, StoredScan
-from app.repositories.scan_reader import StoreUnavailableError
+from app.utils.error import StoreUnavailableError
 
 
 class MarketScanRepository:
