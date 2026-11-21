@@ -339,10 +339,12 @@ that configuration; the governance runner derives the team's and keys' allowed
 models from the same list. Add or remove models here, then apply infrastructure
 and execute the governance apply to synchronize endpoints and permissions.
 Additional providers (`openai`, `anthropic`, `gemini`, `typesafe`) use
-`provider_models` and Secret Manager environment references; API credentials do
-not belong in the catalog. `typesafe` serves Decision models such as
-`typesafe/jev-latest` (set `jev = { provider = "typesafe", model = "jev-latest" }`)
-through the gateway's `/v1/systemone` and `/v1/decisions` routes. Agent keys still
+`provider_models` in the catalog and Secret Manager environment references; API
+credentials do not belong in the catalog. Upload a key with
+`scripts/upload_provider_key.py`, then pin its numeric version under
+`provider_secret_versions` in `config/preprod.release.tfvars`. Preprod serves the
+TypeSafe Decision model `typesafe/jev-latest` as `jev` through the gateway's
+`/v1/systemone` and `/v1/decisions` routes. Agent keys still
 need those routes added to their `allowed_routes` before they can call them. Avoid manual model
 changes in the UI, which are outside this configuration's ownership.
 
