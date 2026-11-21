@@ -18,3 +18,8 @@ global_vertex_models = [
   "gemini-4-hydrogen",
   "gemini-4-neon",
 ]
+# Non-Vertex aliases; each provider needs a pinned key in preprod.release.tfvars.
+# jev is a TypeSafe Decision model, served on /v1/decisions and /v1/systemone.
+provider_models = {
+  jev = { provider = "typesafe", model = "jev-latest" }
+}
