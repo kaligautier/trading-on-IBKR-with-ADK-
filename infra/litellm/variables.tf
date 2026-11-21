@@ -128,3 +128,9 @@ variable "release_images" {
     error_message = "Supply both release images as immutable Artifact Registry digest references."
   }
 }
+
+variable "disable_env_credential_login" {
+  description = "Reject admin UI sign-in with the shared UI_USERNAME/UI_PASSWORD or master key. Enable only after a named admin (Google SSO or a database user with its own password) has signed in. The master key still works over the API for recovery."
+  type        = bool
+  default     = false
+}
