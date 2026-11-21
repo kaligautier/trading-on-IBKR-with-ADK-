@@ -1,10 +1,16 @@
 import json
+import logging
 import os
 from datetime import datetime
 from io import StringIO
 
 import pandas as pd
 import requests
+
+from app.utils.error import AlphaVantageRateLimitError
+from app.utils.logging_messages import LoggingMessages
+
+logger = logging.getLogger(__name__)
 
 API_BASE_URL = "https://www.alphavantage.co/query"
 
@@ -39,12 +45,6 @@ def format_datetime_for_api(date_input) -> str:
         raise ValueError(
             f"Date must be string or datetime object, got {type(date_input)}"
         )
-
-
-class AlphaVantageRateLimitError(Exception):
-    """Exception raised when Alpha Vantage API rate limit is exceeded."""
-
-    pass
 
 
 def _make_api_request(function_name: str, params: dict) -> dict | str:
@@ -122,5 +122,5 @@ def _filter_csv_by_date_range(csv_data: str, start_date: str, end_date: str) -> 
 
     except Exception as e:
         # If filtering fails, return original data with a warning
-        print(f"Warning: Failed to filter CSV data by date range: {e}")
+        logger.warning(LoggingMessages.CSV_DATE_FILTER_FAILED, e)
         return csv_data

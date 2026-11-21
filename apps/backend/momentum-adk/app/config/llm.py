@@ -10,13 +10,9 @@ from pydantic import PrivateAttr, ValidationError
 
 from app.config.rate_limit import ModelRequestGate
 from app.config.settings import Settings
+from app.utils.error import LiteLLMError
 
-
-class LiteLLMError(RuntimeError):
-    """Sanitized gateway failure."""
-
-    def __init__(self, details):
-        super().__init__(f"LiteLLM gateway failed: {details}")
+__all__ = ["LiteLLMError", "LiteLLMGatewayModel", "create_model"]
 
 
 class LiteLLMGatewayModel(Gemini):
