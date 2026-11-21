@@ -14,6 +14,7 @@ from starlette.middleware.cors import CORSMiddleware
 from starlette.responses import JSONResponse
 
 from momentum_public_mcp.observability import RequestTelemetry
+from momentum_public_mcp.utils.error import ErrorCode, ProtocolError
 
 PREFIX = "io.modelcontextprotocol/"
 VERSION = "2026-07-28"
@@ -33,41 +34,29 @@ class RequireStatelessMetadata(BaseHTTPMiddleware):
         meta = params.get("_meta") if isinstance(params, dict) else None
         info = meta.get(PREFIX + "clientInfo") if isinstance(meta, dict) else None
         if not request.headers.get("mcp-protocol-version"):
-            return self.reject(body, "MCP-Protocol-Version is required.")
+            return self.reject(body, ProtocolError(ErrorCode.PROTOCOL_VERSION_REQUIRED))
         version = request.headers["mcp-protocol-version"]
         if version != VERSION:
             # FastMCP supports legacy handshake transports too. This endpoint
             # deliberately exposes only the requested stateless protocol.
-            return JSONResponse(
-                {
-                    "jsonrpc": "2.0",
-                    "id": body.get("id"),
-                    "error": {
-                        "code": -32022,
-                        "message": "Unsupported protocol version.",
-                        "data": {"requested": version, "supported": [VERSION]},
-                    },
-                },
-                status_code=400,
-                headers={"MCP-Protocol-Version": VERSION},
+            return self.reject(
+                body,
+                ProtocolError(
+                    ErrorCode.UNSUPPORTED_PROTOCOL_VERSION,
+                    data={"requested": version, "supported": [VERSION]},
+                ),
             )
         if not isinstance(info, dict) or not all(
             isinstance(info.get(key), str) for key in ("name", "version")
         ):
-            return self.reject(
-                body, "SEP-2575 requires clientInfo.name and version on every request."
-            )
+            return self.reject(body, ProtocolError(ErrorCode.CLIENT_INFO_REQUIRED))
         return await call_next(request)
 
     @staticmethod
-    def reject(body, message):
+    def reject(body, error: ProtocolError):
         return JSONResponse(
-            {
-                "jsonrpc": "2.0",
-                "id": body.get("id"),
-                "error": {"code": -32602, "message": message},
-            },
-            status_code=400,
+            error.to_jsonrpc(body.get("id")),
+            status_code=error.status_code,
             headers={"MCP-Protocol-Version": VERSION},
         )
 
