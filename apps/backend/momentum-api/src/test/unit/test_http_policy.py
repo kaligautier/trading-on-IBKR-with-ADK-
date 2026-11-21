@@ -6,7 +6,8 @@ import pytest
 
 from app.presentation.http.conditional import precondition, representation_tag
 from app.presentation.http.negotiation import accepts, accepts_identity
-from app.presentation.http.problems import APIError, problem_bytes
+from app.presentation.http.problems import problem_bytes
+from app.utils.error import AppError, ErrorCode
 
 
 @pytest.mark.parametrize(
@@ -96,7 +97,7 @@ def test_malformed_condition(value: str) -> None:
 
 
 def test_problem_has_stable_type_and_matching_status() -> None:
-    problem = json.loads(problem_bytes(APIError(400, "invalid-argument")))
+    problem = json.loads(problem_bytes(AppError(ErrorCode.INVALID_ARGUMENT)))
     assert problem["status"] == 400
     assert problem["code"] == "INVALID_ARGUMENT"
     assert problem["type"].startswith("https://github.com/kaligautier/")
@@ -114,15 +115,17 @@ def test_empty_etag_list_elements_are_ignored(condition):
 
 def test_public_problem_codes_and_distinct_not_found_types():
     assert (
-        json.loads(problem_bytes(APIError(401, "invalid-token")))["code"]
+        json.loads(problem_bytes(AppError(ErrorCode.UNAUTHENTICATED)))["code"]
         == "UNAUTHENTICATED"
     )
     assert (
-        json.loads(problem_bytes(APIError(500, "invalid-stored-data")))["code"]
+        json.loads(problem_bytes(AppError(ErrorCode.INVALID_STORED_ANALYSIS)))["code"]
         == "INVALID_STORED_ANALYSIS"
     )
     assert (
-        json.loads(problem_bytes(APIError(404, "analysis-not-found")))["code"]
+        json.loads(problem_bytes(AppError(ErrorCode.ANALYSIS_NOT_FOUND)))["code"]
         == "ANALYSIS_NOT_FOUND"
     )
-    assert json.loads(problem_bytes(APIError(404, "not-found")))["code"] == "NOT_FOUND"
+    assert (
+        json.loads(problem_bytes(AppError(ErrorCode.NOT_FOUND)))["code"] == "NOT_FOUND"
+    )

@@ -14,6 +14,7 @@ from app.config.settings import Settings
 from app.observability import LOGGER, log_event
 from app.services.analysis_service import AnalysisService
 from app.services.suggestion_service import SuggestionService
+from app.utils.logging_messages import LoggingMessages
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -38,7 +39,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             except Exception as error:
                 log_event(
                     logging.ERROR,
-                    "storage_cleanup_failed",
+                    LoggingMessages.STORAGE_CLEANUP_FAILED,
                     exception_type=type(error).__name__,
                 )
             raise
