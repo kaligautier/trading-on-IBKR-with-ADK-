@@ -92,7 +92,9 @@ resource "google_monitoring_alert_policy" "key_expired" {
   conditions {
     display_name = "Expired Key error in Cloud Run logs"
     condition_matched_log {
-      filter = "resource.type = (\"cloud_run_revision\" OR \"cloud_run_job\") AND \"Expired Key\""
+      # Agents reach LiteLLM through the gateway. The admin UI logs the same error
+      # when an operator's browser session expires, which is not an agent key.
+      filter = "resource.type = (\"cloud_run_revision\" OR \"cloud_run_job\") AND \"Expired Key\" AND NOT resource.labels.service_name = \"litellm\""
     }
   }
   alert_strategy {

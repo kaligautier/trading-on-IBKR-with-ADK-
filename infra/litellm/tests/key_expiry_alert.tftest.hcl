@@ -44,6 +44,10 @@ run "reminder_fires_before_expiry" {
     condition     = length(google_monitoring_alert_policy.key_rotation_due) == 1 && length(google_monitoring_alert_policy.key_expired) == 1
     error_message = "Both the reminder alert and the expired-key safety net are required."
   }
+  assert {
+    condition     = strcontains(google_monitoring_alert_policy.key_expired[0].conditions[0].condition_matched_log[0].filter, "NOT resource.labels.service_name = \"litellm\"")
+    error_message = "The expired-key alert must ignore admin UI session expiry and keep watching the gateway and jobs."
+  }
 }
 
 run "reject_lead_longer_than_key" {
