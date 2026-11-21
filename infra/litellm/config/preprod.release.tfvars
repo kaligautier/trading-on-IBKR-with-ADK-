@@ -18,6 +18,9 @@ secret_versions = {
   ui-password  = "1"
 }
 
+# Provider API keys uploaded with scripts/upload_provider_key.py (values stay in Secret Manager).
+provider_secret_versions = { typesafe = "1" }
+
 client_service_accounts = {
   momentum           = "momentum-worker@preprod-deep-copy.iam.gserviceaccount.com"
   market-scanner-adk = "market-scanner-adk@preprod-deep-copy.iam.gserviceaccount.com"
