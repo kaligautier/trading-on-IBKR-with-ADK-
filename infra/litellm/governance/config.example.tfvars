@@ -12,5 +12,7 @@ agents = {
   weekly = {
     max_budget      = 4
     budget_duration = "7d"
+    # Opt in to the Decision routes (/v1/decisions, /v1/systemone).
+    decision_routes = true
   }
 }

@@ -20,6 +20,17 @@ run "independent_daily_and_weekly_budgets" {
     error_message = "Each key must receive its own budget/window and inference-only access."
   }
 }
+run "decision_routes_are_opt_in" {
+  command = plan
+  variables { agents = { scanner = {}, weekly = { decision_routes = true } } }
+  assert {
+    condition = (
+      litellm_key.agent["scanner"].allowed_routes == tolist(["/v1beta/models/*"]) &&
+      litellm_key.agent["weekly"].allowed_routes == tolist(["/v1beta/models/*", "/v1/decisions", "/v1/systemone"])
+    )
+    error_message = "Only agents that opt in may call the Decision routes."
+  }
+}
 run "reject_zero_budget" {
   command = plan
   variables { agents = { scanner = { max_budget = 0 }, weekly = {} } }
