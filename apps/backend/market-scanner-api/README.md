@@ -1,7 +1,9 @@
 # Market Scanner consultation API
 
 Independent, read-only FastAPI microservice for persisted market scans. The request
-path is router → service → repository; response assembly lives in `app/dto/response`.
+path is router → service → repository. Response DTOs live in `app/dto/response`,
+`app/mappers` converts stored models into them, and `app/utils/error.py` defines
+every known failure.
 It does not invoke ADK, call a model, run a scan or migrate the database.
 
 ## HTTP contract
@@ -42,7 +44,12 @@ Errors use `{ "error": { "code": "...", "message": "..." } }`:
 - `422 INVALID_ARGUMENT`: invalid UUID, page size or cursor.
 - `503 STORE_UNAVAILABLE`: database failure, timeout or missing schema.
 - `500 INVALID_STORED_REPORT`: stored JSON does not satisfy the v3 contract.
+- `500 INVALID_RESPONSE`: another stored field cannot form a valid response DTO
+  (for example a naive timestamp or a missing summary).
 - `500 INTERNAL_ERROR`: unexpected failure, sanitized and correlated.
+
+Codes, HTTP statuses and messages come from `ErrorCode`, `HTTP_STATUS_CODES` and
+`ERROR_MESSAGES` in `app/utils/error.py`; the OpenAPI responses are derived from them.
 
 Unknown routes and unsupported methods use the same error envelope (`NOT_FOUND`
 and `METHOD_NOT_ALLOWED`); method errors retain the HTTP `Allow` header.
@@ -50,7 +57,9 @@ and `METHOD_NOT_ALLOWED`); method errors retain the HTTP `Allow` header.
 Responses set `Cache-Control: no-store` and `X-Request-ID`. Structured completion
 logs include correlation ID, route template, status and duration, without request
 bodies, bearer tokens, database URLs or query parameters. Uvicorn access logs are
-disabled. Storage failure logs include a safe exception category.
+disabled. Known server-side failures (5xx `AppError`) log an `http.application_error`
+event with the error code and value-free details: a safe exception category for
+storage failures, field or schema paths for invalid DTOs.
 
 ## Database and authentication
 
@@ -99,14 +108,17 @@ supply the reader URL with verified TLS and a locally downloaded project CA.
 
 - Strict mypy with the Pydantic plugin; typed repository protocol keeps the use cases
   independent of SQLAlchemy. Frozen, slotted stored records and timezone-aware DTOs.
-- All DTO conversion stays in the response assembler. Cursor validation is versioned,
-  and stored report validation checks dates as well as structure.
+- All model-to-DTO conversion goes through `app/mappers`; an invalid DTO raises an
+  `AppError` instead of returning a partial response. Routes stay thin and never
+  catch `AppError`. Cursor validation is versioned, and stored report validation
+  checks dates as well as structure.
 - Ruff checks formatting, imports, modern Python syntax, async mistakes, simplification,
   common bugs and security rules. The few security exclusions are documented next to
   the configuration (disposable test credentials, fixed test commands, validated schema).
 - Lifespan owns and closes the engine; integration tests verify connection release.
   Imports do not read environment configuration, connect to storage or configure logging.
-- Known failures become domain errors; the final HTTP boundary logs unexpected error
+- Known failures become `AppError` subclasses, mapped by one application handler to
+  the error envelope and HTTP status; the final HTTP boundary logs unexpected error
   categories without sensitive messages. Request cancellation is not caught.
 - CI requires the full PostgreSQL suite and at least 90% combined coverage (including branches).
   Production dependencies are locked and audited; tests and dev tools are excluded

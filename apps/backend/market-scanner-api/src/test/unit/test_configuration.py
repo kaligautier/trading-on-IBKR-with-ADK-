@@ -4,7 +4,8 @@ import pytest
 from pydantic import ValidationError
 
 from app.config.settings import Settings
-from app.models.cursor import Cursor, InvalidCursorError
+from app.models.cursor import Cursor
+from app.utils.error import InvalidCursorError
 
 BASE = "postgresql://market_scanner_reader:private-password@localhost/scanner"
 
