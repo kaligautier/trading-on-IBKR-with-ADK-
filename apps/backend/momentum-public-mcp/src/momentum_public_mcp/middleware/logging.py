@@ -9,6 +9,7 @@ from typing import Any
 from fastmcp.server.middleware import Middleware, MiddlewareContext
 
 from momentum_public_mcp.config.constants import PUBLIC_TOOL_NAMES
+from momentum_public_mcp.utils.logging_messages import LoggingMessages
 
 logger = logging.getLogger(__name__)
 _SENSITIVE_KEY_PARTS = (
@@ -90,6 +91,6 @@ class ToolCallLoggingMiddleware(Middleware):
         finally:
             fields["duration_ms"] = round((perf_counter() - started) * 1000, 3)
             logger.info(
-                "tool_call",
+                LoggingMessages.TOOL_CALL,
                 extra={"event_fields": fields},
             )

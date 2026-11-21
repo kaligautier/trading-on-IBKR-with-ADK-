@@ -22,6 +22,7 @@ from momentum_public_mcp.domain import (
     MarketScan,
     Suggestion,
 )
+from momentum_public_mcp.utils.logging_messages import LoggingMessages
 
 request_event: ContextVar[dict | None] = ContextVar("request_event", default=None)
 logger = logging.getLogger("momentum_public_mcp.telemetry")
@@ -188,7 +189,7 @@ class RequestTelemetry:
             event["sample_rate"] = 1.0 if keep else self.success_sample_rate
             logger.log(
                 logging.WARNING if failed else logging.INFO,
-                "request_completed",
+                LoggingMessages.REQUEST_COMPLETED,
                 extra={"event_fields": event},
             )
 
