@@ -1,9 +1,12 @@
 """Error handling with structured exceptions and status mapping.
 
-Two kinds of failures leave this server:
+Three kinds of failures leave this server:
 
-* protocol errors reject an HTTP request before MCP dispatch, with an HTTP status
-  and a JSON-RPC error code;
+* HTTP errors outside MCP dispatch (unknown route, method) use the
+  ``{"error": {"code": ..., "message": ...}}`` envelope shared by the backends;
+* protocol errors reject an MCP request before dispatch. JSON-RPC requires its
+  own envelope, ``{"jsonrpc", "id", "error": {"code", "message", "data"}}``, so
+  the stable string code is carried in ``error.data.code``;
 * upstream errors become MCP tool or resource errors, returned in-band (HTTP 200,
   ``isError``) with their sanitized message only.
 
@@ -17,7 +20,12 @@ from pydantic import JsonValue
 
 
 class ErrorCode(Enum):
-    """Error codes for application exceptions."""
+    """Error codes for application exceptions; each name is the wire code."""
+
+    # HTTP (envelope)
+    NOT_FOUND = 1
+    METHOD_NOT_ALLOWED = 2
+    REQUEST_FAILED = 3
 
     # Protocol (HTTP 400, JSON-RPC error)
     PROTOCOL_VERSION_REQUIRED = 1001
@@ -45,6 +53,10 @@ PROTOCOL_ERRORS = frozenset(
 # Protocol errors are rejected over HTTP; upstream errors stay in-band (200).
 HTTP_STATUS_CODES: dict[ErrorCode, int] = {
     code: 400 if code in PROTOCOL_ERRORS else 200 for code in ErrorCode
+} | {
+    ErrorCode.NOT_FOUND: 404,
+    ErrorCode.METHOD_NOT_ALLOWED: 405,
+    ErrorCode.REQUEST_FAILED: 400,
 }
 
 JSONRPC_ERROR_CODES: dict[ErrorCode, int] = {
@@ -54,6 +66,9 @@ JSONRPC_ERROR_CODES: dict[ErrorCode, int] = {
 }
 
 ERROR_MESSAGES: dict[ErrorCode, str] = {
+    ErrorCode.NOT_FOUND: "Route not found",
+    ErrorCode.METHOD_NOT_ALLOWED: "Method not allowed",
+    ErrorCode.REQUEST_FAILED: "Request failed",
     ErrorCode.PROTOCOL_VERSION_REQUIRED: "MCP-Protocol-Version is required.",
     ErrorCode.UNSUPPORTED_PROTOCOL_VERSION: "Unsupported protocol version.",
     ErrorCode.CLIENT_INFO_REQUIRED: (
@@ -105,6 +120,10 @@ class AppError(Exception):
         self.details = details or {}
         super().__init__(self.message)
 
+    def to_response(self) -> dict[str, dict[str, str]]:
+        """Public HTTP error envelope, without details."""
+        return {"error": {"code": self.error_code.name, "message": self.message}}
+
     def __str__(self) -> str:
         """String representation with error code and details, for logs."""
         detail_str = f", details={self.details}" if self.details else ""
@@ -122,12 +141,12 @@ class ProtocolError(AppError):
 
     def to_jsonrpc(self, request_id: JsonValue) -> dict[str, JsonValue]:
         """Public JSON-RPC error envelope for the rejected request."""
+        data: dict[str, JsonValue] = {"code": self.error_code.name, **(self.data or {})}
         error: dict[str, JsonValue] = {
             "code": JSONRPC_ERROR_CODES[self.error_code],
             "message": self.message,
+            "data": data,
         }
-        if self.data is not None:
-            error["data"] = self.data
         return {"jsonrpc": "2.0", "id": request_id, "error": error}
 
 

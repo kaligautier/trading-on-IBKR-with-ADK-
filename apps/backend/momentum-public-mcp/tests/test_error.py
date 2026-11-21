@@ -7,6 +7,7 @@ from momentum_public_mcp.utils.error import (
     HTTP_STATUS_CODES,
     JSONRPC_ERROR_CODES,
     PROTOCOL_ERRORS,
+    AppError,
     ErrorCode,
     MomentumApiError,
     ProtocolError,
@@ -16,7 +17,7 @@ from momentum_public_mcp.utils.error import (
 def test_every_code_has_a_message_and_status():
     for code in ErrorCode:
         assert ERROR_MESSAGES[code]
-        assert HTTP_STATUS_CODES[code] in {200, 400}
+        assert HTTP_STATUS_CODES[code] in {200, 400, 404, 405}
 
 
 def test_protocol_errors_are_http_rejections_with_jsonrpc_codes():
@@ -36,13 +37,23 @@ def test_protocol_error_builds_the_jsonrpc_envelope():
         "error": {
             "code": -32022,
             "message": "Unsupported protocol version.",
-            "data": {"requested": "2025-01-01", "supported": ["2026-07-28"]},
+            "data": {
+                "code": "UNSUPPORTED_PROTOCOL_VERSION",
+                "requested": "2025-01-01",
+                "supported": ["2026-07-28"],
+            },
         },
     }
-    assert (
+    assert ProtocolError(ErrorCode.CLIENT_INFO_REQUIRED).to_jsonrpc(1)["error"][
         "data"
-        not in ProtocolError(ErrorCode.CLIENT_INFO_REQUIRED).to_jsonrpc(1)["error"]
-    )
+    ] == {"code": "CLIENT_INFO_REQUIRED"}
+
+
+def test_http_errors_use_the_shared_envelope():
+    assert AppError(ErrorCode.NOT_FOUND).to_response() == {
+        "error": {"code": "NOT_FOUND", "message": "Route not found"}
+    }
+    assert HTTP_STATUS_CODES[ErrorCode.METHOD_NOT_ALLOWED] == 405
 
 
 @pytest.mark.parametrize(
