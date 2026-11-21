@@ -1,7 +1,11 @@
+set shell := ["bash", "-euo", "pipefail", "-c"]
+
+alias sync := install
+
 default:
     @just --list
 
-sync:
+install:
     uv sync --frozen --dev
 
 test:

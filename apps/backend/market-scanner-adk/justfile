@@ -1,8 +1,14 @@
 #!/usr/bin/env -S just --justfile
 # Market Scanner ADK
 
+set shell := ["bash", "-euo", "pipefail", "-c"]
+
 # Load environment variables from .env file
 set dotenv-load
+
+# List available recipes
+default:
+    @just --list
 
 # Internal helper to check UV is available
 _check-uv:
@@ -13,37 +19,47 @@ _check-uv:
         exit 1
     fi
 
-# Install dependencies using UV
+# Install the locked dependencies using UV
 [group('setup')]
 install: _check-uv
-    echo "Installing dependencies with UV..."
-    cd {{ source_directory() }} && uv sync
+    @echo "Installing dependencies with UV..."
+    cd {{ source_directory() }} && uv sync --frozen --python 3.12
 
 # Launch agent as API server
 [group('run')]
 api port="8000": _check-uv
-    cd {{ source_directory() }}/src && uv run uvicorn app.main:app --reload --host 127.0.0.1 --port {{port}}
+    cd {{ source_directory() }}/src && uv run --frozen uvicorn app.main:app --reload --host 127.0.0.1 --port {{port}}
 
-# Format code with ruff
+# Format code with ruff (rewrites files)
 [group('quality')]
 format: _check-uv
-    cd {{ source_directory() }} && uv run ruff format src/
+    cd {{ source_directory() }} && uv run --frozen ruff format src/
 
+# Sort imports with ruff (rewrites files)
 [group('quality')]
 sort-imports: _check-uv
-    cd {{ source_directory() }} && uv run ruff check --select I --fix src/
+    cd {{ source_directory() }} && uv run --frozen ruff check --select I --fix src/
 
 # Lint code with ruff
 [group('quality')]
 lint: _check-uv
-    cd {{ source_directory() }} && uv run ruff check src/
+    cd {{ source_directory() }} && uv run --frozen ruff check src/
 
-# Run full test suite with coverage
+# Check formatting without rewriting files, like CI
+[group('quality')]
+format-check: _check-uv
+    cd {{ source_directory() }} && uv run --frozen ruff format --check src/
+
+# Run full test suite with coverage (UTC: date-based tests assume it)
 [group('quality')]
 test: _check-uv
-    cd {{ source_directory() }}/src && uv run pytest --cov=app --cov-report=term-missing
+    cd {{ source_directory() }}/src && TZ=UTC uv run --frozen pytest --cov=app --cov-report=term-missing
 
-# Run all quality checks (format + lint + test) - required before commit
+# Run the read-only checks CI runs (format check + lint + test)
+[group('quality')]
+check: format-check lint test
+
+# Format, then lint and test - run before committing
 [group('quality')]
 pre-commit: format lint test
 
@@ -52,11 +68,10 @@ pre-commit: format lint test
 build:
     cd {{ source_directory() }} && docker build --no-cache -t market-scanner-adk:latest .
 
-# Run Docker container with environment variables from .env
+# The LiteLLM gateway must be reachable from inside the container
+# (use host.docker.internal rather than 127.0.0.1 for a gateway on this machine).
+[doc('Run Docker container with every variable from .env')]
 [group('docker')]
 run:
-    cd {{ source_directory() }} && docker run -p 8000:8000 \
-        -e GOOGLE_GENAI_USE_VERTEXAI="${GOOGLE_GENAI_USE_VERTEXAI}" \
-        -e GOOGLE_CLOUD_PROJECT="${GOOGLE_CLOUD_PROJECT}" \
-        -e GOOGLE_CLOUD_LOCATION="${GOOGLE_CLOUD_LOCATION}" \
-        market-scanner-adk:latest local
+    cd {{ source_directory() }} && test -f .env || { echo "ERROR: create .env from .env.example first"; exit 1; }
+    cd {{ source_directory() }} && docker run --rm -p 8000:8000 --env-file .env market-scanner-adk:latest local
