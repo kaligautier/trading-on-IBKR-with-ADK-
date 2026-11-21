@@ -42,11 +42,14 @@ Open [Market Scanner](https://deepcopy.fr/#market-scanner) to read the daily ana
 
 The migrated backend uses FastMCP **4.1.3** with stateless HTTP. See the
 [backend contract and checks](apps/backend/momentum-public-mcp/README.md).
-The Cloud Run URL below serves all six tools and the latest-scan resource through Momentum API and Market
-Scanner API, including durable pending suggestions. The MCP has no database
-access. The old `mcp.deepcopy.fr` domain has not been migrated.
+The endpoint `https://mcp.deepcopy.fr` serves all six tools and the latest-scan
+resource through Momentum API and Market Scanner API, including durable pending
+suggestions. The MCP has no database access. The domain is mapped to the Cloud
+Run service by the [`momentum-public-mcp` root](infra/momentum-public-mcp/README.md);
+its default URL `https://momentum-public-mcp-gdezc6bzrq-ew.a.run.app` serves the
+same server.
 
-1. Add `https://momentum-public-mcp-gdezc6bzrq-ew.a.run.app` to your preferred MCP client. The server supports protocol revision [`2026-07-28`](https://modelcontextprotocol.io/specification/2026-07-28/changelog).
+1. Add `https://mcp.deepcopy.fr` to your preferred MCP client. The server supports protocol revision [`2026-07-28`](https://modelcontextprotocol.io/specification/2026-07-28/changelog).
 
 2. Ask for recent stock analyses, for example: “List the latest analyses available for AAPL.”
 
@@ -55,7 +58,7 @@ access. The old `mcp.deepcopy.fr` domain has not been migrated.
 To call `momentum_list_analyses` directly from a terminal:
 
 ```bash
-curl https://momentum-public-mcp-gdezc6bzrq-ew.a.run.app \
+curl https://mcp.deepcopy.fr \
   -H 'Content-Type: application/json' \
   -H 'Accept: application/json, text/event-stream' \
   -H 'MCP-Protocol-Version: 2026-07-28' \
@@ -83,7 +86,7 @@ Check `result.isError` before using a tool response. If it is `true`, read the e
 <summary>Discover the server and its supported protocol versions</summary>
 
 ```bash
-curl https://momentum-public-mcp-gdezc6bzrq-ew.a.run.app \
+curl https://mcp.deepcopy.fr \
   -H 'Content-Type: application/json' \
   -H 'Accept: application/json, text/event-stream' \
   -H 'MCP-Protocol-Version: 2026-07-28' \
@@ -286,7 +289,7 @@ Returns the moderation decision for a suggestion.
 
 #### Request body
 
-Replace `{{publicMcpAnalysisId}}` with an analysis ID returned by `momentum_list_analyses`. Send this body to `https://momentum-public-mcp-gdezc6bzrq-ew.a.run.app` with the same content type, accept, and protocol-version headers as the quick start, plus `Mcp-Method: tools/call` and `Mcp-Name: momentum_get_analysis`.
+Replace `{{publicMcpAnalysisId}}` with an analysis ID returned by `momentum_list_analyses`. Send this body to `https://mcp.deepcopy.fr` with the same content type, accept, and protocol-version headers as the quick start, plus `Mcp-Method: tools/call` and `Mcp-Name: momentum_get_analysis`.
 
 ```json
 {

@@ -18,7 +18,8 @@ separately. Run commands from the repository root and pass the appropriate
 | `backend-build/` | Backend image builder (Scanner, Momentum) and source storage; [build guide](backend-build/README.md). |
 | `frontend/build/` | Frontend builder and source storage; [build guide](frontend/README.md). |
 | `momentum-api/` | Private Momentum consultation API; [deployment guide](momentum-api/README.md). |
-| `momentum-public-mcp/` | Public stateless MCP and private reader invocation; [deployment guide](momentum-public-mcp/README.md). |
+| `momentum-public-mcp/` | Public stateless MCP, `mcp.deepcopy.fr` domain mapping and private reader invocation; [deployment guide](momentum-public-mcp/README.md). |
+| `deploy/` | Reviewed image-only releases from GitHub Actions; [release guide](deploy/README.md). |
 | `frontend/` | Public frontend and reader invocation rights; [deployment guide](frontend/README.md). |
 
 The database is external to Terraform; see [database setup](../database/README.md).
@@ -33,7 +34,7 @@ module require 1.11 or later; CI uses 1.14.4). In a clean checkout:
 (
 set -e
 terraform fmt -check -recursive infra
-for root in infra/bootstrap infra/backend-build infra/drift infra/market-scanner infra/litellm infra/reader infra/budget-guard infra/momentum infra/momentum-api infra/momentum-public-mcp infra/frontend/build infra/frontend; do
+for root in infra/bootstrap infra/backend-build infra/deploy infra/drift infra/market-scanner infra/litellm infra/reader infra/budget-guard infra/momentum infra/momentum-api infra/momentum-public-mcp infra/frontend/build infra/frontend; do
   terraform -chdir="$root" init -backend=false -input=false -lockfile=readonly
   terraform -chdir="$root" validate
   terraform -chdir="$root" test
