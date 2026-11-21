@@ -186,7 +186,7 @@ separately exercises the real HTTP clients against contract-derived upstreams.
 
 ## Canonical-event release verified on 2026-10-24
 
-- 71 Python tests, 45 Postman assertions, four Terraform tests and the final
+- 71 Python tests, 45 collection assertions, four Terraform tests and the final
   runtime-container smoke check passed, along with Ruff and pre-commit.
 - Cloud Build `d32ec2e2-d8b8-474a-80d7-071d637e8d0d` produced image
   `sha256:dbb35718d90eff4949c6891cbf769e2865f2bc510f9babe5092ec907a4e3a101`.
@@ -201,7 +201,7 @@ separately exercises the real HTTP clients against contract-derived upstreams.
 
 ## Initial operations release verified on 2026-10-24
 
-- 59 Python tests, four deployment-gate tests, 45 Postman assertions and three
+- 59 Python tests, four deployment-gate tests, 45 collection assertions and three
   Terraform tests passed. The built container passed its runtime smoke check.
 - Cloud Build `87004b53-be13-401c-8274-a1cc96f257bc` produced immutable image
   `sha256:84403edc237778378650405f7673fa0ee0dba6726ba1993f5e6223024ff99da1`.
@@ -219,7 +219,7 @@ separately exercises the real HTTP clients against contract-derived upstreams.
 ## Initial migration verification on 2026-10-24
 
 - 45 Python tests and Ruff checks passed.
-- 45 Postman assertions passed over 12 real HTTP requests to the local MCP,
+- 45 collection assertions passed over 12 real HTTP requests to the local MCP,
   including an upstream response delayed by 11 seconds.
 - Three Terraform tests passed: public ingress/private reader grants, immutable
   image, and numeric secret-version constraints.
@@ -235,7 +235,7 @@ separately exercises the real HTTP clients against contract-derived upstreams.
   Its reason explicitly marks it as a verification fixture, not for approval.
 - Momentum API revision `momentum-api-00003-g6c` handles suggestions using the
   existing one-connection pool. Its 261 tests passed with 95% branch-inclusive
-  coverage; 33 Postman assertions exercised the real MCP/API/PostgreSQL chain,
+  coverage; 33 collection assertions exercised the real MCP/API/PostgreSQL chain,
   and 56 assertions passed against the exact release container image.
 - These deployment checks preceded PR preparation; GitHub CI results are tracked
   separately on the dependent pull requests.
