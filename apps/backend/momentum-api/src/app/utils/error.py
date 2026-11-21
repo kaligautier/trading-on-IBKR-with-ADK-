@@ -1,13 +1,13 @@
 """Error handling with structured exceptions and HTTP status mapping.
 
-Every public failure is declared once here: its RFC 9457 problem type (the enum
-value, also the README anchor), HTTP status, stable ``code`` and ``detail``. The
-HTTP boundary serializes an ``AppError`` as ``application/problem+json``;
-``details`` carry internal, value-free context and are never returned. Domain
-failures stay independent of HTTP and are mapped through ``DOMAIN_ERRORS``.
+Every public failure is declared once here: its HTTP status, stable wire
+``code`` and ``message``. The HTTP boundary serializes an ``AppError`` as the
+``{"error": {"code": ..., "message": ...}}`` envelope; ``details`` carry
+internal, value-free context and are never returned. Domain failures stay
+independent of HTTP and are mapped through ``DOMAIN_ERRORS``.
 
-The enum order is part of the OpenAPI document (it lists the problem types), so
-append new members instead of reordering them.
+Each enum value is the README anchor of the failure and the OAuth ``error``
+parameter of Bearer challenges. Append new members instead of reordering them.
 """
 
 from enum import Enum
@@ -24,7 +24,7 @@ from app.domain.suggestions import CurrentAnalysisExistsError, SuggestionRateLim
 
 
 class ErrorCode(Enum):
-    """Public failures; each value is the problem type slug."""
+    """Public failures; each value is the README anchor slug."""
 
     FORBIDDEN = "forbidden"
     CURRENT_ANALYSIS_EXISTS = "current-analysis"
@@ -98,7 +98,7 @@ ERROR_MESSAGES: dict[ErrorCode, str] = {
     ErrorCode.NOT_IMPLEMENTED: "The requested method is not implemented.",
 }
 
-# Stable public ``code``: the enum name, except where two problem types share one.
+# Stable public ``code``: the enum name, except where two failures share one.
 WIRE_CODES: dict[ErrorCode, str] = {code: code.name for code in ErrorCode} | {
     ErrorCode.INVALID_REQUEST: "INVALID_ARGUMENT"
 }
@@ -119,8 +119,8 @@ class AppError(Exception):
     Base application error with automatic HTTP status mapping.
 
     Attributes:
-        error_code: ErrorCode enum value; its value is the problem type slug
-        message: Public problem ``detail`` (always the declared message)
+        error_code: ErrorCode enum value; its value is the README anchor slug
+        message: Public message (always the declared message)
         details: Optional value-free context for logs, never returned to clients
         status_code: HTTP status code (mapped, or overridden for one use case)
         has_body: False for a bare authentication challenge (RFC 6750 3.1)
@@ -145,6 +145,10 @@ class AppError(Exception):
     def wire_code(self) -> str:
         return WIRE_CODES[self.error_code]
 
+    def to_response(self) -> dict[str, dict[str, str]]:
+        """Public API error envelope, without details."""
+        return {"error": {"code": self.wire_code, "message": self.message}}
+
     def __str__(self) -> str:
         """String representation with error code and details, for logs."""
         detail_str = f", details={self.details}" if self.details else ""
@@ -165,7 +169,7 @@ class InvalidArgumentError(AppError):
 
 
 class MissingCredentialsError(AppError):
-    """No usable Bearer credential: a bare 401 challenge without a problem body."""
+    """No usable Bearer credential: a bare 401 challenge without a body."""
 
     has_body = False
 

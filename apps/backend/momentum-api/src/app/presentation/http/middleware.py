@@ -14,10 +14,10 @@ from starlette.datastructures import Headers, QueryParams
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from app.config.settings import Settings
+from app.dto.response.error_response import ERROR_MEDIA_TYPE, error_bytes
 from app.observability import log_event, trace_fields
 from app.presentation.http.conditional import precondition, representation_tag
 from app.presentation.http.negotiation import HTTP_WORD, accepts, accepts_identity
-from app.presentation.http.problems import problem_bytes
 from app.utils.error import (
     WIRE_CODES,
     AppError,
@@ -104,7 +104,7 @@ class HTTPPolicy:
                 return
             status, response_headers, body = response
         except AppError as error:
-            status, response_headers, body = self._problem_response(error)
+            status, response_headers, body = self._error_response(error)
         except Exception as error:
             # Log code locations, never exception messages, source lines or locals.
             sources = [
@@ -120,11 +120,11 @@ class HTTPPolicy:
                 source=sources[-1] if sources else "unknown",
                 **trace,
             )
-            status, body = 500, problem_bytes(AppError(ErrorCode.INTERNAL_ERROR))
-            response_headers = [(b"content-type", b"application/problem+json")]
+            status, body = 500, error_bytes(AppError(ErrorCode.INTERNAL_ERROR))
+            response_headers = [(b"content-type", ERROR_MEDIA_TYPE.encode())]
         category = self._category(status, body)
         if status >= 400 and (
-            not accepts(combined("accept"), "application/problem+json")
+            not accepts(combined("accept"), ERROR_MEDIA_TYPE)
             or not accepts_identity(combined("accept-encoding"))
         ):
             body = b""
@@ -277,12 +277,12 @@ class HTTPPolicy:
         return status, response_headers, body
 
     @staticmethod
-    def _problem_response(
+    def _error_response(
         error: AppError,
     ) -> tuple[int, list[tuple[bytes, bytes]], bytes]:
         status = error.status_code
-        body = problem_bytes(error) if error.has_body else b""
-        response_headers = [(b"content-type", b"application/problem+json")]
+        body = error_bytes(error) if error.has_body else b""
+        response_headers = [(b"content-type", ERROR_MEDIA_TYPE.encode())]
         if status == 401 or error.error_code is ErrorCode.INVALID_REQUEST:
             challenge = 'Bearer realm="momentum-api"'
             if error.has_body:
@@ -296,7 +296,7 @@ class HTTPPolicy:
         if status >= 400:
             category = "UNAUTHENTICATED" if status == 401 else "INTERNAL_ERROR"
             if body:
-                candidate = json.loads(body).get("code")
+                candidate = json.loads(body).get("error", {}).get("code")
                 if candidate in WIRE_CODES.values():
                     category = candidate
         return category

@@ -11,13 +11,13 @@ get {
 }
 
 headers {
-  Accept: application/json, application/problem+json
+  Accept: application/json
 }
 
 script:post-response {
   test("HTTP 400", () => expect(res.getStatus()).to.equal(400));
   test("Private cache policy", () => expect(res.getHeader("Cache-Control")).to.eql("no-store"));
-  test("Problem code", () => expect(res.getBody().code).to.eql("INVALID_ARGUMENT"));
+  test("Error code", () => expect(res.getBody().error.code).to.eql("INVALID_ARGUMENT"));
 }
 
 settings {

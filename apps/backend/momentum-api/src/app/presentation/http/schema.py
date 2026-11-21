@@ -6,8 +6,13 @@ from typing import Any
 
 from fastapi import FastAPI
 
-from app.presentation.http.problems import PROBLEM_BASE, status_phrase
-from app.utils.error import ErrorCode
+from app.dto.response.error_response import (
+    ERROR_MEDIA_TYPE,
+    ERROR_SCHEMAS,
+    error_descriptions,
+    status_phrase,
+)
+from app.utils.error import WIRE_CODES
 
 ERRORS = {400, 401, 403, 404, 405, 406, 409, 412, 413, 415, 429, 500, 503}
 
@@ -22,19 +27,7 @@ def install_schema(app: FastAPI) -> None:
         components = document.setdefault("components", {})
         components.setdefault("schemas", {}).pop("HTTPValidationError", None)
         components["schemas"].pop("ValidationError", None)
-        components["schemas"]["Problem"] = {
-            "type": "object",
-            "required": ["type", "title", "status", "detail", "code"],
-            "properties": {
-                "type": {"type": "string", "format": "uri"},
-                "title": {"type": "string"},
-                "status": {"type": "integer", "minimum": 400, "maximum": 599},
-                "detail": {"type": "string"},
-                "code": {"type": "string"},
-            },
-            "description": "RFC 9457; absent when the error format is unacceptable. "
-            "Missing credentials produce a bodyless Bearer challenge.",
-        }
+        components["schemas"].update(ERROR_SCHEMAS)
         components["securitySchemes"] = {
             "Bearer": {
                 "type": "http",
@@ -57,24 +50,7 @@ def install_schema(app: FastAPI) -> None:
             name: {"$ref": f"#/components/headers/{name}"}
             for name in ("Request-ID", "Cache-Control", "Vary")
         }
-        components["responses"] = {}
-        for status in sorted(ERRORS):
-            headers = deepcopy(common)
-            if status in {400, 401}:
-                headers["WWW-Authenticate"] = {
-                    "$ref": "#/components/headers/WWW-Authenticate"
-                }
-            if status == 405:
-                headers["Allow"] = {"$ref": "#/components/headers/Allow"}
-            components["responses"][str(status)] = {
-                "description": status_phrase(status),
-                "headers": headers,
-                "content": {
-                    "application/problem+json": {
-                        "schema": {"$ref": "#/components/schemas/Problem"}
-                    }
-                },
-            }
+        components["responses"] = _error_responses(common, error_descriptions())
         document["paths"]["/openapi.json"] = {
             "get": {
                 "operationId": "get_openapi",
@@ -169,8 +145,9 @@ def install_schema(app: FastAPI) -> None:
         document["info"]["description"] = (
             "Private Momentum catalogue and moderated suggestion intake. "
             "Analyses remain read-only. UTC dates/timestamps; finite JSON. "
-            "Clients should send Accept: application/json, application/problem+json "
-            "to receive both successful representations and problem details. "
+            "Clients should send Accept: application/json to receive both "
+            "successful representations and the error envelope "
+            '{"error": {"code", "message"}}. '
             "For application/json, Accept charset parameters have no effect; "
             "quality weights still apply and output remains UTF-8. "
             "Lists are ordered by created_at DESC, id DESC, with filter-bound keyset "
@@ -178,14 +155,41 @@ def install_schema(app: FastAPI) -> None:
             "Latest selects one winner per ticker before rating filters. "
             "Unknown ticker returns an empty page. Every GET/HEAD resource rejects "
             "bodies and duplicate or unknown query parameters. Only list endpoints "
-            "accept query parameters; OPTIONS does not validate them. Error types: "
-            + PROBLEM_BASE
-            + ", ".join(code.value for code in ErrorCode)
+            "accept query parameters; OPTIONS does not validate them. Error codes: "
+            + ", ".join(dict.fromkeys(WIRE_CODES.values()))
         )
         app.openapi_schema = document
         return document
 
     app.openapi = schema  # type: ignore[method-assign]
+
+
+def _error_responses(
+    common: dict[str, Any], descriptions: dict[int, str]
+) -> dict[str, Any]:
+    """One reusable response per error status, listing the codes from error.py."""
+    responses: dict[str, Any] = {}
+    for status in sorted(ERRORS):
+        headers = deepcopy(common)
+        if status in {400, 401}:
+            headers["WWW-Authenticate"] = {
+                "$ref": "#/components/headers/WWW-Authenticate"
+            }
+        if status == 405:
+            headers["Allow"] = {"$ref": "#/components/headers/Allow"}
+        description = status_phrase(status)
+        if status in descriptions:
+            description += ". " + descriptions[status]
+        responses[str(status)] = {
+            "description": description,
+            "headers": headers,
+            "content": {
+                ERROR_MEDIA_TYPE: {
+                    "schema": {"$ref": "#/components/schemas/ErrorResponse"}
+                }
+            },
+        }
+    return responses
 
 
 def _describe_intake(operations: dict[str, Any], common: dict[str, Any]) -> None:
