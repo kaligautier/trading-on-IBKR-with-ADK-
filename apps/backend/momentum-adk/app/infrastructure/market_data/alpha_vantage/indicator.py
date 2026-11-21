@@ -1,8 +1,13 @@
+import logging
 from datetime import datetime
 
 from dateutil.relativedelta import relativedelta
 
+from app.utils.logging_messages import LoggingMessages
+
 from .common import _make_api_request
+
+logger = logging.getLogger(__name__)
 
 SUPPORTED_INDICATORS = {
     "close_50_sma": ("50 SMA", "close"),
@@ -68,7 +73,7 @@ def get_indicator(
         return _format_indicator(data, indicator, before, curr_date_dt, curr_date)
 
     except Exception as e:
-        print(f"Error getting Alpha Vantage indicator data for {indicator}: {e}")
+        logger.warning(LoggingMessages.ALPHA_VANTAGE_INDICATOR_FAILED, indicator, e)
         return f"Error retrieving {indicator} data: {str(e)}"
 
 
