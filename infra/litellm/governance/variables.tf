@@ -30,8 +30,10 @@ variable "agents" {
     rpm_limit             = optional(number, 10)
     tpm_limit             = optional(number, 100000)
     max_parallel_requests = optional(number, 2)
-    secret_version        = optional(string)
-    existing_token_id     = optional(string)
+    # Also allow the TypeSafe Decision routes (/v1/decisions, /v1/systemone).
+    decision_routes   = optional(bool, false)
+    secret_version    = optional(string)
+    existing_token_id = optional(string)
   }))
   validation {
     condition = alltrue([for agent in var.agents :
