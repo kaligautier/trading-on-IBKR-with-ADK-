@@ -265,10 +265,9 @@ Only the gateway's NGINX container receives ingress. It forwards native Gemini
 generation, streaming and token-count routes, the exact POST routes
 `/v1/decisions` and `/v1/systemone` for
 [Decision models](https://docs.litellm.ai/docs/decisions), readiness/liveness, and
-the master-key-protected key generation/deletion routes. Agent keys permit
-`/v1beta/models/*` (`allowed_routes` in `governance/policy`); an agent with
-`decision_routes = true` in `agent_governance.agents` also gets `/v1/decisions`
-and `/v1/systemone`. Other routes, including
+the master-key-protected key generation/deletion routes. Every agent key permits
+`/v1beta/models/*`, `/v1/decisions` and `/v1/systemone` (`allowed_routes` in
+`governance/policy`). Other routes, including
 login, UI, SSO and administration, return 404. The proxy listens on port 4001;
 it receives no UI username or password. LiteLLM still authenticates forwarded
 requests. The NGINX image is pinned by `gateway_filter_digest` and mirrored
@@ -340,11 +339,13 @@ that configuration; the governance runner derives the team's and keys' allowed
 models from the same list. Add or remove models here, then apply infrastructure
 and execute the governance apply to synchronize endpoints and permissions.
 Additional providers (`openai`, `anthropic`, `gemini`, `typesafe`) use
-`provider_models` and Secret Manager environment references; API credentials do
-not belong in the catalog. `typesafe` serves Decision models such as
-`typesafe/jev-latest` (set `jev = { provider = "typesafe", model = "jev-latest" }`)
-through the gateway's `/v1/systemone` and `/v1/decisions` routes. An agent key reaches
-them only when its entry sets `decision_routes = true`. Avoid manual model
+`provider_models` in the catalog and Secret Manager environment references; API
+credentials do not belong in the catalog. Upload a key with
+`scripts/upload_provider_key.py`, then pin its numeric version under
+`provider_secret_versions` in `config/preprod.release.tfvars`. Preprod serves the
+TypeSafe Decision model `typesafe/jev-latest` as `jev` through the gateway's
+`/v1/systemone` and `/v1/decisions` routes. Every agent key may
+call them. Avoid manual model
 changes in the UI, which are outside this configuration's ownership.
 
 Both services share the image, config, database and runtime identity. Each uses
