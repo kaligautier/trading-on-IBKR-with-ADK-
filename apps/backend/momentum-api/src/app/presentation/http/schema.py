@@ -12,7 +12,7 @@ from app.dto.response.error_response import (
     error_descriptions,
     status_phrase,
 )
-from app.utils.error import WIRE_CODES
+from app.utils.error import ErrorCode
 
 ERRORS = {400, 401, 403, 404, 405, 406, 409, 412, 413, 415, 429, 500, 503}
 
@@ -146,8 +146,9 @@ def install_schema(app: FastAPI) -> None:
             "Private Momentum catalogue and moderated suggestion intake. "
             "Analyses remain read-only. UTC dates/timestamps; finite JSON. "
             "Clients should send Accept: application/json to receive both "
-            "successful representations and the error envelope "
-            '{"error": {"code", "message"}}. '
+            "successful representations and the Google AIP-193 error body "
+            '{"error": {"code", "message", "status", "details"}}, whose '
+            "ErrorInfo.reason is stable; RFC 9110 decides the HTTP status. "
             "For application/json, Accept charset parameters have no effect; "
             "quality weights still apply and output remains UTF-8. "
             "Lists are ordered by created_at DESC, id DESC, with filter-bound keyset "
@@ -155,8 +156,8 @@ def install_schema(app: FastAPI) -> None:
             "Latest selects one winner per ticker before rating filters. "
             "Unknown ticker returns an empty page. Every GET/HEAD resource rejects "
             "bodies and duplicate or unknown query parameters. Only list endpoints "
-            "accept query parameters; OPTIONS does not validate them. Error codes: "
-            + ", ".join(dict.fromkeys(WIRE_CODES.values()))
+            "accept query parameters; OPTIONS does not validate them. Error reasons: "
+            + ", ".join(ErrorCode.__members__)
         )
         app.openapi_schema = document
         return document

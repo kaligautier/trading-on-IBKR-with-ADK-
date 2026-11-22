@@ -14,12 +14,15 @@ from starlette.datastructures import Headers, QueryParams
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from app.config.settings import Settings
-from app.dto.response.error_response import ERROR_MEDIA_TYPE, error_bytes
+from app.dto.response.error_response import (
+    ERROR_MEDIA_TYPE,
+    error_bytes,
+    request_id_var,
+)
 from app.observability import log_event, trace_fields
 from app.presentation.http.conditional import precondition, representation_tag
 from app.presentation.http.negotiation import HTTP_WORD, accepts, accepts_identity
 from app.utils.error import (
-    WIRE_CODES,
     AppError,
     ErrorCode,
     InvalidArgumentError,
@@ -84,8 +87,17 @@ class HTTPPolicy:
         if scope["type"] != "http":
             await self.app(scope, receive, send)
             return
-        started = monotonic()
         request_id = str(uuid4())
+        token = request_id_var.set(request_id)
+        try:
+            await self._handle(scope, receive, send, request_id)
+        finally:
+            request_id_var.reset(token)
+
+    async def _handle(
+        self, scope: Scope, receive: Receive, send: Send, request_id: str
+    ) -> None:
+        started = monotonic()
         headers, method = Headers(scope=scope), scope["method"]
         trace = trace_fields(headers.getlist("traceparent"))
 
@@ -296,8 +308,9 @@ class HTTPPolicy:
         if status >= 400:
             category = "UNAUTHENTICATED" if status == 401 else "INTERNAL_ERROR"
             if body:
-                candidate = json.loads(body).get("error", {}).get("code")
-                if candidate in WIRE_CODES.values():
+                details = json.loads(body).get("error", {}).get("details") or [{}]
+                candidate = details[0].get("reason")
+                if candidate in ErrorCode.__members__:
                     category = candidate
         return category
 

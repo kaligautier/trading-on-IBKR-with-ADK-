@@ -47,7 +47,7 @@
             }
           }
         },
-        "description": "Bad Request. `INVALID_ARGUMENT`: The request parameters or headers are invalid.; `INVALID_ARGUMENT`: Use a single Authorization Bearer credential.",
+        "description": "Bad Request. `INVALID_ARGUMENT` (INVALID_ARGUMENT): The request parameters or headers are invalid.; `INVALID_REQUEST` (INVALID_ARGUMENT): Use a single Authorization Bearer credential.",
         "headers": {
           "Cache-Control": {
             "$ref": "#/components/headers/Cache-Control"
@@ -71,7 +71,7 @@
             }
           }
         },
-        "description": "Unauthorized. `UNAUTHENTICATED`: The supplied credential is invalid.",
+        "description": "Unauthorized. `UNAUTHENTICATED` (UNAUTHENTICATED): The supplied credential is invalid.",
         "headers": {
           "Cache-Control": {
             "$ref": "#/components/headers/Cache-Control"
@@ -95,7 +95,7 @@
             }
           }
         },
-        "description": "Forbidden. `FORBIDDEN`: The suggestion caller signature is invalid.",
+        "description": "Forbidden. `FORBIDDEN` (PERMISSION_DENIED): The suggestion caller signature is invalid.",
         "headers": {
           "Cache-Control": {
             "$ref": "#/components/headers/Cache-Control"
@@ -116,7 +116,7 @@
             }
           }
         },
-        "description": "Not Found. `ANALYSIS_NOT_FOUND`: The requested analysis does not exist.; `NOT_FOUND`: The requested resource does not exist.",
+        "description": "Not Found. `ANALYSIS_NOT_FOUND` (NOT_FOUND): The requested analysis does not exist.; `NOT_FOUND` (NOT_FOUND): The requested resource does not exist.",
         "headers": {
           "Cache-Control": {
             "$ref": "#/components/headers/Cache-Control"
@@ -137,7 +137,7 @@
             }
           }
         },
-        "description": "Method Not Allowed. `METHOD_NOT_ALLOWED`: This resource does not support the requested method.",
+        "description": "Method Not Allowed. `METHOD_NOT_ALLOWED` (UNIMPLEMENTED): This resource does not support the requested method.",
         "headers": {
           "Allow": {
             "$ref": "#/components/headers/Allow"
@@ -161,7 +161,7 @@
             }
           }
         },
-        "description": "Not Acceptable. `NOT_ACCEPTABLE`: The requested representation is unavailable.",
+        "description": "Not Acceptable. `NOT_ACCEPTABLE` (INVALID_ARGUMENT): The requested representation is unavailable.",
         "headers": {
           "Cache-Control": {
             "$ref": "#/components/headers/Cache-Control"
@@ -182,7 +182,7 @@
             }
           }
         },
-        "description": "Conflict. `CURRENT_ANALYSIS_EXISTS`: This ticker already has a current Momentum analysis.",
+        "description": "Conflict. `CURRENT_ANALYSIS_EXISTS` (ALREADY_EXISTS): This ticker already has a current Momentum analysis.",
         "headers": {
           "Cache-Control": {
             "$ref": "#/components/headers/Cache-Control"
@@ -203,7 +203,7 @@
             }
           }
         },
-        "description": "Precondition Failed. `PRECONDITION_FAILED`: The representation does not satisfy the precondition.",
+        "description": "Precondition Failed. `PRECONDITION_FAILED` (FAILED_PRECONDITION): The representation does not satisfy the precondition.",
         "headers": {
           "Cache-Control": {
             "$ref": "#/components/headers/Cache-Control"
@@ -224,7 +224,7 @@
             }
           }
         },
-        "description": "Content Too Large. `PAYLOAD_TOO_LARGE`: The request body exceeds the allowed size.",
+        "description": "Content Too Large. `PAYLOAD_TOO_LARGE` (INVALID_ARGUMENT): The request body exceeds the allowed size.",
         "headers": {
           "Cache-Control": {
             "$ref": "#/components/headers/Cache-Control"
@@ -245,7 +245,7 @@
             }
           }
         },
-        "description": "Unsupported Media Type. `UNSUPPORTED_MEDIA_TYPE`: Use application/json for suggestion intake.",
+        "description": "Unsupported Media Type. `UNSUPPORTED_MEDIA_TYPE` (INVALID_ARGUMENT): Use application/json for suggestion intake.",
         "headers": {
           "Cache-Control": {
             "$ref": "#/components/headers/Cache-Control"
@@ -266,7 +266,7 @@
             }
           }
         },
-        "description": "Too Many Requests. `SUGGESTION_RATE_LIMIT`: The suggestion cooldown or daily limit was reached.",
+        "description": "Too Many Requests. `SUGGESTION_RATE_LIMIT` (RESOURCE_EXHAUSTED): The suggestion cooldown or daily limit was reached.",
         "headers": {
           "Cache-Control": {
             "$ref": "#/components/headers/Cache-Control"
@@ -287,7 +287,7 @@
             }
           }
         },
-        "description": "Internal Server Error. `INVALID_STORED_ANALYSIS`: The stored analysis cannot be represented.; `STORE_CONFIGURATION_ERROR`: The service configuration prevents this operation.; `INTERNAL_ERROR`: The service could not complete the request.",
+        "description": "Internal Server Error. `INVALID_STORED_ANALYSIS` (INTERNAL): The stored analysis cannot be represented.; `STORE_CONFIGURATION_ERROR` (INTERNAL): The service configuration prevents this operation.; `INTERNAL_ERROR` (INTERNAL): The service could not complete the request.",
         "headers": {
           "Cache-Control": {
             "$ref": "#/components/headers/Cache-Control"
@@ -308,7 +308,7 @@
             }
           }
         },
-        "description": "Service Unavailable. `STORE_UNAVAILABLE`: The analysis store is temporarily unavailable.",
+        "description": "Service Unavailable. `STORE_UNAVAILABLE` (UNAVAILABLE): The analysis store is temporarily unavailable.",
         "headers": {
           "Cache-Control": {
             "$ref": "#/components/headers/Cache-Control"
@@ -903,32 +903,55 @@
         "title": "DebateArgument",
         "type": "object"
       },
-      "ErrorDetail": {
+      "ErrorResponse": {
+        "description": "Absent when application/json is unacceptable. Missing credentials produce a bodyless Bearer challenge.",
+        "properties": {
+          "error": {
+            "$ref": "#/components/schemas/ErrorStatus"
+          }
+        },
+        "required": [
+          "error"
+        ],
+        "type": "object"
+      },
+      "ErrorStatus": {
+        "description": "google.rpc.Status (Google AIP-193 HTTP/1.1+JSON).",
         "properties": {
           "code": {
-            "description": "Stable error code.",
-            "type": "string"
+            "description": "HTTP status code.",
+            "type": "integer"
+          },
+          "details": {
+            "description": "ErrorInfo (reason, domain, metadata), then RequestInfo (requestId) and Help (links). Branch on ErrorInfo.reason, never on message.",
+            "items": {
+              "additionalProperties": true,
+              "properties": {
+                "@type": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "@type"
+              ],
+              "type": "object"
+            },
+            "type": "array"
           },
           "message": {
             "description": "Sanitized message.",
+            "type": "string"
+          },
+          "status": {
+            "description": "Canonical google.rpc.Code name.",
             "type": "string"
           }
         },
         "required": [
           "code",
-          "message"
-        ],
-        "type": "object"
-      },
-      "ErrorResponse": {
-        "description": "Absent when application/json is unacceptable. Missing credentials produce a bodyless Bearer challenge.",
-        "properties": {
-          "error": {
-            "$ref": "#/components/schemas/ErrorDetail"
-          }
-        },
-        "required": [
-          "error"
+          "message",
+          "status",
+          "details"
         ],
         "type": "object"
       },
@@ -2275,7 +2298,7 @@
     }
   },
   "info": {
-    "description": "Private Momentum catalogue and moderated suggestion intake. Analyses remain read-only. UTC dates/timestamps; finite JSON. Clients should send Accept: application/json to receive both successful representations and the error envelope {\"error\": {\"code\", \"message\"}}. For application/json, Accept charset parameters have no effect; quality weights still apply and output remains UTF-8. Lists are ordered by created_at DESC, id DESC, with filter-bound keyset tokens and no snapshot guarantee under concurrent updates. Latest selects one winner per ticker before rating filters. Unknown ticker returns an empty page. Every GET/HEAD resource rejects bodies and duplicate or unknown query parameters. Only list endpoints accept query parameters; OPTIONS does not validate them. Error codes: FORBIDDEN, CURRENT_ANALYSIS_EXISTS, SUGGESTION_RATE_LIMIT, PAYLOAD_TOO_LARGE, UNSUPPORTED_MEDIA_TYPE, INVALID_ARGUMENT, UNAUTHENTICATED, ANALYSIS_NOT_FOUND, NOT_FOUND, METHOD_NOT_ALLOWED, NOT_ACCEPTABLE, PRECONDITION_FAILED, INVALID_STORED_ANALYSIS, STORE_CONFIGURATION_ERROR, STORE_UNAVAILABLE, INTERNAL_ERROR, NOT_IMPLEMENTED",
+    "description": "Private Momentum catalogue and moderated suggestion intake. Analyses remain read-only. UTC dates/timestamps; finite JSON. Clients should send Accept: application/json to receive both successful representations and the Google AIP-193 error body {\"error\": {\"code\", \"message\", \"status\", \"details\"}}, whose ErrorInfo.reason is stable; RFC 9110 decides the HTTP status. For application/json, Accept charset parameters have no effect; quality weights still apply and output remains UTF-8. Lists are ordered by created_at DESC, id DESC, with filter-bound keyset tokens and no snapshot guarantee under concurrent updates. Latest selects one winner per ticker before rating filters. Unknown ticker returns an empty page. Every GET/HEAD resource rejects bodies and duplicate or unknown query parameters. Only list endpoints accept query parameters; OPTIONS does not validate them. Error reasons: FORBIDDEN, CURRENT_ANALYSIS_EXISTS, SUGGESTION_RATE_LIMIT, PAYLOAD_TOO_LARGE, UNSUPPORTED_MEDIA_TYPE, INVALID_ARGUMENT, INVALID_REQUEST, UNAUTHENTICATED, ANALYSIS_NOT_FOUND, NOT_FOUND, METHOD_NOT_ALLOWED, NOT_ACCEPTABLE, PRECONDITION_FAILED, INVALID_STORED_ANALYSIS, STORE_CONFIGURATION_ERROR, STORE_UNAVAILABLE, INTERNAL_ERROR, NOT_IMPLEMENTED",
     "title": "Momentum consultation API",
     "version": "0.1.0"
   },
