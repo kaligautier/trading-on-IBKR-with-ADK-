@@ -53,6 +53,23 @@ async def test_request_logs_are_json_with_validated_trace_context(trace, caplog)
         assert "trace_id" not in event
 
 
+async def test_traced_request_logs_link_to_cloud_trace(caplog, monkeypatch):
+    monkeypatch.setenv("GOOGLE_CLOUD_PROJECT", "example-project")
+    trace = "00-1234567890abcdef1234567890abcdef-1234567890abcdef-00"
+    with caplog.at_level(logging.INFO, logger="momentum_api"):
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=create_app(settings())),
+            base_url="http://test",
+        ) as client:
+            await client.get("/health", headers={"traceparent": trace})
+    event = json.loads(caplog.records[-1].getMessage())
+    assert event["logging.googleapis.com/trace"] == (
+        "projects/example-project/traces/1234567890abcdef1234567890abcdef"
+    )
+    assert event["logging.googleapis.com/spanId"] == "1234567890abcdef"
+    assert event["logging.googleapis.com/trace_sampled"] is False
+
+
 async def test_store_failure_preserves_cause_without_exposing_its_message():
     original = OSError("private database connection details")
     engine = MagicMock(spec=AsyncEngine)
