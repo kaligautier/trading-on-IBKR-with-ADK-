@@ -8,11 +8,13 @@ All dispatch, capabilities and protocol negotiation remain owned by FastMCP.
 import json
 
 from fastmcp import FastMCP
+from starlette.exceptions import HTTPException
 from starlette.middleware import Middleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.cors import CORSMiddleware
 from starlette.responses import JSONResponse
 
+from momentum_public_mcp.dto.response.error_response import http_error
 from momentum_public_mcp.observability import RequestTelemetry
 from momentum_public_mcp.utils.error import ErrorCode, ProtocolError
 
@@ -62,7 +64,7 @@ class RequireStatelessMetadata(BaseHTTPMiddleware):
 
 
 def create_http_app(server: FastMCP, **telemetry_options):
-    return server.http_app(
+    app = server.http_app(
         path="/",
         stateless_http=True,
         json_response=True,
@@ -83,3 +85,5 @@ def create_http_app(server: FastMCP, **telemetry_options):
             Middleware(RequireStatelessMetadata),
         ],
     )
+    app.add_exception_handler(HTTPException, http_error)
+    return app

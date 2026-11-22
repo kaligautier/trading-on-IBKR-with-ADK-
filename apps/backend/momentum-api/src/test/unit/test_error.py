@@ -1,4 +1,4 @@
-"""The error module declares every public problem once."""
+"""The error module declares every public failure once."""
 
 import json
 
@@ -11,7 +11,7 @@ from app.domain.analyses.errors import (
     StoreUnavailableError,
 )
 from app.domain.suggestions import CurrentAnalysisExistsError, SuggestionRateLimitError
-from app.presentation.http.problems import problem_bytes
+from app.dto.response.error_response import error_bytes, error_responses
 from app.utils.error import (
     ERROR_MESSAGES,
     HTTP_STATUS_CODES,
@@ -22,7 +22,7 @@ from app.utils.error import (
 )
 
 
-def test_every_problem_type_has_a_status_message_and_wire_code() -> None:
+def test_every_code_has_a_status_message_and_wire_code() -> None:
     for code in ErrorCode:
         assert 400 <= HTTP_STATUS_CODES[code] < 600
         assert ERROR_MESSAGES[code]
@@ -50,15 +50,22 @@ def test_domain_failures_map_without_exposing_their_text(
 ) -> None:
     translated = AppError.from_domain(error)
     assert translated.error_code is code
-    assert "private" not in problem_bytes(translated).decode()
+    assert "private" not in error_bytes(translated).decode()
 
 
-def test_status_override_keeps_the_declared_problem() -> None:
+def test_status_override_keeps_the_declared_code() -> None:
     error = AppError(ErrorCode.STORE_CONFIGURATION_ERROR, status_code=503)
-    problem = json.loads(problem_bytes(error))
-    assert problem["status"] == 503
-    assert problem["title"] == "Service Unavailable"
-    assert problem["code"] == "STORE_CONFIGURATION_ERROR"
+    assert error.status_code == 503
+    assert json.loads(error_bytes(error))["error"]["code"] == (
+        "STORE_CONFIGURATION_ERROR"
+    )
+
+
+def test_error_responses_list_each_code_under_its_status() -> None:
+    responses = error_responses(ErrorCode.ANALYSIS_NOT_FOUND, ErrorCode.NOT_FOUND)
+    assert list(responses) == [404]
+    assert "`ANALYSIS_NOT_FOUND`" in responses[404]["description"]
+    assert "`NOT_FOUND`" in responses[404]["description"]
 
 
 def test_missing_credentials_is_a_bodyless_challenge() -> None:

@@ -11,8 +11,8 @@ from starlette.types import Scope
 
 from app.config.settings import Settings
 from app.domain.analyses.errors import ConsultationError
+from app.dto.response.error_response import ERROR_MEDIA_TYPE, error_bytes
 from app.presentation.http.middleware import HTTPPolicy
-from app.presentation.http.problems import problem_bytes
 from app.presentation.http.schema import install_schema
 from app.presentation.routes.analyses import QUERY_PARAMETERS, router
 from app.presentation.routes.suggestions import router as suggestions_router
@@ -37,9 +37,9 @@ def create_app(settings: Settings, lifespan: Lifespan | None = None) -> FastAPI:
     @app.exception_handler(AppError)
     async def application_error(_: Request, error: AppError) -> Response:
         return Response(
-            problem_bytes(error),
+            error_bytes(error),
             status_code=error.status_code,
-            media_type="application/problem+json",
+            media_type=ERROR_MEDIA_TYPE,
         )
 
     @app.exception_handler(RequestValidationError)

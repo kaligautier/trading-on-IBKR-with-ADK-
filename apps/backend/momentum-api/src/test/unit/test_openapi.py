@@ -57,9 +57,12 @@ def test_openapi_policy_and_financial_shapes():
     assert "macd_signal_state" not in financial["TechnicalIndicators"]["properties"]
     assert "user_id" not in financial["AnalysisDetail"]["properties"]
     assert schema["components"]["responses"]["405"]["headers"]["Allow"]
+    assert schema["components"]["responses"]["400"]["content"] == {
+        "application/json": {"schema": {"$ref": "#/components/schemas/ErrorResponse"}}
+    }
     assert (
-        "application/problem+json"
-        in schema["components"]["responses"]["400"]["content"]
+        "`ANALYSIS_NOT_FOUND`"
+        in schema["components"]["responses"]["404"]["description"]
     )
 
 

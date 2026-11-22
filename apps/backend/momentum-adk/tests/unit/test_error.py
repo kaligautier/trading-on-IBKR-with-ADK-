@@ -60,7 +60,8 @@ def test_worker_reports_busy_with_exit_code_75(monkeypatch, capsys):
     monkeypatch.setattr(job_runner, "execute", busy)
     monkeypatch.setattr(job_runner.asyncio, "run", lambda coroutine: coroutine)
     assert job_runner.main() == 75
-    assert '"event": "momentum_busy"' in capsys.readouterr().out
+    busy_event = json.loads(capsys.readouterr().out.strip().splitlines()[-1])
+    assert busy_event == {"severity": "WARNING", "event": "momentum_busy"}
 
 
 def test_worker_failure_event_carries_the_error_code(monkeypatch, capsys):
@@ -70,6 +71,7 @@ def test_worker_failure_event_carries_the_error_code(monkeypatch, capsys):
     assert job_runner.main() == 1
     event = json.loads(capsys.readouterr().out.strip().splitlines()[-1])
     assert event == {
+        "severity": "ERROR",
         "event": "momentum_failed",
         "error_type": "ValidationError",
         "error_code": "INTERNAL_ERROR",

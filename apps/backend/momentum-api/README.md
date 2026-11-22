@@ -134,10 +134,10 @@ Manager privately. Keep URL/token values out of Terraform. Production image
 publication, migration, Terraform plan/apply and live IAM/TLS/data verification
 are separate release steps; local tests do not establish a deployed release.
 
-## HTTP behavior and problems
+## HTTP behavior and errors
 
-Success JSON is UTF-8. Accept both `application/json` and
-`application/problem+json`; unsupported success representations give 406.
+Success and error JSON are UTF-8 `application/json`; unsupported success
+representations give 406.
 For `application/json`, a syntactically valid `charset` parameter in `Accept`
 has no effect ([RFC 8259 section 11](https://www.rfc-editor.org/rfc/rfc8259.html#section-11));
 output remains UTF-8. Quality weights still apply: an explicit JSON `q=0`
@@ -157,9 +157,12 @@ parameters; detail, health, readiness and OpenAPI accept none. Authentication,
 unknown-resource and method errors retain precedence. OPTIONS reports capabilities
 without validating query parameters.
 
-Problem type URIs use this README's stable anchors. Status matches the HTTP
-status. Content is omitted if `application/problem+json` or identity is excluded;
-required headers/status remain. Missing credentials give a bodyless 401 with
+Errors use the envelope `{"error": {"code": "...", "message": "..."}}`. Every
+code, status and message is declared once in `src/app/utils/error.py`, which
+also generates the OpenAPI error descriptions; the sections below use the
+`ErrorCode` values as stable anchors. Details are logged, never returned.
+Content is omitted if `application/json` or identity is excluded; required
+headers/status remain. Missing credentials give a bodyless 401 with
 `WWW-Authenticate: Bearer realm="momentum-api"`; invalid credentials add
 `error="invalid_token"`. The managed Cloud Run edge has its own rejection format.
 
@@ -219,14 +222,16 @@ Python logging-internal traceback output is disabled at runtime bootstrap;
 a broken logging sink does not replace the HTTP outcome.
 
 A valid version-00 W3C `traceparent` adds `trace_id` and `parent_span_id` for
-correlation with upstream traces. Zero, malformed, unsupported or repeated values
-are ignored. These fields never authenticate a caller and are not local span IDs.
+correlation with upstream traces. When `GOOGLE_CLOUD_PROJECT` is set, the event
+also carries `logging.googleapis.com/trace`, `spanId` and `trace_sampled`, so Cloud
+Logging shows it under the caller's trace. Zero, malformed, unsupported or repeated
+values are ignored. These fields never authenticate a caller and are not local span IDs.
 The service creates no spans and configures no OpenTelemetry exporter or collector.
 See [W3C Trace Context](https://www.w3.org/TR/trace-context/) and the
 [OpenTelemetry log data model](https://opentelemetry.io/docs/specs/otel/logs/data-model/).
 
 Storage and mapping failures retain their original causes internally while the
-HTTP boundary returns the existing sanitized problems. Shutdown always attempts
+HTTP boundary returns the existing sanitized errors. Shutdown always attempts
 to dispose the pool. If cleanup also fails during a primary lifecycle failure,
 the primary failure is preserved and cleanup is reported with a safe JSON event.
 A standalone cleanup failure remains a failed shutdown.

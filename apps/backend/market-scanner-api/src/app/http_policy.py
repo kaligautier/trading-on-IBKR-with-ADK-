@@ -1,6 +1,5 @@
 """HTTP read semantics shared by the reader's JSON resources."""
 
-import json
 import logging
 from copy import deepcopy
 from time import monotonic
@@ -11,9 +10,8 @@ from starlette.datastructures import Headers, MutableHeaders
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from app.negotiation import accepts
+from app.observability import log_event
 from app.utils.logging_messages import LoggingMessages
-
-logger = logging.getLogger("market_scanner_api")
 
 
 class ReadHTTPPolicy:
@@ -27,7 +25,8 @@ class ReadHTTPPolicy:
         start = monotonic()
         head = scope["method"] == "HEAD"
         routed_scope = {**scope, "method": "GET"} if head else scope
-        accept_values = Headers(scope=scope).getlist("accept")
+        request_headers = Headers(scope=scope)
+        accept_values = request_headers.getlist("accept")
         acceptable = accepts(
             ",".join(accept_values) if accept_values else None, "application/json"
         )
@@ -48,20 +47,19 @@ class ReadHTTPPolicy:
                         headers["content-length"] = "0"
                         del headers["content-type"]
                         suppress = True
-                logger.info(
-                    LoggingMessages.STRUCTURED_EVENT,
-                    json.dumps(
-                        {
-                            "event": LoggingMessages.HTTP_COMPLETED,
-                            "request_id": headers.get("X-Request-ID", ""),
-                            "method": scope["method"],
-                            "route": getattr(
-                                routed_scope.get("route"), "path", "unmatched"
-                            ),
-                            "status": message["status"],
-                            "duration_ms": round((monotonic() - start) * 1000, 2),
-                        }
-                    ),
+                log_event(
+                    logging.INFO,
+                    request_headers.get("traceparent"),
+                    {
+                        "event": LoggingMessages.HTTP_COMPLETED,
+                        "request_id": headers.get("X-Request-ID", ""),
+                        "method": scope["method"],
+                        "route": getattr(
+                            routed_scope.get("route"), "path", "unmatched"
+                        ),
+                        "status": message["status"],
+                        "duration_ms": round((monotonic() - start) * 1000, 2),
+                    },
                 )
             elif message["type"] == "http.response.body" and suppress:
                 message = {**message, "body": b""}
