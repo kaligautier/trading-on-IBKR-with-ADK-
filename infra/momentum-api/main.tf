@@ -68,6 +68,8 @@ resource "google_cloud_run_v2_service" "reader" {
           AUTH_MODE             = "cloud_run"
           DATABASE_POOL_SIZE    = "1"
           DATABASE_POOL_TIMEOUT = "5"
+          # Lets Cloud Logging attach request logs to the caller's trace.
+          GOOGLE_CLOUD_PROJECT = var.project_id
         }
         content {
           name  = env.key

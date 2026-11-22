@@ -231,6 +231,33 @@ def test_request_correlation_is_bounded_and_secrets_are_not_logged(caplog):
     assert "local-test-token" not in caplog.text
 
 
+def test_events_carry_severity_and_link_to_the_caller_trace(caplog, monkeypatch):
+    import logging
+
+    monkeypatch.setenv("GOOGLE_CLOUD_PROJECT", "example-project")
+    trace_id = "1234567890abcdef1234567890abcdef"
+    with caplog.at_level(logging.INFO, logger="market_scanner_api"), client() as api:
+        api.get(
+            "/v1/market-scans/latest",
+            headers={**HEADERS, "traceparent": f"00-{trace_id}-1234567890abcdef-01"},
+        )
+        api.get("/v1/market-scans/latest", headers=HEADERS)
+    traced, untraced = [
+        json.loads(record.getMessage())
+        for record in caplog.records
+        if '"http.completed"' in record.getMessage()
+    ]
+    assert traced["severity"] == "INFO"
+    assert traced["trace_id"] == trace_id
+    assert traced["logging.googleapis.com/trace"] == (
+        f"projects/example-project/traces/{trace_id}"
+    )
+    assert traced["logging.googleapis.com/spanId"] == "1234567890abcdef"
+    assert traced["logging.googleapis.com/trace_sampled"] is True
+    assert untraced["severity"] == "INFO"
+    assert "trace_id" not in untraced
+
+
 def test_unexpected_errors_are_sanitized_and_still_correlated(caplog):
     import logging
 
