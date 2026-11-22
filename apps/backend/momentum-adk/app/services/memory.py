@@ -10,6 +10,7 @@ from typing import Any
 import yfinance
 
 from app.domain.contracts import AnalysisRequest, PendingOutcome
+from app.utils.logging_messages import LoggingMessages
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +50,7 @@ class MarketOutcomeResolver:
                 holding_days=actual_days,
             )
         except Exception as error:  # noqa: BLE001 - vendor failures are not stable
-            logger.warning("Deferred outcome unavailable for %s: %s", ticker, error)
+            logger.warning(LoggingMessages.DEFERRED_OUTCOME_UNAVAILABLE, ticker, error)
             return None
 
     def _history(self, ticker: str, trade_date: date, holding_days: int):

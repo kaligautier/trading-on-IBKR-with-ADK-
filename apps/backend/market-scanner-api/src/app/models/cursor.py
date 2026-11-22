@@ -7,9 +7,7 @@ from uuid import UUID
 
 from pydantic import AwareDatetime, BaseModel, ConfigDict
 
-
-class InvalidCursorError(ValueError):
-    """A pagination token is malformed or uses an unsupported version."""
+from app.utils.error import InvalidCursorError
 
 
 class Cursor(BaseModel):

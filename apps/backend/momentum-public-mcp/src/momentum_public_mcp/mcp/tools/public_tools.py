@@ -187,7 +187,9 @@ class MomentumPublicTools:
     ):
         try:
             result = await operation()
-        except (MomentumApiError, ValueError) as error:
+        except MomentumApiError as error:
+            raise ToolError(error.message) from error
+        except ValueError as error:
             raise ToolError(str(error)) from error
         record_result(result)
         return result

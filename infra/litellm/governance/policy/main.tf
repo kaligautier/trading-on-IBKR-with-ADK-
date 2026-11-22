@@ -70,13 +70,14 @@ data "litellm_team" "agents" {
   }
 }
 resource "litellm_key" "agent" {
-  depends_on            = [data.litellm_team.agents]
-  for_each              = var.agents
-  key                   = var.client_keys[each.key]
-  key_alias             = each.key
-  team_id               = litellm_team.agents.id
-  models                = var.models
-  allowed_routes        = ["/v1beta/models/*"]
+  depends_on = [data.litellm_team.agents]
+  for_each   = var.agents
+  key        = var.client_keys[each.key]
+  key_alias  = each.key
+  team_id    = litellm_team.agents.id
+  models     = var.models
+  # Native Gemini inference plus the Decision routes (/v1/decisions, /v1/systemone).
+  allowed_routes        = ["/v1beta/models/*", "/v1/decisions", "/v1/systemone"]
   max_budget            = each.value.max_budget
   budget_duration       = each.value.budget_duration
   rpm_limit             = each.value.rpm_limit

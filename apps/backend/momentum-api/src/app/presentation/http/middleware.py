@@ -14,10 +14,18 @@ from starlette.datastructures import Headers, QueryParams
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from app.config.settings import Settings
+from app.dto.response.error_response import ERROR_MEDIA_TYPE, error_bytes
 from app.observability import log_event, trace_fields
 from app.presentation.http.conditional import precondition, representation_tag
 from app.presentation.http.negotiation import HTTP_WORD, accepts, accepts_identity
-from app.presentation.http.problems import CODES, APIError, problem_bytes
+from app.utils.error import (
+    WIRE_CODES,
+    AppError,
+    ErrorCode,
+    InvalidArgumentError,
+    MissingCredentialsError,
+)
+from app.utils.logging_messages import LoggingMessages
 
 ALLOW = "GET, HEAD, OPTIONS"
 METHODS = {
@@ -52,25 +60,25 @@ class HTTPPolicy:
             scope.get("query_string", b"").decode("latin-1"), keep_blank_values=True
         )
         if len(credentials) > 1 or any(key == "access_token" for key, _ in query):
-            raise APIError(400, "invalid-request")
+            raise AppError(ErrorCode.INVALID_REQUEST)
         if self.settings.AUTH_MODE == "cloud_run":
             # Deployment requires enforced Cloud Run IAM and no anonymous invokers.
             # Google ingress, not this container, verifies its identity token.
             return
         if not credentials:
-            raise APIError(401, "")
+            raise MissingCredentialsError()
         scheme, _, credential = credentials[0].partition(" ")
         credential = credential.lstrip(" ")
         if not re.fullmatch(HTTP_WORD, scheme):
-            raise APIError(400, "invalid-request")
+            raise AppError(ErrorCode.INVALID_REQUEST)
         if scheme.lower() != "bearer":
-            raise APIError(401, "")
+            raise MissingCredentialsError()
         if not re.fullmatch(r"[A-Za-z0-9._~+/-]+=*", credential):
-            raise APIError(400, "invalid-request")
+            raise AppError(ErrorCode.INVALID_REQUEST)
         if not hmac.compare_digest(
             credential, self.settings.API_TOKEN.get_secret_value()
         ):
-            raise APIError(401, "invalid-token")
+            raise AppError(ErrorCode.UNAUTHENTICATED)
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] != "http":
@@ -95,8 +103,8 @@ class HTTPPolicy:
             if response is None:
                 return
             status, response_headers, body = response
-        except APIError as error:
-            status, response_headers, body = self._problem_response(error)
+        except AppError as error:
+            status, response_headers, body = self._error_response(error)
         except Exception as error:
             # Log code locations, never exception messages, source lines or locals.
             sources = [
@@ -106,17 +114,17 @@ class HTTPPolicy:
             ]
             log_event(
                 logging.ERROR,
-                "request_failed",
+                LoggingMessages.REQUEST_FAILED,
                 request_id=request_id,
                 exception_type=type(error).__name__,
                 source=sources[-1] if sources else "unknown",
                 **trace,
             )
-            status, body = 500, problem_bytes(APIError(500, "internal-error"))
-            response_headers = [(b"content-type", b"application/problem+json")]
+            status, body = 500, error_bytes(AppError(ErrorCode.INTERNAL_ERROR))
+            response_headers = [(b"content-type", ERROR_MEDIA_TYPE.encode())]
         category = self._category(status, body)
         if status >= 400 and (
-            not accepts(combined("accept"), "application/problem+json")
+            not accepts(combined("accept"), ERROR_MEDIA_TYPE)
             or not accepts_identity(combined("accept-encoding"))
         ):
             body = b""
@@ -135,7 +143,7 @@ class HTTPPolicy:
         )
         log_event(
             logging.INFO,
-            "request_completed",
+            LoggingMessages.REQUEST_COMPLETED,
             request_id=request_id,
             route=route or "unknown",
             status=status,
@@ -147,22 +155,22 @@ class HTTPPolicy:
     @staticmethod
     def _validate_method(method: str, route: str | None) -> None:
         if method not in METHODS:
-            raise APIError(501, "not-implemented")
+            raise AppError(ErrorCode.NOT_IMPLEMENTED)
         if route is None:
-            raise APIError(404, "not-found")
+            raise AppError(ErrorCode.NOT_FOUND)
         allowed = (
             {"POST", "OPTIONS"}
             if route == "/v1/suggestions"
             else {"GET", "HEAD", "OPTIONS"}
         )
         if method not in allowed:
-            raise APIError(405, "method-not-allowed")
+            raise AppError(ErrorCode.METHOD_NOT_ALLOWED)
 
     def _validate_query(self, scope: Scope, route: str | None) -> None:
         allowed = self.query_parameters.get(route or "", frozenset())
         query = QueryParams(scope.get("query_string", b""))
         if any(key not in allowed or len(query.getlist(key)) != 1 for key in query):
-            raise APIError(400, "invalid-argument")
+            raise InvalidArgumentError()
 
     async def _dispatch(
         self, scope: Scope, receive: Receive, headers: Headers
@@ -178,7 +186,7 @@ class HTTPPolicy:
             if message["type"] == "http.disconnect":
                 return None
             if message.get("body"):
-                raise APIError(400, "invalid-argument")
+                raise InvalidArgumentError()
             if not message.get("more_body", False):
                 break
         messages: list[Message] = []
@@ -204,14 +212,14 @@ class HTTPPolicy:
         if not accepts(
             ",".join(headers.getlist("accept")) or None, "application/json"
         ) or not accepts_identity(",".join(headers.getlist("accept-encoding")) or None):
-            raise APIError(406, "not-acceptable")
+            raise AppError(ErrorCode.NOT_ACCEPTABLE)
         if (
             headers.get("content-type", "").split(";", 1)[0].strip().lower()
             != "application/json"
         ):
-            raise APIError(415, "unsupported-media-type")
+            raise AppError(ErrorCode.UNSUPPORTED_MEDIA_TYPE)
         if headers.get("if-match") or headers.get("if-none-match"):
-            raise APIError(400, "invalid-argument")
+            raise InvalidArgumentError()
         body = bytearray()
         while True:
             message = await receive()
@@ -219,7 +227,7 @@ class HTTPPolicy:
                 return None
             body.extend(message.get("body", b""))
             if len(body) > 4096:
-                raise APIError(413, "payload-too-large")
+                raise AppError(ErrorCode.PAYLOAD_TOO_LARGE)
             if not message.get("more_body", False):
                 break
         messages: list[Message] = []
@@ -253,7 +261,7 @@ class HTTPPolicy:
             if not accepts(
                 combined("accept"), "application/json"
             ) or not accepts_identity(combined("accept-encoding")):
-                raise APIError(406, "not-acceptable")
+                raise AppError(ErrorCode.NOT_ACCEPTABLE)
             tag = representation_tag(body)
             response_headers.append((b"etag", tag.encode()))
             try:
@@ -261,23 +269,24 @@ class HTTPPolicy:
                     tag, combined("if-match"), combined("if-none-match")
                 )
             except ValueError:
-                raise APIError(400, "invalid-argument") from None
+                raise InvalidArgumentError() from None
             if conditional == 412:
-                raise APIError(412, "precondition-failed")
+                raise AppError(ErrorCode.PRECONDITION_FAILED)
             if conditional == 304:
                 status, body = 304, b""
         return status, response_headers, body
 
     @staticmethod
-    def _problem_response(
-        error: APIError,
+    def _error_response(
+        error: AppError,
     ) -> tuple[int, list[tuple[bytes, bytes]], bytes]:
-        status, body = error.status, problem_bytes(error) if error.code else b""
-        response_headers = [(b"content-type", b"application/problem+json")]
-        if status == 401 or error.code == "invalid-request":
+        status = error.status_code
+        body = error_bytes(error) if error.has_body else b""
+        response_headers = [(b"content-type", ERROR_MEDIA_TYPE.encode())]
+        if status == 401 or error.error_code is ErrorCode.INVALID_REQUEST:
             challenge = 'Bearer realm="momentum-api"'
-            if error.code:
-                challenge += f', error="{error.code.replace("-", "_")}"'
+            if error.has_body:
+                challenge += f', error="{error.error_code.value.replace("-", "_")}"'
             response_headers.append((b"www-authenticate", challenge.encode()))
         return status, response_headers, body
 
@@ -287,8 +296,8 @@ class HTTPPolicy:
         if status >= 400:
             category = "UNAUTHENTICATED" if status == 401 else "INTERNAL_ERROR"
             if body:
-                candidate = json.loads(body).get("code")
-                if candidate in CODES.values():
+                candidate = json.loads(body).get("error", {}).get("code")
+                if candidate in WIRE_CODES.values():
                     category = candidate
         return category
 

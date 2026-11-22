@@ -410,7 +410,12 @@ async def should_expose_custom_error_over_adk_http_without_persisting(
         api_client.close()
     if route == "/run":
         assert response.status_code == 502
-        assert response.json() == {"error": "LiteLLM gateway request failed"}
+        assert response.json() == {
+            "error": {
+                "code": "LITELLM_ERROR",
+                "message": "LiteLLM gateway request failed",
+            }
+        }
     else:
         assert response.status_code == 200
         assert "LiteLLMError" in response.text

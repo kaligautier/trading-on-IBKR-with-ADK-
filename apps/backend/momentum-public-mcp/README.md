@@ -52,6 +52,18 @@ curl "$MCP_URL/" \
 
 Always check `result.isError`, not just HTTP 200.
 
+Every public failure is declared once in `src/momentum_public_mcp/utils/error.py`:
+an `ErrorCode`, its sanitized message, and its HTTP status. Routes outside MCP
+dispatch (unknown path, wrong method) answer with the envelope shared by the
+backends, `{"error": {"code": "NOT_FOUND", "message": "..."}}` (see
+`dto/response/error_response.py`). MCP requests keep the envelope JSON-RPC
+requires: protocol errors (`ProtocolError`) reject the request with HTTP 400, a
+JSON-RPC code (`-32602` or `-32022`) and the stable code in `error.data.code`.
+Upstream failures (`MomentumApiError`) become in-band tool or
+resource errors that carry only the message; `details` such as the upstream
+status are logged, never returned. Log messages live in
+`utils/logging_messages.py`, and ruff `G004` rejects f-strings in logging calls.
+
 ## Reader migration
 
 The four Momentum tools use `/v1/analyses`, `/v1/analyses/latest`,

@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime, timedelta
 from typing import Annotated
 
@@ -13,6 +14,9 @@ from app.infrastructure.market_data.stockstats import (
     load_ohlcv,
     yf_retry,
 )
+from app.utils.logging_messages import LoggingMessages
+
+logger = logging.getLogger(__name__)
 
 
 def get_YFin_data_online(  # noqa: N802 - retained as a public compatibility API
@@ -168,7 +172,7 @@ def get_stock_stats_indicators_window(
     except YFRateLimitError:
         raise
     except Exception as e:
-        print(f"Error getting bulk stockstats data: {e}")
+        logger.warning(LoggingMessages.BULK_STOCKSTATS_FAILED, e)
         # Fallback to original implementation if bulk method fails
         ind_string = ""
         curr_date_dt = datetime.strptime(curr_date, "%Y-%m-%d")
@@ -242,8 +246,8 @@ def get_stockstats_indicator(
     except YFRateLimitError:
         raise
     except Exception as e:
-        print(
-            f"Error getting stockstats indicator data for indicator {indicator} on {curr_date}: {e}"
+        logger.warning(
+            LoggingMessages.STOCKSTATS_INDICATOR_FAILED, indicator, curr_date, e
         )
         return ""
 

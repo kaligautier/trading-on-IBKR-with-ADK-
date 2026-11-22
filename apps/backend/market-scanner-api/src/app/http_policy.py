@@ -11,6 +11,7 @@ from starlette.datastructures import Headers, MutableHeaders
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from app.negotiation import accepts
+from app.utils.logging_messages import LoggingMessages
 
 logger = logging.getLogger("market_scanner_api")
 
@@ -48,9 +49,10 @@ class ReadHTTPPolicy:
                         del headers["content-type"]
                         suppress = True
                 logger.info(
+                    LoggingMessages.STRUCTURED_EVENT,
                     json.dumps(
                         {
-                            "event": "http.completed",
+                            "event": LoggingMessages.HTTP_COMPLETED,
                             "request_id": headers.get("X-Request-ID", ""),
                             "method": scope["method"],
                             "route": getattr(
@@ -59,7 +61,7 @@ class ReadHTTPPolicy:
                             "status": message["status"],
                             "duration_ms": round((monotonic() - start) * 1000, 2),
                         }
-                    )
+                    ),
                 )
             elif message["type"] == "http.response.body" and suppress:
                 message = {**message, "body": b""}
