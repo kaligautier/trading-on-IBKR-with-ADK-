@@ -1,19 +1,28 @@
-"""Public error envelope and its OpenAPI documentation, derived from ``error.py``."""
+"""Public AIP-193 error body and its OpenAPI documentation, from ``error.py``."""
 
 from typing import Any
 
 from pydantic import BaseModel
 
-from app.utils.error import ERROR_MESSAGES, HTTP_STATUS_CODES, ErrorCode
+from app.utils.error import (
+    CANONICAL_CODES,
+    ERROR_MESSAGES,
+    HTTP_STATUS_CODES,
+    ErrorCode,
+)
 
 
-class ErrorDetail(BaseModel):
-    code: str
+class ErrorStatus(BaseModel):
+    """``google.rpc.Status`` in its AIP-193 HTTP/1.1+JSON representation."""
+
+    code: int
     message: str
+    status: str
+    details: list[dict[str, Any]]
 
 
 class ErrorResponse(BaseModel):
-    error: ErrorDetail
+    error: ErrorStatus
 
 
 def error_responses(*codes: ErrorCode) -> dict[int | str, dict[str, Any]]:
@@ -21,7 +30,7 @@ def error_responses(*codes: ErrorCode) -> dict[int | str, dict[str, Any]]:
     descriptions: dict[int, list[str]] = {}
     for code in codes:
         descriptions.setdefault(HTTP_STATUS_CODES[code], []).append(
-            f"`{code.name}`: {ERROR_MESSAGES[code]}"
+            f"`{code.name}` ({CANONICAL_CODES[code].name}): {ERROR_MESSAGES[code]}"
         )
     return {
         status_code: {"model": ErrorResponse, "description": "; ".join(lines)}

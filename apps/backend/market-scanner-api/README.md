@@ -26,7 +26,7 @@ values, decimal strings, nullable horizons, provenance and data quality. The ser
 validates it against the bundled writer serialization schema and preserves it.
 It does not fabricate legacy signals, probabilities or other absent fields.
 This is an adapted v3 contract, not a drop-in replacement for older consultation DTOs.
-Internal worker session IDs are not exposed in the response envelope.
+Internal worker session IDs are not exposed in the response.
 
 History returns `{ "items": [...], "next_page_token": "..." }`; each summary has
 `id`, `scan_date`, `created_at`, `regime` and `summary`. It lists **all runs**, including
@@ -37,22 +37,42 @@ versioned positions, not authorization credentials; they do not provide snapshot
 isolation against arbitrary backdated inserts or deletions. No costly total count
 or full reports are included in history.
 
-Errors use `{ "error": { "code": "...", "message": "..." } }`:
+Errors follow [Google AIP-193](https://google.aip.dev/193): the body is a
+`google.rpc.Status` in its HTTP/1.1+JSON form.
 
-- `401 UNAUTHENTICATED`: missing/incorrect local bearer token.
-- `404 SCAN_NOT_FOUND`: no latest scan or unknown UUID; an empty list returns 200.
-- `422 INVALID_ARGUMENT`: invalid UUID, page size or cursor.
-- `503 STORE_UNAVAILABLE`: database failure, timeout or missing schema.
-- `500 INVALID_STORED_REPORT`: stored JSON does not satisfy the v3 contract.
-- `500 INVALID_RESPONSE`: another stored field cannot form a valid response DTO
-  (for example a naive timestamp or a missing summary).
-- `500 INTERNAL_ERROR`: unexpected failure, sanitized and correlated.
+```json
+{"error": {"code": 404, "message": "No market scan available",
+  "status": "NOT_FOUND",
+  "details": [
+    {"@type": "type.googleapis.com/google.rpc.ErrorInfo",
+     "reason": "SCAN_NOT_FOUND", "domain": "market-scanner-api.deepcopy.fr",
+     "metadata": {}},
+    {"@type": "type.googleapis.com/google.rpc.RequestInfo",
+     "requestId": "<X-Request-ID>"}]}}
+```
 
-Codes, HTTP statuses and messages come from `ErrorCode`, `HTTP_STATUS_CODES` and
-`ERROR_MESSAGES` in `app/utils/error.py`; the OpenAPI responses are derived from them.
+Branch on `ErrorInfo.reason` (with `domain`), never on `message`:
 
-Unknown routes and unsupported methods use the same error envelope (`NOT_FOUND`
-and `METHOD_NOT_ALLOWED`); method errors retain the HTTP `Allow` header.
+- `401 UNAUTHENTICATED` (`UNAUTHENTICATED`): missing/incorrect local bearer token.
+- `404 SCAN_NOT_FOUND` (`NOT_FOUND`): no latest scan or unknown UUID; an empty
+  list returns 200.
+- `400 INVALID_ARGUMENT` (`INVALID_ARGUMENT`): invalid UUID, page size or cursor.
+- `503 STORE_UNAVAILABLE` (`UNAVAILABLE`): database failure, timeout or missing schema.
+- `500 INVALID_STORED_REPORT` (`INTERNAL`): stored JSON does not satisfy the v3 contract.
+- `500 INVALID_RESPONSE` (`INTERNAL`): another stored field cannot form a valid
+  response DTO (for example a naive timestamp or a missing summary).
+- `500 INTERNAL_ERROR` (`INTERNAL`): unexpected failure, sanitized and correlated.
+
+Reasons, HTTP statuses, canonical codes and messages come from `ErrorCode`,
+`HTTP_STATUS_CODES`, `CANONICAL_CODES` and `ERROR_MESSAGES` in
+`app/utils/error.py`; the OpenAPI responses are derived from them. RFC 9110
+decides the HTTP status only where it imposes one: unsupported methods keep 405
+and the `Allow` header, reported as `UNIMPLEMENTED`; a JSON representation
+excluded by `Accept` gives a bodyless 406. `AppError.kind` is technical for
+`INTERNAL`, `UNAVAILABLE`, `UNKNOWN`, `DEADLINE_EXCEEDED` and `DATA_LOSS`, and a
+domain (caller-resolvable) failure otherwise.
+
+Unknown routes use the same Status with reason `NOT_FOUND`.
 
 Responses set `Cache-Control: no-store` and `X-Request-ID`. Structured completion
 logs include correlation ID, route template, status and duration, without request
