@@ -12,3 +12,10 @@ complexity:
     uvx ruff==0.17.2 check . --select C90 \
       --config 'lint.mccabe.max-complexity=10' \
       --config 'include=["*.py", "*.pyi"]'
+
+# Run every project's local checks (lint, tests and builds).
+check: lint
+    just apps/backend/market-scanner-adk/check
+    just apps/backend/momentum-adk/check
+    just apps/backend/momentum-public-mcp/check
+    just apps/frontend/check

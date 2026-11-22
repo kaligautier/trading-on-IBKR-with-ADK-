@@ -1,0 +1,52 @@
+meta {
+  name: get_recommendations
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{mcpUrl}}/
+  body: json
+  auth: inherit
+}
+
+headers {
+  Content-Type: application/json
+  Accept: application/json, text/event-stream
+  MCP-Protocol-Version: 2026-07-28
+  Mcp-Method: tools/call
+  Mcp-Name: momentum_get_recommendations
+}
+
+body:json {
+  {
+    "jsonrpc": "2.0",
+    "id": "get_recommendations",
+    "method": "tools/call",
+    "params": {
+      "_meta": {
+        "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+        "io.modelcontextprotocol/clientInfo": {
+          "name": "bruno-contract",
+          "version": "1"
+        },
+        "io.modelcontextprotocol/clientCapabilities": {}
+      },
+      "name": "momentum_get_recommendations",
+      "arguments": {}
+    }
+  }
+}
+
+script:post-response {
+  test("HTTP 200",()=>expect(res.getStatus()).to.equal(200));
+  test("No protocol session",()=>expect(res.headerList.has("Mcp-Session-Id")).to.equal(false));
+  const body=res.getBody();
+  test("Successful tool result",()=>expect(body.result.isError).not.to.equal(true));
+  test("Summary survived reader adapter",()=>expect(body.result.structuredContent.items[0].ticker).to.equal("AAPL"));
+}
+
+settings {
+  encodeUrl: true
+  forwardAuthorizationHeader: false
+}

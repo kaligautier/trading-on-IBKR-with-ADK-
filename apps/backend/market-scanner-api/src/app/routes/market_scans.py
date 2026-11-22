@@ -1,53 +1,105 @@
+"""Market scan routes: thin, read-only HTTP layer over the consultation service.
+
+Routes only validate HTTP input, resolve dependencies, call the service and map
+the stored model to its response DTO. Invalid input (scan ID, page size or page
+token length) is rejected by FastAPI with HTTP 422. They do not catch
+``AppError``: the application handler maps it to its JSON body and HTTP status.
+"""
+
+from enum import Enum
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Path, Query, status
 from fastapi.security import HTTPBearer
 
 from app.dependencies import get_service
-from app.dto.response.market_scan_response_assembler import (
-    ErrorResponse,
-    MarketScanResponse,
-    ScanListResponse,
-    assemble,
-    assemble_list,
+from app.dto.response.error_response import error_responses
+from app.dto.response.market_scan_response import MarketScanResponse, ScanListResponse
+from app.mappers.market_scan_mapper import (
+    to_market_scan_response,
+    to_scan_list_response,
 )
 from app.services.market_scan_service import MarketScanService
+from app.utils.error import ErrorCode
 
+API_PATH = "/market-scans"
+API_VERSION = "v1"
+API_PREFIX = f"/{API_VERSION}{API_PATH}"
+API_TAGS: list[str | Enum] = ["market-scans"]
+
+# Every route can fail authentication, storage access or unexpectedly.
+COMMON_ERRORS = (
+    ErrorCode.UNAUTHENTICATED,
+    ErrorCode.INTERNAL_ERROR,
+    ErrorCode.STORE_UNAVAILABLE,
+)
 router = APIRouter(
-    prefix="/v1/market-scans",
-    tags=["market-scans"],
+    prefix=API_PREFIX,
+    tags=API_TAGS,
     dependencies=[Depends(HTTPBearer(auto_error=False))],
     responses={
-        401: {"model": ErrorResponse, "description": "Authentication required"},
-        404: {"model": ErrorResponse, "description": "Scan not found"},
-        406: {"description": "JSON representation excluded by Accept; no body"},
-        422: {"model": ErrorResponse, "description": "Invalid request parameters"},
-        500: {
-            "model": ErrorResponse,
-            "description": "Internal error or invalid stored report",
+        status.HTTP_406_NOT_ACCEPTABLE: {
+            "description": "JSON representation excluded by Accept; no body"
         },
-        503: {"model": ErrorResponse, "description": "Storage unavailable"},
     },
 )
-Service = Annotated[MarketScanService, Depends(get_service)]
+ServiceDependency = Annotated[MarketScanService, Depends(get_service)]
 
 
-@router.get("/latest", response_model=MarketScanResponse)
-async def latest(service: Service) -> MarketScanResponse:
-    return assemble(await service.latest_scan())
+@router.get(
+    "/latest",
+    response_model=MarketScanResponse,
+    summary="Read the most recently persisted market scan",
+    responses=error_responses(
+        *COMMON_ERRORS,
+        ErrorCode.SCAN_NOT_FOUND,
+        ErrorCode.INVALID_STORED_REPORT,
+        ErrorCode.INVALID_RESPONSE,
+    ),
+)
+async def latest(service: ServiceDependency) -> MarketScanResponse:
+    """Return the latest run, ordered by ``created_at`` then ``id``."""
+    return to_market_scan_response(await service.latest_scan())
 
 
-@router.get("", response_model=ScanListResponse)
+@router.get(
+    "",
+    response_model=ScanListResponse,
+    summary="List persisted market scan summaries",
+    responses=error_responses(
+        *COMMON_ERRORS, ErrorCode.INVALID_ARGUMENT, ErrorCode.INVALID_RESPONSE
+    ),
+)
 async def list_scans(
-    service: Service,
-    page_size: Annotated[int, Query(ge=1, le=100)] = 20,
-    page_token: Annotated[str, Query(max_length=512)] = "",
+    service: ServiceDependency,
+    page_size: Annotated[
+        int, Query(ge=1, le=100, description="Number of summaries per page")
+    ] = 20,
+    page_token: Annotated[
+        str, Query(max_length=512, description="Opaque token of the next page")
+    ] = "",
 ) -> ScanListResponse:
-    items, next_token = await service.list_scans(page_size, page_token)
-    return assemble_list(items, next_token)
+    """Return one keyset page of run summaries, newest first."""
+    items, next_page_token = await service.list_scans(page_size, page_token)
+    return to_scan_list_response(items, next_page_token)
 
 
-@router.get("/{scan_id}", response_model=MarketScanResponse)
-async def get_scan(scan_id: UUID, service: Service) -> MarketScanResponse:
-    return assemble(await service.get_scan(scan_id))
+@router.get(
+    "/{scan_id}",
+    response_model=MarketScanResponse,
+    summary="Read one persisted market scan",
+    responses=error_responses(
+        *COMMON_ERRORS,
+        ErrorCode.SCAN_NOT_FOUND,
+        ErrorCode.INVALID_ARGUMENT,
+        ErrorCode.INVALID_STORED_REPORT,
+        ErrorCode.INVALID_RESPONSE,
+    ),
+)
+async def get_scan(
+    scan_id: Annotated[UUID, Path(description="Persisted scan identifier")],
+    service: ServiceDependency,
+) -> MarketScanResponse:
+    """Return one run and its report by UUID."""
+    return to_market_scan_response(await service.get_scan(scan_id))

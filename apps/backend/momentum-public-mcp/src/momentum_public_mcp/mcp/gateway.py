@@ -28,10 +28,9 @@ from momentum_public_mcp.domain import (
     TickerSymbol,
 )
 from momentum_public_mcp.observability import outbound_headers, record_upstream
+from momentum_public_mcp.utils.error import ErrorCode, MomentumApiError
 
-
-class MomentumApiError(RuntimeError):
-    """Sanitized public API failure."""
+__all__ = ["MomentumApiError", "MomentumPublicGateway"]
 
 
 class IdentityTokenProvider(Protocol):
@@ -64,13 +63,11 @@ class MetadataIdentityTokenProvider:
             )
             response.raise_for_status()
         except httpx.HTTPError as error:
-            raise MomentumApiError(
-                "Cloud Run service identity is unavailable."
-            ) from error
+            raise MomentumApiError(ErrorCode.SERVICE_IDENTITY_UNAVAILABLE) from error
         token = response.text.strip()
         if token:
             return token
-        raise MomentumApiError("Cloud Run service identity is unavailable.")
+        raise MomentumApiError(ErrorCode.SERVICE_IDENTITY_UNAVAILABLE)
 
 
 class CloudRunIdentityHeaders:
@@ -293,7 +290,9 @@ class MomentumHttpGateway:
             return response
         except httpx.HTTPError as error:
             error_type = type(error).__name__
-            raise MomentumApiError("Momentum public API is unavailable.") from error
+            raise MomentumApiError(
+                ErrorCode.UPSTREAM_UNAVAILABLE, details={"error_type": error_type}
+            ) from error
         finally:
             record_upstream(
                 upstream,
@@ -305,26 +304,17 @@ class MomentumHttpGateway:
 
     @staticmethod
     def _ensure_success(response: httpx.Response) -> None:
-        if response.status_code == 404:
-            raise MomentumApiError("Momentum public resource not found.")
-        if response.status_code == 429:
-            raise MomentumApiError("Momentum public request limit reached.")
-        if response.status_code == 409:
-            raise MomentumApiError(
-                "This ticker already has a current analysis in Momentum."
-            )
-        if response.status_code == 422:
-            raise MomentumApiError("Momentum rejected the public input.")
         if response.is_error:
-            raise MomentumApiError("Momentum public API request failed.")
+            raise MomentumApiError.for_status(response.status_code)
 
     @staticmethod
     def _model(response: httpx.Response, model_type):
         try:
             return model_type.model_validate_json(response.content)
         except ValidationError as error:
-            message = "Momentum public API returned invalid data."
-            raise MomentumApiError(message) from error
+            raise MomentumApiError(
+                ErrorCode.INVALID_UPSTREAM_DATA, details={"model": model_type.__name__}
+            ) from error
 
     @staticmethod
     def _latest_parameters(

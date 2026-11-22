@@ -1,0 +1,26 @@
+meta {
+  name: Readiness
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{momentum_api_base_url}}/ready
+  body: none
+  auth: inherit
+}
+
+headers {
+  Accept: application/json
+}
+
+script:post-response {
+  test("HTTP 200", () => expect(res.getStatus()).to.equal(200));
+  test("Private cache policy", () => expect(res.getHeader("Cache-Control")).to.eql("no-store"));
+  test("Request ID", () => expect(res.getHeader("Request-ID")).to.match(/^[0-9a-f-]{36}$/));
+}
+
+settings {
+  encodeUrl: true
+  forwardAuthorizationHeader: false
+}

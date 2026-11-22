@@ -1,0 +1,54 @@
+meta {
+  name: Sanitized upstream failure
+  type: http
+  seq: 10
+}
+
+post {
+  url: {{mcpUrl}}/
+  body: json
+  auth: inherit
+}
+
+headers {
+  Content-Type: application/json
+  Accept: application/json, text/event-stream
+  MCP-Protocol-Version: 2026-07-28
+  Mcp-Method: tools/call
+  Mcp-Name: momentum_list_analyses
+}
+
+body:json {
+  {
+    "jsonrpc": "2.0",
+    "id": "Sanitized upstream failure",
+    "method": "tools/call",
+    "params": {
+      "_meta": {
+        "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+        "io.modelcontextprotocol/clientInfo": {
+          "name": "bruno-contract",
+          "version": "1"
+        },
+        "io.modelcontextprotocol/clientCapabilities": {}
+      },
+      "name": "momentum_list_analyses",
+      "arguments": {
+        "ticker": "FAIL"
+      }
+    }
+  }
+}
+
+script:post-response {
+  test("HTTP 200",()=>expect(res.getStatus()).to.equal(200));
+  test("No protocol session",()=>expect(res.headerList.has("Mcp-Session-Id")).to.equal(false));
+  const body=res.getBody();
+  test("Tool error",()=>expect(body.result.isError).to.equal(true));
+  test("No upstream detail leak",()=>expect(JSON.stringify(body)).not.to.include("fixture upstream"));
+}
+
+settings {
+  encodeUrl: true
+  forwardAuthorizationHeader: false
+}

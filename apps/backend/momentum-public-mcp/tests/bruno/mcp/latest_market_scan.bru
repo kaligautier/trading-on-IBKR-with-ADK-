@@ -1,0 +1,51 @@
+meta {
+  name: latest_market_scan
+  type: http
+  seq: 7
+}
+
+post {
+  url: {{mcpUrl}}/
+  body: json
+  auth: inherit
+}
+
+headers {
+  Content-Type: application/json
+  Accept: application/json, text/event-stream
+  MCP-Protocol-Version: 2026-07-28
+  Mcp-Method: resources/read
+  Mcp-Name: momentum://market_scanner/market-scans/latest
+}
+
+body:json {
+  {
+    "jsonrpc": "2.0",
+    "id": "latest_market_scan",
+    "method": "resources/read",
+    "params": {
+      "uri": "momentum://market_scanner/market-scans/latest",
+      "_meta": {
+        "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+        "io.modelcontextprotocol/clientInfo": {
+          "name": "bruno-contract",
+          "version": "1"
+        },
+        "io.modelcontextprotocol/clientCapabilities": {}
+      }
+    }
+  }
+}
+
+script:post-response {
+  test("HTTP 200",()=>expect(res.getStatus()).to.equal(200));
+  test("No protocol session",()=>expect(res.headerList.has("Mcp-Session-Id")).to.equal(false));
+  const body=res.getBody();
+  test("Scanner resource is present",()=>expect(body.result.contents[0].uri).to.equal("momentum://market_scanner/market-scans/latest"));
+  test("Full report-v3 preserved",()=>expect(JSON.parse(body.result.contents[0].text).report.schema_version).to.equal(3));
+}
+
+settings {
+  encodeUrl: true
+  forwardAuthorizationHeader: false
+}

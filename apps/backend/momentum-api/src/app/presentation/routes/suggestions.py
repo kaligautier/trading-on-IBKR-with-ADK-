@@ -12,8 +12,8 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.config.settings import Settings
 from app.domain.suggestions import CurrentAnalysisExistsError, SuggestionRateLimitError
-from app.presentation.http.problems import APIError
 from app.services.suggestion_service import SuggestionService
+from app.utils.error import AppError, ErrorCode, InvalidArgumentError
 
 router = APIRouter(prefix="/v1/suggestions", tags=["suggestions"])
 
@@ -39,19 +39,19 @@ def caller(request: Request) -> str:
     settings: Settings = request.app.state.settings
     secret = settings.SUGGESTION_HASH_SECRET.get_secret_value()
     if not secret:
-        raise APIError(503, "configuration-error")
+        raise AppError(ErrorCode.STORE_CONFIGURATION_ERROR, status_code=503)
     claims = request.headers.getlist("x-momentum-caller")
     signatures = request.headers.getlist("x-momentum-signature")
     if len(claims) != 1 or len(signatures) != 1:
-        raise APIError(403, "forbidden")
+        raise AppError(ErrorCode.FORBIDDEN)
     claim, signature = claims[0], signatures[0]
     if not re.fullmatch(r"[0-9a-f]{64}", claim) or not re.fullmatch(
         r"[0-9a-f]{64}", signature
     ):
-        raise APIError(403, "forbidden")
+        raise AppError(ErrorCode.FORBIDDEN)
     expected = hmac.new(secret.encode(), claim.encode(), hashlib.sha256).hexdigest()
     if not hmac.compare_digest(signature, expected):
-        raise APIError(403, "forbidden")
+        raise AppError(ErrorCode.FORBIDDEN)
     return claim
 
 
@@ -68,17 +68,17 @@ async def submit(
     payload: SuggestionRequest, request: Request, response: Response
 ) -> SuggestionResponse:
     if request.query_params:
-        raise APIError(400, "invalid-argument")
+        raise InvalidArgumentError()
     identity = caller(request)
     service: SuggestionService = request.app.state.suggestions
     try:
         result = await service.submit(payload.symbol, payload.reason or "", identity)
     except CurrentAnalysisExistsError as error:
-        raise APIError(409, "current-analysis") from error
+        raise AppError(ErrorCode.CURRENT_ANALYSIS_EXISTS) from error
     except SuggestionRateLimitError as error:
-        raise APIError(429, "suggestion-quota") from error
+        raise AppError(ErrorCode.SUGGESTION_RATE_LIMIT) from error
     except ValueError as error:
-        raise APIError(400, "invalid-argument") from error
+        raise InvalidArgumentError() from error
     response.status_code = 201 if result.created else 200
     response.headers["Location"] = str(
         request.url_for("get_suggestion", suggestion_id=str(result.suggestion.id))
@@ -94,9 +94,9 @@ async def submit(
 )
 async def status(suggestion_id: UUID, request: Request) -> SuggestionResponse:
     if request.query_params:
-        raise APIError(400, "invalid-argument")
+        raise InvalidArgumentError()
     service: SuggestionService = request.app.state.suggestions
     value = await service.get(suggestion_id)
     if value is None:
-        raise APIError(404, "not-found")
+        raise AppError(ErrorCode.NOT_FOUND)
     return SuggestionResponse(**asdict(value))

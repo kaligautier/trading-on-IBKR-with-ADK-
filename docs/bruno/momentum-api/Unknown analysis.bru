@@ -1,0 +1,63 @@
+meta {
+  name: Unknown analysis
+  type: http
+  seq: 8
+}
+
+get {
+  url: {{momentum_api_base_url}}/v1/analyses/ffffffff-ffff-ffff-ffff-ffffffffffff
+  body: none
+  auth: inherit
+}
+
+headers {
+  Accept: application/json
+}
+
+script:post-response {
+  test("HTTP 404", () => expect(res.getStatus()).to.equal(404));
+  test("Private cache policy", () => expect(res.getHeader("Cache-Control")).to.eql("no-store"));
+  test("Request ID", () => expect(res.getHeader("Request-ID")).to.match(/^[0-9a-f-]{36}$/));
+  test("Error envelope", () => { const e = res.getBody().error; expect(e.code).to.be.a("string"); expect(e.message).to.be.a("string"); expect(res.getHeader("Content-Type")).to.eql("application/json"); });
+}
+
+settings {
+  encodeUrl: true
+  forwardAuthorizationHeader: false
+}
+
+example {
+  name: Synthetic example
+  
+  request: {
+    url: {{momentum_api_base_url}}/v1/analyses/ffffffff-ffff-ffff-ffff-ffffffffffff
+    method: GET
+    mode: none
+    headers: {
+      Accept: application/json
+    }
+  }
+  
+  response: {
+    headers: {
+      Content-Type: application/json
+    }
+  
+    status: {
+      code: 404
+      text: Not Found
+    }
+  
+    body: {
+      type: text
+      content: '''
+        {
+          "error": {
+            "code": "ANALYSIS_NOT_FOUND",
+            "message": "The requested analysis does not exist."
+          }
+        }
+      '''
+    }
+  }
+}

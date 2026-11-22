@@ -1,0 +1,48 @@
+meta {
+  name: Discovery
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{mcpUrl}}/
+  body: json
+  auth: inherit
+}
+
+headers {
+  Content-Type: application/json
+  Accept: application/json, text/event-stream
+  MCP-Protocol-Version: 2026-07-28
+  Mcp-Method: server/discover
+}
+
+body:json {
+  {
+    "jsonrpc": "2.0",
+    "id": "Discovery",
+    "method": "server/discover",
+    "params": {
+      "_meta": {
+        "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+        "io.modelcontextprotocol/clientInfo": {
+          "name": "bruno-contract",
+          "version": "1"
+        },
+        "io.modelcontextprotocol/clientCapabilities": {}
+      }
+    }
+  }
+}
+
+script:post-response {
+  test("HTTP 200",()=>expect(res.getStatus()).to.equal(200));
+  test("No protocol session",()=>expect(res.headerList.has("Mcp-Session-Id")).to.equal(false));
+  const body=res.getBody();
+  test("Modern protocol",()=>expect(body.result.supportedVersions).to.include("2026-07-28"));
+}
+
+settings {
+  encodeUrl: true
+  forwardAuthorizationHeader: false
+}

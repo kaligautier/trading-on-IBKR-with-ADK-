@@ -1,0 +1,48 @@
+meta {
+  name: Unknown RPC
+  type: http
+  seq: 11
+}
+
+post {
+  url: {{mcpUrl}}/
+  body: json
+  auth: inherit
+}
+
+headers {
+  Content-Type: application/json
+  Accept: application/json, text/event-stream
+  MCP-Protocol-Version: 2026-07-28
+  Mcp-Method: unknown/method
+}
+
+body:json {
+  {
+    "jsonrpc": "2.0",
+    "id": "Unknown RPC",
+    "method": "unknown/method",
+    "params": {
+      "_meta": {
+        "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+        "io.modelcontextprotocol/clientInfo": {
+          "name": "bruno-contract",
+          "version": "1"
+        },
+        "io.modelcontextprotocol/clientCapabilities": {}
+      }
+    }
+  }
+}
+
+script:post-response {
+  test("HTTP 404",()=>expect(res.getStatus()).to.equal(404));
+  test("No protocol session",()=>expect(res.headerList.has("Mcp-Session-Id")).to.equal(false));
+  const body=res.getBody();
+  test("Method not found",()=>expect(body.error.code).to.equal(-32601));
+}
+
+settings {
+  encodeUrl: true
+  forwardAuthorizationHeader: false
+}

@@ -7,6 +7,9 @@ region          = "europe-west1"
 vertex_location = "eu"
 stage           = "service"
 
+# Named admins sign in with Google SSO; the shared admin login is disabled.
+disable_env_credential_login = true
+
 secret_versions = {
   database-url = "2"
   database-ca  = "1"
@@ -14,6 +17,9 @@ secret_versions = {
   salt-key     = "1"
   ui-password  = "1"
 }
+
+# Provider API keys uploaded with scripts/upload_provider_key.py (values stay in Secret Manager).
+provider_secret_versions = { typesafe = "1" }
 
 client_service_accounts = {
   momentum           = "momentum-worker@preprod-deep-copy.iam.gserviceaccount.com"

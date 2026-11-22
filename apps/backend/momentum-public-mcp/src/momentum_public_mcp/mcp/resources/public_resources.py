@@ -40,6 +40,6 @@ class MomentumPublicResources:
         try:
             scan = await self._gateway.latest_market_scan()
         except MomentumApiError as error:
-            raise ResourceError(str(error)) from error
+            raise ResourceError(error.message) from error
         record_result(scan)
         return scan.model_dump_json()

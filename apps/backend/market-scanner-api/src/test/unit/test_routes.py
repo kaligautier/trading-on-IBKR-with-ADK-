@@ -124,7 +124,7 @@ def test_health_is_public_but_reports_and_docs_require_authentication():
 def test_database_errors_do_not_expose_credentials():
     class FailingRepository(Repository):
         async def latest(self):
-            from app.repositories.scan_reader import StoreUnavailableError
+            from app.utils.error import StoreUnavailableError
 
             raise StoreUnavailableError() from RuntimeError("private-password")
 
@@ -174,6 +174,49 @@ def test_invalid_stored_report_fails_instead_of_returning_incomplete_data():
     assert response.json()["error"]["code"] == "INVALID_STORED_REPORT"
 
 
+def test_invalid_response_dto_fails_and_logs_field_paths_without_values(caplog):
+    import logging
+
+    from app.models.market_scan import ScanSummary
+
+    class InvalidSummaryRepository(Repository):
+        async def list(self, page_size, cursor):
+            return [ScanSummary(SCAN.id, SCAN.scan_date, SCAN.created_at, 7, "x")]
+
+    with (
+        caplog.at_level(logging.INFO, logger="market_scanner_api"),
+        client(InvalidSummaryRepository()) as api,
+    ):
+        response = api.get("/v1/market-scans", headers=HEADERS)
+    assert response.status_code == 500
+    assert response.json() == {
+        "error": {
+            "code": "INVALID_RESPONSE",
+            "message": "Stored scan does not satisfy the response contract",
+        }
+    }
+    events = [
+        json.loads(record.getMessage())
+        for record in caplog.records
+        if record.name == "market_scanner_api"
+    ]
+    [failure] = [e for e in events if e["event"] == "http.application_error"]
+    assert failure["error_code"] == "INVALID_RESPONSE"
+    assert failure["details"] == {"dto": "ScanSummaryResponse", "fields": ["regime"]}
+
+
+def test_openapi_error_responses_are_derived_from_error_codes():
+    with client() as api:
+        paths = api.get("/openapi.json", headers=HEADERS).json()["paths"]
+    latest = paths["/v1/market-scans/latest"]["get"]["responses"]
+    detail = paths["/v1/market-scans/{scan_id}"]["get"]["responses"]
+    assert set(latest) == {"200", "401", "404", "406", "500", "503"}
+    assert set(detail) == {"200", "401", "404", "406", "422", "500", "503"}
+    assert "`SCAN_NOT_FOUND`" in latest["404"]["description"]
+    for code in ["INTERNAL_ERROR", "INVALID_STORED_REPORT", "INVALID_RESPONSE"]:
+        assert f"`{code}`" in latest["500"]["description"]
+
+
 def test_request_correlation_is_bounded_and_secrets_are_not_logged(caplog):
     import logging
 
@@ -186,6 +229,33 @@ def test_request_correlation_is_bounded_and_secrets_are_not_logged(caplog):
     assert response.headers["cache-control"] == "no-store"
     assert "reader-test" in caplog.text
     assert "local-test-token" not in caplog.text
+
+
+def test_events_carry_severity_and_link_to_the_caller_trace(caplog, monkeypatch):
+    import logging
+
+    monkeypatch.setenv("GOOGLE_CLOUD_PROJECT", "example-project")
+    trace_id = "1234567890abcdef1234567890abcdef"
+    with caplog.at_level(logging.INFO, logger="market_scanner_api"), client() as api:
+        api.get(
+            "/v1/market-scans/latest",
+            headers={**HEADERS, "traceparent": f"00-{trace_id}-1234567890abcdef-01"},
+        )
+        api.get("/v1/market-scans/latest", headers=HEADERS)
+    traced, untraced = [
+        json.loads(record.getMessage())
+        for record in caplog.records
+        if '"http.completed"' in record.getMessage()
+    ]
+    assert traced["severity"] == "INFO"
+    assert traced["trace_id"] == trace_id
+    assert traced["logging.googleapis.com/trace"] == (
+        f"projects/example-project/traces/{trace_id}"
+    )
+    assert traced["logging.googleapis.com/spanId"] == "1234567890abcdef"
+    assert traced["logging.googleapis.com/trace_sampled"] is True
+    assert untraced["severity"] == "INFO"
+    assert "trace_id" not in untraced
 
 
 def test_unexpected_errors_are_sanitized_and_still_correlated(caplog):

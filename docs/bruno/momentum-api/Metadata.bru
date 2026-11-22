@@ -1,0 +1,27 @@
+meta {
+  name: Metadata
+  type: http
+  seq: 13
+}
+
+head {
+  url: {{momentum_api_base_url}}/v1/analyses
+  body: none
+  auth: inherit
+}
+
+headers {
+  Accept: application/json
+}
+
+script:post-response {
+  test("HTTP 200", () => expect(res.getStatus()).to.equal(200));
+  test("Private cache policy", () => expect(res.getHeader("Cache-Control")).to.eql("no-store"));
+  test("Request ID", () => expect(res.getHeader("Request-ID")).to.match(/^[0-9a-f-]{36}$/));
+  test("Bodyless response", () => expect(String(res.getBody() ?? "")).to.eql(""));
+}
+
+settings {
+  encodeUrl: true
+  forwardAuthorizationHeader: false
+}

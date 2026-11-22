@@ -5,9 +5,9 @@ from contextlib import asynccontextmanager
 
 from sqlalchemy import text
 
+from app.utils.error import MomentumBusyError
 
-class MomentumBusyError(RuntimeError):
-    """Another worker owns the Momentum execution slot."""
+__all__ = ["MomentumBusyError", "admit_execution"]
 
 
 @asynccontextmanager

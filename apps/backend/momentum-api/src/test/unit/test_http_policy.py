@@ -4,9 +4,10 @@ import json
 
 import pytest
 
+from app.dto.response.error_response import error_bytes
 from app.presentation.http.conditional import precondition, representation_tag
 from app.presentation.http.negotiation import accepts, accepts_identity
-from app.presentation.http.problems import APIError, problem_bytes
+from app.utils.error import AppError, ErrorCode
 
 
 @pytest.mark.parametrize(
@@ -95,12 +96,14 @@ def test_malformed_condition(value: str) -> None:
         precondition('"same"', value, None)
 
 
-def test_problem_has_stable_type_and_matching_status() -> None:
-    problem = json.loads(problem_bytes(APIError(400, "invalid-argument")))
-    assert problem["status"] == 400
-    assert problem["code"] == "INVALID_ARGUMENT"
-    assert problem["type"].startswith("https://github.com/kaligautier/")
-    assert "instance" not in problem
+def test_error_envelope_has_only_code_and_message() -> None:
+    body = json.loads(error_bytes(AppError(ErrorCode.INVALID_ARGUMENT)))
+    assert body == {
+        "error": {
+            "code": "INVALID_ARGUMENT",
+            "message": "The request parameters or headers are invalid.",
+        }
+    }
 
 
 def test_etags_use_literal_backslashes_not_quoted_string_escaping() -> None:
@@ -112,17 +115,22 @@ def test_empty_etag_list_elements_are_ignored(condition):
     assert precondition('"same"', None, condition) == 304
 
 
-def test_public_problem_codes_and_distinct_not_found_types():
+def test_public_error_codes_and_distinct_not_found_codes():
     assert (
-        json.loads(problem_bytes(APIError(401, "invalid-token")))["code"]
+        json.loads(error_bytes(AppError(ErrorCode.UNAUTHENTICATED)))["error"]["code"]
         == "UNAUTHENTICATED"
     )
     assert (
-        json.loads(problem_bytes(APIError(500, "invalid-stored-data")))["code"]
+        json.loads(error_bytes(AppError(ErrorCode.INVALID_STORED_ANALYSIS)))["error"][
+            "code"
+        ]
         == "INVALID_STORED_ANALYSIS"
     )
     assert (
-        json.loads(problem_bytes(APIError(404, "analysis-not-found")))["code"]
+        json.loads(error_bytes(AppError(ErrorCode.ANALYSIS_NOT_FOUND)))["error"]["code"]
         == "ANALYSIS_NOT_FOUND"
     )
-    assert json.loads(problem_bytes(APIError(404, "not-found")))["code"] == "NOT_FOUND"
+    assert (
+        json.loads(error_bytes(AppError(ErrorCode.NOT_FOUND)))["error"]["code"]
+        == "NOT_FOUND"
+    )

@@ -1,0 +1,76 @@
+meta {
+  name: Detail
+  type: http
+  seq: 7
+}
+
+get {
+  url: {{momentum_api_base_url}}/v1/analyses/{{analysis_id}}
+  body: none
+  auth: inherit
+}
+
+headers {
+  Accept: application/json
+}
+
+script:post-response {
+  test("HTTP 200", () => expect(res.getStatus()).to.equal(200));
+  test("Private cache policy", () => expect(res.getHeader("Cache-Control")).to.eql("no-store"));
+  test("Request ID", () => expect(res.getHeader("Request-ID")).to.match(/^[0-9a-f-]{36}$/));
+}
+
+settings {
+  encodeUrl: true
+  forwardAuthorizationHeader: false
+}
+
+example {
+  name: Synthetic example
+  
+  request: {
+    url: {{momentum_api_base_url}}/v1/analyses/{{analysis_id}}
+    method: GET
+    mode: none
+    headers: {
+      Accept: application/json
+    }
+  }
+  
+  response: {
+    headers: {
+      Content-Type: application/json
+    }
+  
+    status: {
+      code: 200
+      text: OK
+    }
+  
+    body: {
+      type: json
+      content: '''
+        {
+          "id": "00000000-0000-0000-0000-000000000001",
+          "ticker": "T000",
+          "analysis_date": "2026-10-22",
+          "created_at": "2026-10-22T12:00:00Z",
+          "llm_provider": "synthetic",
+          "next_analysis_date": null,
+          "deep_think_llm": "test",
+          "quick_think_llm": "test",
+          "next_analysis_desc": null,
+          "technical_indicators": null,
+          "fundamentals": null,
+          "sentiment": null,
+          "news": null,
+          "research_plan": null,
+          "trader_proposal": null,
+          "portfolio_decision": null,
+          "debate_arguments": [],
+          "run_stats": null
+        }
+      '''
+    }
+  }
+}

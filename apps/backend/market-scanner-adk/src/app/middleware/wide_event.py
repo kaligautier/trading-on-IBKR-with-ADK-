@@ -10,6 +10,7 @@ from collections.abc import Awaitable, Callable
 from typing import Any
 
 from app.config.settings import settings
+from app.utils.trace_context import TraceContext
 from app.utils.wide_event import wide_event
 
 Scope = dict[str, Any]
@@ -57,7 +58,9 @@ class WideEventMiddleware:
     async def _handle_http(self, scope: Scope, receive: Receive, send: Send) -> None:
         request_id = self._header(scope, b"x-request-id") or uuid.uuid4().hex
         event_scope = wide_event.start(
-            self._initial_fields(scope), request_id=request_id
+            self._initial_fields(scope),
+            request_id=request_id,
+            trace=TraceContext.from_traceparent(self._header(scope, b"traceparent")),
         )
         response_sender = CorrelatedResponseSender(send, request_id)
         started = time.perf_counter()

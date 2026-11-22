@@ -41,13 +41,13 @@
     "responses": {
       "400": {
         "content": {
-          "application/problem+json": {
+          "application/json": {
             "schema": {
-              "$ref": "#/components/schemas/Problem"
+              "$ref": "#/components/schemas/ErrorResponse"
             }
           }
         },
-        "description": "Bad Request",
+        "description": "Bad Request. `INVALID_ARGUMENT`: The request parameters or headers are invalid.; `INVALID_ARGUMENT`: Use a single Authorization Bearer credential.",
         "headers": {
           "Cache-Control": {
             "$ref": "#/components/headers/Cache-Control"
@@ -65,13 +65,13 @@
       },
       "401": {
         "content": {
-          "application/problem+json": {
+          "application/json": {
             "schema": {
-              "$ref": "#/components/schemas/Problem"
+              "$ref": "#/components/schemas/ErrorResponse"
             }
           }
         },
-        "description": "Unauthorized",
+        "description": "Unauthorized. `UNAUTHENTICATED`: The supplied credential is invalid.",
         "headers": {
           "Cache-Control": {
             "$ref": "#/components/headers/Cache-Control"
@@ -89,13 +89,13 @@
       },
       "403": {
         "content": {
-          "application/problem+json": {
+          "application/json": {
             "schema": {
-              "$ref": "#/components/schemas/Problem"
+              "$ref": "#/components/schemas/ErrorResponse"
             }
           }
         },
-        "description": "Forbidden",
+        "description": "Forbidden. `FORBIDDEN`: The suggestion caller signature is invalid.",
         "headers": {
           "Cache-Control": {
             "$ref": "#/components/headers/Cache-Control"
@@ -110,13 +110,13 @@
       },
       "404": {
         "content": {
-          "application/problem+json": {
+          "application/json": {
             "schema": {
-              "$ref": "#/components/schemas/Problem"
+              "$ref": "#/components/schemas/ErrorResponse"
             }
           }
         },
-        "description": "Not Found",
+        "description": "Not Found. `ANALYSIS_NOT_FOUND`: The requested analysis does not exist.; `NOT_FOUND`: The requested resource does not exist.",
         "headers": {
           "Cache-Control": {
             "$ref": "#/components/headers/Cache-Control"
@@ -131,13 +131,13 @@
       },
       "405": {
         "content": {
-          "application/problem+json": {
+          "application/json": {
             "schema": {
-              "$ref": "#/components/schemas/Problem"
+              "$ref": "#/components/schemas/ErrorResponse"
             }
           }
         },
-        "description": "Method Not Allowed",
+        "description": "Method Not Allowed. `METHOD_NOT_ALLOWED`: This resource does not support the requested method.",
         "headers": {
           "Allow": {
             "$ref": "#/components/headers/Allow"
@@ -155,13 +155,13 @@
       },
       "406": {
         "content": {
-          "application/problem+json": {
+          "application/json": {
             "schema": {
-              "$ref": "#/components/schemas/Problem"
+              "$ref": "#/components/schemas/ErrorResponse"
             }
           }
         },
-        "description": "Not Acceptable",
+        "description": "Not Acceptable. `NOT_ACCEPTABLE`: The requested representation is unavailable.",
         "headers": {
           "Cache-Control": {
             "$ref": "#/components/headers/Cache-Control"
@@ -176,13 +176,13 @@
       },
       "409": {
         "content": {
-          "application/problem+json": {
+          "application/json": {
             "schema": {
-              "$ref": "#/components/schemas/Problem"
+              "$ref": "#/components/schemas/ErrorResponse"
             }
           }
         },
-        "description": "Conflict",
+        "description": "Conflict. `CURRENT_ANALYSIS_EXISTS`: This ticker already has a current Momentum analysis.",
         "headers": {
           "Cache-Control": {
             "$ref": "#/components/headers/Cache-Control"
@@ -197,13 +197,13 @@
       },
       "412": {
         "content": {
-          "application/problem+json": {
+          "application/json": {
             "schema": {
-              "$ref": "#/components/schemas/Problem"
+              "$ref": "#/components/schemas/ErrorResponse"
             }
           }
         },
-        "description": "Precondition Failed",
+        "description": "Precondition Failed. `PRECONDITION_FAILED`: The representation does not satisfy the precondition.",
         "headers": {
           "Cache-Control": {
             "$ref": "#/components/headers/Cache-Control"
@@ -218,13 +218,13 @@
       },
       "413": {
         "content": {
-          "application/problem+json": {
+          "application/json": {
             "schema": {
-              "$ref": "#/components/schemas/Problem"
+              "$ref": "#/components/schemas/ErrorResponse"
             }
           }
         },
-        "description": "Content Too Large",
+        "description": "Content Too Large. `PAYLOAD_TOO_LARGE`: The request body exceeds the allowed size.",
         "headers": {
           "Cache-Control": {
             "$ref": "#/components/headers/Cache-Control"
@@ -239,13 +239,13 @@
       },
       "415": {
         "content": {
-          "application/problem+json": {
+          "application/json": {
             "schema": {
-              "$ref": "#/components/schemas/Problem"
+              "$ref": "#/components/schemas/ErrorResponse"
             }
           }
         },
-        "description": "Unsupported Media Type",
+        "description": "Unsupported Media Type. `UNSUPPORTED_MEDIA_TYPE`: Use application/json for suggestion intake.",
         "headers": {
           "Cache-Control": {
             "$ref": "#/components/headers/Cache-Control"
@@ -260,13 +260,13 @@
       },
       "429": {
         "content": {
-          "application/problem+json": {
+          "application/json": {
             "schema": {
-              "$ref": "#/components/schemas/Problem"
+              "$ref": "#/components/schemas/ErrorResponse"
             }
           }
         },
-        "description": "Too Many Requests",
+        "description": "Too Many Requests. `SUGGESTION_RATE_LIMIT`: The suggestion cooldown or daily limit was reached.",
         "headers": {
           "Cache-Control": {
             "$ref": "#/components/headers/Cache-Control"
@@ -281,13 +281,13 @@
       },
       "500": {
         "content": {
-          "application/problem+json": {
+          "application/json": {
             "schema": {
-              "$ref": "#/components/schemas/Problem"
+              "$ref": "#/components/schemas/ErrorResponse"
             }
           }
         },
-        "description": "Internal Server Error",
+        "description": "Internal Server Error. `INVALID_STORED_ANALYSIS`: The stored analysis cannot be represented.; `STORE_CONFIGURATION_ERROR`: The service configuration prevents this operation.; `INTERNAL_ERROR`: The service could not complete the request.",
         "headers": {
           "Cache-Control": {
             "$ref": "#/components/headers/Cache-Control"
@@ -302,13 +302,13 @@
       },
       "503": {
         "content": {
-          "application/problem+json": {
+          "application/json": {
             "schema": {
-              "$ref": "#/components/schemas/Problem"
+              "$ref": "#/components/schemas/ErrorResponse"
             }
           }
         },
-        "description": "Service Unavailable",
+        "description": "Service Unavailable. `STORE_UNAVAILABLE`: The analysis store is temporarily unavailable.",
         "headers": {
           "Cache-Control": {
             "$ref": "#/components/headers/Cache-Control"
@@ -903,6 +903,35 @@
         "title": "DebateArgument",
         "type": "object"
       },
+      "ErrorDetail": {
+        "properties": {
+          "code": {
+            "description": "Stable error code.",
+            "type": "string"
+          },
+          "message": {
+            "description": "Sanitized message.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "message"
+        ],
+        "type": "object"
+      },
+      "ErrorResponse": {
+        "description": "Absent when application/json is unacceptable. Missing credentials produce a bodyless Bearer challenge.",
+        "properties": {
+          "error": {
+            "$ref": "#/components/schemas/ErrorDetail"
+          }
+        },
+        "required": [
+          "error"
+        ],
+        "type": "object"
+      },
       "Fundamentals": {
         "additionalProperties": false,
         "properties": {
@@ -1393,37 +1422,6 @@
           "investment_thesis"
         ],
         "title": "PortfolioDecision",
-        "type": "object"
-      },
-      "Problem": {
-        "description": "RFC 9457; absent when the error format is unacceptable. Missing credentials produce a bodyless Bearer challenge.",
-        "properties": {
-          "code": {
-            "type": "string"
-          },
-          "detail": {
-            "type": "string"
-          },
-          "status": {
-            "maximum": 599,
-            "minimum": 400,
-            "type": "integer"
-          },
-          "title": {
-            "type": "string"
-          },
-          "type": {
-            "format": "uri",
-            "type": "string"
-          }
-        },
-        "required": [
-          "type",
-          "title",
-          "status",
-          "detail",
-          "code"
-        ],
         "type": "object"
       },
       "ResearchPlan": {
@@ -2277,7 +2275,7 @@
     }
   },
   "info": {
-    "description": "Private Momentum catalogue and moderated suggestion intake. Analyses remain read-only. UTC dates/timestamps; finite JSON. Clients should send Accept: application/json, application/problem+json to receive both successful representations and problem details. For application/json, Accept charset parameters have no effect; quality weights still apply and output remains UTF-8. Lists are ordered by created_at DESC, id DESC, with filter-bound keyset tokens and no snapshot guarantee under concurrent updates. Latest selects one winner per ticker before rating filters. Unknown ticker returns an empty page. Every GET/HEAD resource rejects bodies and duplicate or unknown query parameters. Only list endpoints accept query parameters; OPTIONS does not validate them. Error types: https://github.com/kaligautier/trading-on-IBKR-with-ADK-/blob/main/apps/backend/momentum-api/README.md#forbidden, current-analysis, suggestion-quota, payload-too-large, unsupported-media-type, invalid-argument, invalid-request, invalid-token, analysis-not-found, not-found, method-not-allowed, not-acceptable, precondition-failed, invalid-stored-data, configuration-error, store-unavailable, internal-error, not-implemented",
+    "description": "Private Momentum catalogue and moderated suggestion intake. Analyses remain read-only. UTC dates/timestamps; finite JSON. Clients should send Accept: application/json to receive both successful representations and the error envelope {\"error\": {\"code\", \"message\"}}. For application/json, Accept charset parameters have no effect; quality weights still apply and output remains UTF-8. Lists are ordered by created_at DESC, id DESC, with filter-bound keyset tokens and no snapshot guarantee under concurrent updates. Latest selects one winner per ticker before rating filters. Unknown ticker returns an empty page. Every GET/HEAD resource rejects bodies and duplicate or unknown query parameters. Only list endpoints accept query parameters; OPTIONS does not validate them. Error codes: FORBIDDEN, CURRENT_ANALYSIS_EXISTS, SUGGESTION_RATE_LIMIT, PAYLOAD_TOO_LARGE, UNSUPPORTED_MEDIA_TYPE, INVALID_ARGUMENT, UNAUTHENTICATED, ANALYSIS_NOT_FOUND, NOT_FOUND, METHOD_NOT_ALLOWED, NOT_ACCEPTABLE, PRECONDITION_FAILED, INVALID_STORED_ANALYSIS, STORE_CONFIGURATION_ERROR, STORE_UNAVAILABLE, INTERNAL_ERROR, NOT_IMPLEMENTED",
     "title": "Momentum consultation API",
     "version": "0.1.0"
   },

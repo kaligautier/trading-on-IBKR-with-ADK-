@@ -70,6 +70,20 @@ run "google_sso_is_scoped_to_admin_with_pinned_secret_and_iap" {
   }
 }
 
+run "shared_admin_login_can_be_disabled" {
+  command = plan
+  variables {
+    disable_env_credential_login = true
+  }
+  assert {
+    condition = (
+      yamldecode(local.proxy_config).general_settings.disable_env_credential_login == true &&
+      contains([for env in google_cloud_run_v2_service.litellm[0].template[0].containers[0].env : env.name], "LITELLM_MASTER_KEY")
+    )
+    error_message = "Disabling the shared UI login must reach the proxy config and keep the master key for API recovery."
+  }
+}
+
 run "sso_can_bootstrap_before_the_admin_id_is_known" {
   command = plan
   variables {

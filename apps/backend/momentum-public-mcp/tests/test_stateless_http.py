@@ -184,3 +184,23 @@ def test_legacy_versions_cannot_select_a_handshake_transport(http_client, versio
     assert response.status_code == 400, response.text
     assert response.json()["error"]["code"] == -32022
     assert response.json()["error"]["data"]["supported"] == [VERSION]
+
+
+def test_routes_outside_mcp_use_the_shared_error_envelope(http_client):
+    missing = http_client.get("/missing-route")
+    assert missing.status_code == 404
+    assert missing.json() == {
+        "error": {"code": "NOT_FOUND", "message": "Route not found"}
+    }
+    wrong_method = http_client.post("/health")
+    assert wrong_method.status_code == 405
+    assert wrong_method.json()["error"]["code"] == "METHOD_NOT_ALLOWED"
+    assert "GET" in wrong_method.headers["allow"]
+
+
+def test_protocol_rejections_carry_the_stable_error_code(http_client):
+    response = http_client.post(
+        "/", headers={"Content-Type": "application/json"}, json=envelope()
+    )
+    assert response.status_code == 400
+    assert response.json()["error"]["data"]["code"] == "PROTOCOL_VERSION_REQUIRED"

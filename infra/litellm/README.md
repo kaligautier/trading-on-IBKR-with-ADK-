@@ -139,8 +139,14 @@ IAP protects the admin service, including its `run.app` URL. Cloud Run IAM check
 remain enabled; only the IAP service agent gets invocation access. Allowlisted
 users sign in to LiteLLM separately, using Google SSO when configured below or
 the bootstrap `admin` password otherwise. IAP does not create LiteLLM users.
-Keep the bootstrap login until a named admin has been created and tested, then
-consider `disable_env_credential_login=true`.
+The bootstrap login is a shared static secret (`UI_USERNAME`/`UI_PASSWORD`, or
+the master key when no UI password is set) that signs in as proxy admin. Keep it
+only until a named admin has signed in and been tested: either the Google SSO
+account set as `PROXY_ADMIN_ID`, or a database user with the `proxy_admin` role
+who set their own password through an invitation link. Then set
+`disable_env_credential_login = true` and apply. The master key keeps working over
+the API (`Authorization: Bearer`) to recover access; it no longer signs in to the UI.
+Preprod runs with the shared login disabled.
 
 For projects requiring a custom OAuth client, complete the Google console setup
 and register `https://iap.googleapis.com/v1/oauth/clientIds/CLIENT_ID:handleRedirect`.
@@ -259,9 +265,9 @@ Only the gateway's NGINX container receives ingress. It forwards native Gemini
 generation, streaming and token-count routes, the exact POST routes
 `/v1/decisions` and `/v1/systemone` for
 [Decision models](https://docs.litellm.ai/docs/decisions), readiness/liveness, and
-the master-key-protected key generation/deletion routes. Agent keys only permit
-`/v1beta/models/*` (`allowed_routes` in `governance/policy`), so they cannot call
-the Decision routes until that list is extended per agent. Other routes, including
+the master-key-protected key generation/deletion routes. Every agent key permits
+`/v1beta/models/*`, `/v1/decisions` and `/v1/systemone` (`allowed_routes` in
+`governance/policy`). Other routes, including
 login, UI, SSO and administration, return 404. The proxy listens on port 4001;
 it receives no UI username or password. LiteLLM still authenticates forwarded
 requests. The NGINX image is pinned by `gateway_filter_digest` and mirrored
@@ -333,11 +339,13 @@ that configuration; the governance runner derives the team's and keys' allowed
 models from the same list. Add or remove models here, then apply infrastructure
 and execute the governance apply to synchronize endpoints and permissions.
 Additional providers (`openai`, `anthropic`, `gemini`, `typesafe`) use
-`provider_models` and Secret Manager environment references; API credentials do
-not belong in the catalog. `typesafe` serves Decision models such as
-`typesafe/jev-latest` (set `jev = { provider = "typesafe", model = "jev-latest" }`)
-through the gateway's `/v1/systemone` and `/v1/decisions` routes. Agent keys still
-need those routes added to their `allowed_routes` before they can call them. Avoid manual model
+`provider_models` in the catalog and Secret Manager environment references; API
+credentials do not belong in the catalog. Upload a key with
+`scripts/upload_provider_key.py`, then pin its numeric version under
+`provider_secret_versions` in `config/preprod.release.tfvars`. Preprod serves the
+TypeSafe Decision model `typesafe/jev-latest` as `jev` through the gateway's
+`/v1/systemone` and `/v1/decisions` routes. Every agent key may
+call them. Avoid manual model
 changes in the UI, which are outside this configuration's ownership.
 
 Both services share the image, config, database and runtime identity. Each uses

@@ -1,0 +1,34 @@
+meta {
+  name: Yahoo - 2. Crumb token
+  type: http
+  seq: 2
+}
+
+get {
+  url: https://query1.finance.yahoo.com/v1/test/getcrumb
+  body: none
+  auth: none
+}
+
+headers {
+  Accept: text/plain
+  User-Agent: Mozilla/5.0
+}
+
+script:post-response {
+  test('Status 200', () => expect(res.getStatus()).to.equal(200));
+  const crumb = JSON.stringify(res.getBody()).trim();
+  const valid = res.getStatus() === 200 && crumb.length > 0 && crumb.length < 256 && !/[<>\s]/.test(crumb) && !/^\{/.test(crumb);
+  test('Valid Yahoo crumb', () => expect(valid).to.eql(true));
+  if (valid) bru.setEnvVar('scannerYahooCrumb', crumb);
+  else bru.deleteEnvVar('scannerYahooCrumb');
+}
+
+settings {
+  encodeUrl: true
+  forwardAuthorizationHeader: false
+}
+
+docs {
+  Run after Anonymous session. Capture the crumb in the active environment without displaying it. The cookie and crumb must belong to the same Bruno session. Consent errors and 401/429 blocks remain visible failures.
+}

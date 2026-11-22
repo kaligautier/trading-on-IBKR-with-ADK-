@@ -10,6 +10,7 @@ from yfinance.exceptions import YFRateLimitError
 
 from app.infrastructure.market_data.configuration import MarketDataConfiguration
 from app.infrastructure.market_data.ticker import safe_ticker_component
+from app.utils.logging_messages import LoggingMessages
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +29,10 @@ def yf_retry(func, max_retries=3, base_delay=2.0):
             if attempt < max_retries:
                 delay = base_delay * (2**attempt)
                 logger.warning(
-                    f"Yahoo Finance rate limited, retrying in {delay:.0f}s (attempt {attempt + 1}/{max_retries})"
+                    LoggingMessages.YAHOO_RATE_LIMITED,
+                    delay,
+                    attempt + 1,
+                    max_retries,
                 )
                 time.sleep(delay)
             else:

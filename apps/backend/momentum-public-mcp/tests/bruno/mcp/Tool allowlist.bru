@@ -1,0 +1,48 @@
+meta {
+  name: Tool allowlist
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{mcpUrl}}/
+  body: json
+  auth: inherit
+}
+
+headers {
+  Content-Type: application/json
+  Accept: application/json, text/event-stream
+  MCP-Protocol-Version: 2026-07-28
+  Mcp-Method: tools/list
+}
+
+body:json {
+  {
+    "jsonrpc": "2.0",
+    "id": "Tool allowlist",
+    "method": "tools/list",
+    "params": {
+      "_meta": {
+        "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+        "io.modelcontextprotocol/clientInfo": {
+          "name": "bruno-contract",
+          "version": "1"
+        },
+        "io.modelcontextprotocol/clientCapabilities": {}
+      }
+    }
+  }
+}
+
+script:post-response {
+  test("HTTP 200",()=>expect(res.getStatus()).to.equal(200));
+  test("No protocol session",()=>expect(res.headerList.has("Mcp-Session-Id")).to.equal(false));
+  const body=res.getBody();
+  test("Six Momentum tools are namespaced",()=>expect(body.result.tools.map(t=>t.name).sort()).to.eql(["momentum_list_analyses","momentum_latest_analyses","momentum_get_analysis","momentum_get_recommendations","momentum_suggest_ticker","momentum_get_suggestion_status"].sort()));
+}
+
+settings {
+  encodeUrl: true
+  forwardAuthorizationHeader: false
+}

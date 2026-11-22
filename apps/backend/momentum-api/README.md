@@ -95,11 +95,12 @@ Disposable fixture credentials over isolated test transports prove application
 behavior only. There is no configuration/network work at module import time.
 The packaged runtime owns one engine/pool and closes it on shutdown.
 
-[Postman requests](../../../docs/postman/momentum-api.postman_collection.json)
+[Bruno requests](../../../docs/bruno/momentum-api)
 use `momentum_api_base_url`, `api_token` and `analysis_id`. Configure a known
 retained UUID for the detail request. Leave secrets in local environment/secret
 variables. An unknown-ID test assumes its all-ones UUID is absent.
-Run with `postman collection run <collection-path> --no-report-events`; the
+Open the folder in Bruno, select the `local` environment, or run
+`bru run --env local` from the collection folder (Bruno CLI >= 4); the
 container smoke command supplies a synthetic retained analysis and disposable token.
 
 ## Authentication, storage and operation
@@ -133,10 +134,10 @@ Manager privately. Keep URL/token values out of Terraform. Production image
 publication, migration, Terraform plan/apply and live IAM/TLS/data verification
 are separate release steps; local tests do not establish a deployed release.
 
-## HTTP behavior and problems
+## HTTP behavior and errors
 
-Success JSON is UTF-8. Accept both `application/json` and
-`application/problem+json`; unsupported success representations give 406.
+Success and error JSON are UTF-8 `application/json`; unsupported success
+representations give 406.
 For `application/json`, a syntactically valid `charset` parameter in `Accept`
 has no effect ([RFC 8259 section 11](https://www.rfc-editor.org/rfc/rfc8259.html#section-11));
 output remains UTF-8. Quality weights still apply: an explicit JSON `q=0`
@@ -156,9 +157,12 @@ parameters; detail, health, readiness and OpenAPI accept none. Authentication,
 unknown-resource and method errors retain precedence. OPTIONS reports capabilities
 without validating query parameters.
 
-Problem type URIs use this README's stable anchors. Status matches the HTTP
-status. Content is omitted if `application/problem+json` or identity is excluded;
-required headers/status remain. Missing credentials give a bodyless 401 with
+Errors use the envelope `{"error": {"code": "...", "message": "..."}}`. Every
+code, status and message is declared once in `src/app/utils/error.py`, which
+also generates the OpenAPI error descriptions; the sections below use the
+`ErrorCode` values as stable anchors. Details are logged, never returned.
+Content is omitted if `application/json` or identity is excluded; required
+headers/status remain. Missing credentials give a bodyless 401 with
 `WWW-Authenticate: Bearer realm="momentum-api"`; invalid credentials add
 `error="invalid_token"`. The managed Cloud Run edge has its own rejection format.
 
@@ -218,14 +222,16 @@ Python logging-internal traceback output is disabled at runtime bootstrap;
 a broken logging sink does not replace the HTTP outcome.
 
 A valid version-00 W3C `traceparent` adds `trace_id` and `parent_span_id` for
-correlation with upstream traces. Zero, malformed, unsupported or repeated values
-are ignored. These fields never authenticate a caller and are not local span IDs.
+correlation with upstream traces. When `GOOGLE_CLOUD_PROJECT` is set, the event
+also carries `logging.googleapis.com/trace`, `spanId` and `trace_sampled`, so Cloud
+Logging shows it under the caller's trace. Zero, malformed, unsupported or repeated
+values are ignored. These fields never authenticate a caller and are not local span IDs.
 The service creates no spans and configures no OpenTelemetry exporter or collector.
 See [W3C Trace Context](https://www.w3.org/TR/trace-context/) and the
 [OpenTelemetry log data model](https://opentelemetry.io/docs/specs/otel/logs/data-model/).
 
 Storage and mapping failures retain their original causes internally while the
-HTTP boundary returns the existing sanitized problems. Shutdown always attempts
+HTTP boundary returns the existing sanitized errors. Shutdown always attempts
 to dispose the pool. If cleanup also fails during a primary lifecycle failure,
 the primary failure is preserved and cleanup is reported with a safe JSON event.
 A standalone cleanup failure remains a failed shutdown.
@@ -259,7 +265,7 @@ Only the intake transaction temporarily uses READ WRITE; subsequent transactions
 return to the default READ ONLY setting. Liquibase owns the new schema.
 
 Reproducible integration check (after syncing both backend environments and
-installing the pinned Postman CLI):
+installing the pinned Bruno CLI, `npm i -g @usebruno/cli@4.3.0`):
 
 ```sh
 bash scripts/test_database.sh start
@@ -267,7 +273,7 @@ uv run --frozen python scripts/mcp_smoke.py
 bash scripts/test_database.sh stop
 ```
 
-This launches real loopback API/MCP processes, runs nine saved Postman requests,
+This launches real loopback API/MCP processes, runs nine saved Bruno requests,
 and independently reads PostgreSQL to prove the pending result was committed.
 It emulates Cloud Run ingress locally; IAM must also be verified after deployment.
 

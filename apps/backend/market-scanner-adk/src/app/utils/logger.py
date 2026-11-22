@@ -15,6 +15,7 @@ from app.utils.wide_event import wide_event
 MAX_LOG_BYTES = 64 * 1024
 ESSENTIAL_LOG_FIELDS = {
     "timestamp",
+    "severity",
     "level",
     "logger",
     "message",
@@ -29,6 +30,10 @@ ESSENTIAL_LOG_FIELDS = {
     "outcome",
     "error.kind",
     "error.code",
+    "trace_id",
+    "logging.googleapis.com/trace",
+    "logging.googleapis.com/spanId",
+    "logging.googleapis.com/trace_sampled",
 }
 
 
@@ -46,6 +51,8 @@ class JsonFormatter(logging.Formatter):
             "timestamp": datetime.datetime.fromtimestamp(
                 record.created, tz=datetime.UTC
             ).isoformat(),
+            # Cloud Logging reads ``severity``; ``level`` stays for existing queries.
+            "severity": record.levelname,
             "level": record.levelname,
             "logger": record.name,
             "message": record.getMessage(),
@@ -53,6 +60,9 @@ class JsonFormatter(logging.Formatter):
         request_id = wide_event.request_id()
         if request_id is not None:
             payload["request_id"] = request_id
+        trace = wide_event.trace()
+        if trace is not None:
+            payload.update(trace.log_fields(settings.GOOGLE_CLOUD_PROJECT))
         payload.update(self._error_fields(record))
         payload.update(self._extra_fields(record))
         encoded = json.dumps(payload, ensure_ascii=False, default=str)
