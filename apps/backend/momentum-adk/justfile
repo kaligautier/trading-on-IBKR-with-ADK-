@@ -13,6 +13,7 @@ lint:
 
 test:
     TZ=UTC uv run --frozen pytest -q tests/unit
+    uv run --frozen pytest -q tests/telemetry
 
 build:
     uv build --wheel
