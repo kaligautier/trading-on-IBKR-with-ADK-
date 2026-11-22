@@ -1,0 +1,17 @@
+# Allowlist: only the frontend source and build files reach the build.
+**
+!Dockerfile
+!.npmrc
+!package.json
+!package-lock.json
+!next.config.ts
+!next-env.d.ts
+!tsconfig.json
+!postcss.config.mjs
+!public/
+!public/**
+!src/
+!src/**
+**/.env*
+**/*.pem
+**/*.key

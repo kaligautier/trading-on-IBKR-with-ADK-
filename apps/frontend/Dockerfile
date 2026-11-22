@@ -1,10 +1,11 @@
+# Build from this directory: docker build -t deepcopy-front apps/frontend
 FROM node:22-bookworm-slim@sha256:c3de60bf2f9dd0ac6370e6117950ff62d6e339527e7472301c9c78a017978392 AS build
 WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
-COPY apps/frontend/package.json apps/frontend/package-lock.json ./
+COPY package.json package-lock.json .npmrc ./
 RUN npm install --global npm@11.19.1 --ignore-scripts \
     && npm ci --ignore-scripts
-COPY apps/frontend/ ./
+COPY . ./
 RUN npm run build
 
 FROM node:22-bookworm-slim@sha256:c3de60bf2f9dd0ac6370e6117950ff62d6e339527e7472301c9c78a017978392 AS runtime
