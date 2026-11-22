@@ -2,7 +2,6 @@
 
 import json
 import logging
-import os
 import re
 from datetime import UTC, datetime
 
@@ -34,25 +33,11 @@ def log_event(level: int, event: str, **fields: LogValue) -> None:
         return
 
 
-def trace_fields(values: list[str]) -> dict[str, str | bool]:
-    """Read W3C version-00 correlation only; this creates no span or identity.
-
-    With ``GOOGLE_CLOUD_PROJECT`` set, Cloud Logging attaches the entry to the
-    caller's trace instead of leaving ``trace_id`` as a plain field.
-    """
+def trace_fields(values: list[str]) -> dict[str, str]:
+    """Read W3C version-00 correlation only; this creates no span or identity."""
     if len(values) != 1:
         return {}
-    match = re.fullmatch(r"00-([0-9a-f]{32})-([0-9a-f]{16})-([0-9a-f]{2})", values[0])
+    match = re.fullmatch(r"00-([0-9a-f]{32})-([0-9a-f]{16})-[0-9a-f]{2}", values[0])
     if match is None or int(match[1], 16) == 0 or int(match[2], 16) == 0:
         return {}
-    fields: dict[str, str | bool] = {"trace_id": match[1], "parent_span_id": match[2]}
-    project = os.environ.get("GOOGLE_CLOUD_PROJECT", "")
-    if project:
-        fields.update(
-            {
-                "logging.googleapis.com/trace": f"projects/{project}/traces/{match[1]}",
-                "logging.googleapis.com/spanId": match[2],
-                "logging.googleapis.com/trace_sampled": bool(int(match[3], 16) & 1),
-            }
-        )
-    return fields
+    return {"trace_id": match[1], "parent_span_id": match[2]}

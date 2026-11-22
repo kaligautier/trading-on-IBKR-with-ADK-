@@ -1,5 +1,6 @@
 """Lifecycle and HTTP concerns for the independent consultation service."""
 
+import json
 import logging
 import re
 import secrets
@@ -16,13 +17,14 @@ from app.config.settings import Settings
 from app.database import create_engine
 from app.dependencies import get_repository
 from app.http_policy import ReadHTTPPolicy, install_head_schema
-from app.observability import log_event
 from app.repositories.market_scan_repository import MarketScanRepository
 from app.repositories.scan_reader import ScanReader
 from app.routes.market_scans import router
 from app.schemas.report import REPORT_SCHEMA
 from app.utils.error import AppError, ErrorCode, InvalidArgumentError
 from app.utils.logging_messages import LoggingMessages
+
+logger = logging.getLogger("market_scanner_api")
 
 FRAMEWORK_ERRORS = {404: ErrorCode.NOT_FOUND, 405: ErrorCode.METHOD_NOT_ALLOWED}
 
@@ -105,14 +107,15 @@ def _install_middleware(application: FastAPI, configuration: Settings) -> None:
                 response = await call_next(request)
             except Exception as error:
                 # Last HTTP boundary: never log exception text or sensitive locals.
-                log_event(
-                    logging.ERROR,
-                    request.headers.get("traceparent"),
-                    {
-                        "event": LoggingMessages.HTTP_UNEXPECTED_ERROR,
-                        "request_id": request_id,
-                        "error_type": type(error).__name__,
-                    },
+                logger.error(
+                    LoggingMessages.STRUCTURED_EVENT,
+                    json.dumps(
+                        {
+                            "event": LoggingMessages.HTTP_UNEXPECTED_ERROR,
+                            "request_id": request_id,
+                            "error_type": type(error).__name__,
+                        }
+                    ),
                 )
                 response = error_response(AppError(ErrorCode.INTERNAL_ERROR))
         response.headers["X-Request-ID"] = request_id
@@ -138,14 +141,15 @@ def _install_error_handlers(application: FastAPI) -> None:
     async def application_error(request: Request, error: AppError) -> JSONResponse:
         if error.status_code >= 500:
             # Details hold categories and field paths only, never stored values.
-            log_event(
-                logging.WARNING,
-                request.headers.get("traceparent"),
-                {
-                    "event": LoggingMessages.HTTP_APPLICATION_ERROR,
-                    "request_id": request.state.request_id,
-                    "error_code": error.error_code.name,
-                    "details": error.details,
-                },
+            logger.warning(
+                LoggingMessages.STRUCTURED_EVENT,
+                json.dumps(
+                    {
+                        "event": LoggingMessages.HTTP_APPLICATION_ERROR,
+                        "request_id": request.state.request_id,
+                        "error_code": error.error_code.name,
+                        "details": error.details,
+                    }
+                ),
             )
         return error_response(error)

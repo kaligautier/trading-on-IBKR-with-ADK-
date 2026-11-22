@@ -222,10 +222,8 @@ Python logging-internal traceback output is disabled at runtime bootstrap;
 a broken logging sink does not replace the HTTP outcome.
 
 A valid version-00 W3C `traceparent` adds `trace_id` and `parent_span_id` for
-correlation with upstream traces. When `GOOGLE_CLOUD_PROJECT` is set, the event
-also carries `logging.googleapis.com/trace`, `spanId` and `trace_sampled`, so Cloud
-Logging shows it under the caller's trace. Zero, malformed, unsupported or repeated
-values are ignored. These fields never authenticate a caller and are not local span IDs.
+correlation with upstream traces. Zero, malformed, unsupported or repeated values
+are ignored. These fields never authenticate a caller and are not local span IDs.
 The service creates no spans and configures no OpenTelemetry exporter or collector.
 See [W3C Trace Context](https://www.w3.org/TR/trace-context/) and the
 [OpenTelemetry log data model](https://opentelemetry.io/docs/specs/otel/logs/data-model/).

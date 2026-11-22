@@ -61,11 +61,6 @@ disabled. Known server-side failures (5xx `AppError`) log an `http.application_e
 event with the error code and value-free details: a safe exception category for
 storage failures, field or schema paths for invalid DTOs.
 
-Every event carries a Cloud Logging `severity`. A valid W3C `traceparent` adds
-`trace_id`; with `GOOGLE_CLOUD_PROJECT` set, it also adds
-`logging.googleapis.com/trace`, `spanId` and `trace_sampled`, so the event appears
-under the caller's trace. The service creates no spans.
-
 ## Database and authentication
 
 Use the existing Aiven PostgreSQL **`_analysis` schema** (in the `market_scanner`

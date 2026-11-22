@@ -87,7 +87,6 @@ async def _execute_admitted(request, config, session_url, connection):
         print(
             json.dumps(
                 {
-                    "severity": "INFO",
                     "event": LoggingMessages.MOMENTUM_COMPLETED,
                     "ticker": request.ticker,
                     "session_id": execution.session_id,
@@ -115,7 +114,6 @@ def main():
         print(
             json.dumps(
                 {
-                    "severity": "INFO",
                     "event": LoggingMessages.MOMENTUM_STARTED,
                     "ticker": request.ticker,
                     "session_id": str(request.session_id),
@@ -126,10 +124,7 @@ def main():
         asyncio.run(execute(request))
         return 0
     except MomentumBusyError as error:
-        print(
-            json.dumps({"severity": "WARNING", "event": LoggingMessages.MOMENTUM_BUSY}),
-            flush=True,
-        )
+        print(json.dumps({"event": LoggingMessages.MOMENTUM_BUSY}), flush=True)
         return error.exit_code
     except Exception as error:
         # URLs, model prompts and upstream response bodies never enter this log.
@@ -139,7 +134,6 @@ def main():
         print(
             json.dumps(
                 {
-                    "severity": "ERROR",
                     "event": LoggingMessages.MOMENTUM_FAILED,
                     "error_type": type(error).__name__,
                     "error_code": failure.error_code.name,
