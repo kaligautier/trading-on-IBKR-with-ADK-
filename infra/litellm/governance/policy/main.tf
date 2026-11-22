@@ -23,9 +23,7 @@ variable "agents" {
     rpm_limit             = optional(number, 10)
     tpm_limit             = optional(number, 100000)
     max_parallel_requests = optional(number, 2)
-    # Also allow the TypeSafe Decision routes (/v1/decisions, /v1/systemone).
-    decision_routes   = optional(bool, false)
-    existing_token_id = optional(string)
+    existing_token_id     = optional(string)
   }))
   validation {
     condition = alltrue([for name, agent in var.agents :
@@ -78,10 +76,8 @@ resource "litellm_key" "agent" {
   key_alias  = each.key
   team_id    = litellm_team.agents.id
   models     = var.models
-  allowed_routes = concat(
-    ["/v1beta/models/*"],
-    each.value.decision_routes ? ["/v1/decisions", "/v1/systemone"] : [],
-  )
+  # Native Gemini inference plus the Decision routes (/v1/decisions, /v1/systemone).
+  allowed_routes        = ["/v1beta/models/*", "/v1/decisions", "/v1/systemone"]
   max_budget            = each.value.max_budget
   budget_duration       = each.value.budget_duration
   rpm_limit             = each.value.rpm_limit
