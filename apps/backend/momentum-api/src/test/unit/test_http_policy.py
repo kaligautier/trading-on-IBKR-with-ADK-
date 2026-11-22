@@ -96,14 +96,17 @@ def test_malformed_condition(value: str) -> None:
         precondition('"same"', value, None)
 
 
-def test_error_envelope_has_only_code_and_message() -> None:
+def test_error_body_has_only_the_aip_193_fields() -> None:
     body = json.loads(error_bytes(AppError(ErrorCode.INVALID_ARGUMENT)))
-    assert body == {
-        "error": {
-            "code": "INVALID_ARGUMENT",
-            "message": "The request parameters or headers are invalid.",
-        }
-    }
+    error = body["error"]
+    assert set(body) == {"error"}
+    assert set(error) == {"code", "message", "status", "details"}
+    assert (error["code"], error["status"]) == (400, "INVALID_ARGUMENT")
+    assert error["message"] == "The request parameters or headers are invalid."
+    assert [item["@type"].rsplit(".", 1)[1] for item in error["details"]] == [
+        "ErrorInfo",
+        "Help",
+    ]
 
 
 def test_etags_use_literal_backslashes_not_quoted_string_escaping() -> None:
@@ -116,21 +119,11 @@ def test_empty_etag_list_elements_are_ignored(condition):
 
 
 def test_public_error_codes_and_distinct_not_found_codes():
-    assert (
-        json.loads(error_bytes(AppError(ErrorCode.UNAUTHENTICATED)))["error"]["code"]
-        == "UNAUTHENTICATED"
-    )
-    assert (
-        json.loads(error_bytes(AppError(ErrorCode.INVALID_STORED_ANALYSIS)))["error"][
-            "code"
-        ]
-        == "INVALID_STORED_ANALYSIS"
-    )
-    assert (
-        json.loads(error_bytes(AppError(ErrorCode.ANALYSIS_NOT_FOUND)))["error"]["code"]
-        == "ANALYSIS_NOT_FOUND"
-    )
-    assert (
-        json.loads(error_bytes(AppError(ErrorCode.NOT_FOUND)))["error"]["code"]
-        == "NOT_FOUND"
-    )
+    for code in (
+        ErrorCode.UNAUTHENTICATED,
+        ErrorCode.INVALID_STORED_ANALYSIS,
+        ErrorCode.ANALYSIS_NOT_FOUND,
+        ErrorCode.NOT_FOUND,
+    ):
+        details = json.loads(error_bytes(AppError(code)))["error"]["details"]
+        assert details[0]["reason"] == code.name

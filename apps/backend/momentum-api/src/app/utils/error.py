@@ -1,13 +1,19 @@
 """Error handling with structured exceptions and HTTP status mapping.
 
-Every public failure is declared once here: its HTTP status, stable wire
-``code`` and ``message``. The HTTP boundary serializes an ``AppError`` as the
-``{"error": {"code": ..., "message": ...}}`` envelope; ``details`` carry
-internal, value-free context and are never returned. Domain failures stay
-independent of HTTP and are mapped through ``DOMAIN_ERRORS``.
+Every public failure is declared once here: its HTTP status, ``message`` and
+canonical ``google.rpc.Code``. The HTTP boundary serializes an ``AppError`` as a
+Google AIP-193 ``google.rpc.Status``: ``{"error": {"code", "message", "status",
+"details"}}`` where ``code`` is the HTTP status, ``status`` the canonical code
+name and ``details`` an ``ErrorInfo`` (``reason`` = enum name, ``domain`` =
+``ERROR_DOMAIN``), the ``RequestInfo`` and a ``Help`` link. RFC 9110 decides the
+HTTP status; where it has no canonical equivalent (405, 406, 412, 413, 415) the
+closest canonical code is reported. ``details`` of the exception carry internal,
+value-free context and are never returned. Domain failures stay independent of
+HTTP and are mapped through ``DOMAIN_ERRORS``.
 
-Each enum value is the README anchor of the failure and the OAuth ``error``
-parameter of Bearer challenges. Append new members instead of reordering them.
+Each enum value is the README anchor of the failure (the ``Help`` link) and the
+OAuth ``error`` parameter of Bearer challenges. Append new members instead of
+reordering them.
 """
 
 from enum import Enum
@@ -21,6 +27,104 @@ from app.domain.analyses.errors import (
     StoreUnavailableError,
 )
 from app.domain.suggestions import CurrentAnalysisExistsError, SuggestionRateLimitError
+
+ERROR_DOMAIN = "momentum-api.deepcopy.fr"
+ERROR_INFO_TYPE = "type.googleapis.com/google.rpc.ErrorInfo"
+REQUEST_INFO_TYPE = "type.googleapis.com/google.rpc.RequestInfo"
+HELP_TYPE = "type.googleapis.com/google.rpc.Help"
+HELP_URL = (
+    "https://github.com/kaligautier/trading-on-IBKR-with-ADK-/blob/main/"
+    "apps/backend/momentum-api/README.md#"
+)
+
+
+class CanonicalCode(Enum):
+    """``google.rpc.Code``: the canonical status of every AIP-193 error."""
+
+    CANCELLED = 1
+    UNKNOWN = 2
+    INVALID_ARGUMENT = 3
+    DEADLINE_EXCEEDED = 4
+    NOT_FOUND = 5
+    ALREADY_EXISTS = 6
+    PERMISSION_DENIED = 7
+    RESOURCE_EXHAUSTED = 8
+    FAILED_PRECONDITION = 9
+    ABORTED = 10
+    OUT_OF_RANGE = 11
+    UNIMPLEMENTED = 12
+    INTERNAL = 13
+    UNAVAILABLE = 14
+    DATA_LOSS = 15
+    UNAUTHENTICATED = 16
+
+
+# HTTP status of each canonical code (google/rpc/code.proto).
+CANONICAL_HTTP_STATUS: dict[CanonicalCode, int] = {
+    CanonicalCode.CANCELLED: 499,
+    CanonicalCode.UNKNOWN: 500,
+    CanonicalCode.INVALID_ARGUMENT: 400,
+    CanonicalCode.DEADLINE_EXCEEDED: 504,
+    CanonicalCode.NOT_FOUND: 404,
+    CanonicalCode.ALREADY_EXISTS: 409,
+    CanonicalCode.PERMISSION_DENIED: 403,
+    CanonicalCode.RESOURCE_EXHAUSTED: 429,
+    CanonicalCode.FAILED_PRECONDITION: 400,
+    CanonicalCode.ABORTED: 409,
+    CanonicalCode.OUT_OF_RANGE: 400,
+    CanonicalCode.UNIMPLEMENTED: 501,
+    CanonicalCode.INTERNAL: 500,
+    CanonicalCode.UNAVAILABLE: 503,
+    CanonicalCode.DATA_LOSS: 500,
+    CanonicalCode.UNAUTHENTICATED: 401,
+}
+
+# RFC 9110 statuses kept although google.rpc.Code has no HTTP mapping for them.
+RFC9110_STATUSES = frozenset({405, 406, 412, 413, 415})
+
+
+class ErrorKind(Enum):
+    """Who can resolve the failure: the caller (domain) or the operator."""
+
+    DOMAIN = "domain"
+    TECHNICAL = "technical"
+
+
+TECHNICAL_CODES = frozenset(
+    {
+        CanonicalCode.UNKNOWN,
+        CanonicalCode.DEADLINE_EXCEEDED,
+        CanonicalCode.INTERNAL,
+        CanonicalCode.UNAVAILABLE,
+        CanonicalCode.DATA_LOSS,
+    }
+)
+
+
+# Canonical code of an HTTP status no ``ErrorCode`` declares (Google's mapping).
+HTTP_CANONICAL_CODES: dict[int, CanonicalCode] = {
+    400: CanonicalCode.INVALID_ARGUMENT,
+    401: CanonicalCode.UNAUTHENTICATED,
+    403: CanonicalCode.PERMISSION_DENIED,
+    404: CanonicalCode.NOT_FOUND,
+    409: CanonicalCode.ABORTED,
+    416: CanonicalCode.OUT_OF_RANGE,
+    429: CanonicalCode.RESOURCE_EXHAUSTED,
+    499: CanonicalCode.CANCELLED,
+    501: CanonicalCode.UNIMPLEMENTED,
+    503: CanonicalCode.UNAVAILABLE,
+    504: CanonicalCode.DEADLINE_EXCEEDED,
+}
+
+
+def canonical_for_http(status_code: int) -> CanonicalCode:
+    """Canonical code of an undeclared HTTP status: other 4xx/5xx are generic."""
+    fallback = (
+        CanonicalCode.INTERNAL
+        if status_code >= 500
+        else CanonicalCode.FAILED_PRECONDITION
+    )
+    return HTTP_CANONICAL_CODES.get(status_code, fallback)
 
 
 class ErrorCode(Enum):
@@ -98,9 +202,25 @@ ERROR_MESSAGES: dict[ErrorCode, str] = {
     ErrorCode.NOT_IMPLEMENTED: "The requested method is not implemented.",
 }
 
-# Stable public ``code``: the enum name, except where two failures share one.
-WIRE_CODES: dict[ErrorCode, str] = {code: code.name for code in ErrorCode} | {
-    ErrorCode.INVALID_REQUEST: "INVALID_ARGUMENT"
+CANONICAL_CODES: dict[ErrorCode, CanonicalCode] = {
+    ErrorCode.FORBIDDEN: CanonicalCode.PERMISSION_DENIED,
+    ErrorCode.CURRENT_ANALYSIS_EXISTS: CanonicalCode.ALREADY_EXISTS,
+    ErrorCode.SUGGESTION_RATE_LIMIT: CanonicalCode.RESOURCE_EXHAUSTED,
+    ErrorCode.PAYLOAD_TOO_LARGE: CanonicalCode.INVALID_ARGUMENT,
+    ErrorCode.UNSUPPORTED_MEDIA_TYPE: CanonicalCode.INVALID_ARGUMENT,
+    ErrorCode.INVALID_ARGUMENT: CanonicalCode.INVALID_ARGUMENT,
+    ErrorCode.INVALID_REQUEST: CanonicalCode.INVALID_ARGUMENT,
+    ErrorCode.UNAUTHENTICATED: CanonicalCode.UNAUTHENTICATED,
+    ErrorCode.ANALYSIS_NOT_FOUND: CanonicalCode.NOT_FOUND,
+    ErrorCode.NOT_FOUND: CanonicalCode.NOT_FOUND,
+    ErrorCode.METHOD_NOT_ALLOWED: CanonicalCode.UNIMPLEMENTED,
+    ErrorCode.NOT_ACCEPTABLE: CanonicalCode.INVALID_ARGUMENT,
+    ErrorCode.PRECONDITION_FAILED: CanonicalCode.FAILED_PRECONDITION,
+    ErrorCode.INVALID_STORED_ANALYSIS: CanonicalCode.INTERNAL,
+    ErrorCode.STORE_CONFIGURATION_ERROR: CanonicalCode.INTERNAL,
+    ErrorCode.STORE_UNAVAILABLE: CanonicalCode.UNAVAILABLE,
+    ErrorCode.INTERNAL_ERROR: CanonicalCode.INTERNAL,
+    ErrorCode.NOT_IMPLEMENTED: CanonicalCode.UNIMPLEMENTED,
 }
 
 # Domain and port failures, translated at the HTTP boundary only.
@@ -142,12 +262,49 @@ class AppError(Exception):
         super().__init__(self.message)
 
     @property
-    def wire_code(self) -> str:
-        return WIRE_CODES[self.error_code]
+    def canonical(self) -> CanonicalCode:
+        """Canonical code; an overridden HTTP status brings its own."""
+        if self.status_code == HTTP_STATUS_CODES.get(self.error_code):
+            return CANONICAL_CODES[self.error_code]
+        return canonical_for_http(self.status_code)
 
-    def to_response(self) -> dict[str, dict[str, str]]:
-        """Public API error envelope, without details."""
-        return {"error": {"code": self.wire_code, "message": self.message}}
+    @property
+    def kind(self) -> ErrorKind:
+        technical = self.canonical in TECHNICAL_CODES
+        return ErrorKind.TECHNICAL if technical else ErrorKind.DOMAIN
+
+    def to_status(self, request_id: str | None = None) -> dict[str, JsonValue]:
+        """Public AIP-193 ``google.rpc.Status`` body, without internal details."""
+        reason = self.error_code.name
+        details: list[JsonValue] = [
+            {
+                "@type": ERROR_INFO_TYPE,
+                "reason": reason,
+                "domain": ERROR_DOMAIN,
+                "metadata": {},
+            }
+        ]
+        if request_id:
+            details.append({"@type": REQUEST_INFO_TYPE, "requestId": request_id})
+        details.append(
+            {
+                "@type": HELP_TYPE,
+                "links": [
+                    {
+                        "description": f"Troubleshooting documentation for {reason}",
+                        "url": HELP_URL + self.error_code.value,
+                    }
+                ],
+            }
+        )
+        return {
+            "error": {
+                "code": self.status_code,
+                "message": self.message,
+                "status": self.canonical.name,
+                "details": details,
+            }
+        }
 
     def __str__(self) -> str:
         """String representation with error code and details, for logs."""

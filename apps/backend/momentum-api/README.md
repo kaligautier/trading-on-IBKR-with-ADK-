@@ -157,14 +157,54 @@ parameters; detail, health, readiness and OpenAPI accept none. Authentication,
 unknown-resource and method errors retain precedence. OPTIONS reports capabilities
 without validating query parameters.
 
-Errors use the envelope `{"error": {"code": "...", "message": "..."}}`. Every
-code, status and message is declared once in `src/app/utils/error.py`, which
-also generates the OpenAPI error descriptions; the sections below use the
-`ErrorCode` values as stable anchors. Details are logged, never returned.
+Errors follow [Google AIP-193](https://google.aip.dev/193): the body is a
+`google.rpc.Status` in its HTTP/1.1+JSON form.
+
+```json
+{"error": {"code": 404, "message": "The requested analysis does not exist.",
+  "status": "NOT_FOUND",
+  "details": [
+    {"@type": "type.googleapis.com/google.rpc.ErrorInfo",
+     "reason": "ANALYSIS_NOT_FOUND", "domain": "momentum-api.deepcopy.fr",
+     "metadata": {}},
+    {"@type": "type.googleapis.com/google.rpc.RequestInfo",
+     "requestId": "<Request-ID>"},
+    {"@type": "type.googleapis.com/google.rpc.Help",
+     "links": [{"description": "Troubleshooting documentation for ANALYSIS_NOT_FOUND",
+                "url": "https://github.com/.../momentum-api/README.md#analysis-not-found"}]}]}}
+```
+
+`code` is the HTTP status, `status` the canonical `google.rpc.Code`, and
+`ErrorInfo.reason` + `domain` the stable machine-readable identifier: branch on
+`reason`, never on `message`. RFC 9110 decides the HTTP status; where
+`google.rpc.Code` has no HTTP mapping (405, 406, 412, 413, 415) the status is
+kept and the closest canonical code is reported (`UNIMPLEMENTED`,
+`INVALID_ARGUMENT`, `FAILED_PRECONDITION`). Every reason, status, canonical code
+and message is declared once in `src/app/utils/error.py`, which also generates
+the OpenAPI error descriptions; the sections below use the `ErrorCode` values as
+stable anchors and are the `Help` links. `AppError.kind` is technical for
+`INTERNAL`, `UNAVAILABLE`, `UNKNOWN`, `DEADLINE_EXCEEDED` and `DATA_LOSS`, and a
+domain (caller-resolvable) failure otherwise. Details are logged, never returned.
 Content is omitted if `application/json` or identity is excluded; required
 headers/status remain. Missing credentials give a bodyless 401 with
 `WWW-Authenticate: Bearer realm="momentum-api"`; invalid credentials add
 `error="invalid_token"`. The managed Cloud Run edge has its own rejection format.
+
+### forbidden
+403, `PERMISSION_DENIED`: the suggestion caller signature is invalid.
+
+### current-analysis
+409, `ALREADY_EXISTS`: the ticker already has a current Momentum analysis.
+
+### suggestion-quota
+429, `RESOURCE_EXHAUSTED`: the suggestion cooldown or daily limit was reached.
+Retry after the cooldown or the next UTC day.
+
+### payload-too-large
+413, `INVALID_ARGUMENT`: the suggestion body exceeds the allowed size.
+
+### unsupported-media-type
+415, `INVALID_ARGUMENT`: send suggestions as `application/json`.
 
 ### invalid-argument
 400: malformed path/query/conditional inputs, duplicate/unknown parameters or a

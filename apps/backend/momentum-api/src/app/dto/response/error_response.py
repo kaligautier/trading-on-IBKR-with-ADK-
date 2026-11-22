@@ -1,35 +1,43 @@
-"""Public error envelope and its OpenAPI documentation, derived from ``error.py``."""
+"""Public AIP-193 error body and its OpenAPI documentation, from ``error.py``."""
 
 import json
+from contextvars import ContextVar
 from http import HTTPStatus
 from typing import Any
 
 from pydantic import BaseModel
 
 from app.utils.error import (
+    CANONICAL_CODES,
     ERROR_MESSAGES,
     HTTP_STATUS_CODES,
-    WIRE_CODES,
     AppError,
     ErrorCode,
 )
 
 ERROR_MEDIA_TYPE = "application/json"
 
+# Set by the HTTP middleware so every error body carries its RequestInfo.
+request_id_var: ContextVar[str | None] = ContextVar("request_id", default=None)
 
-class ErrorDetail(BaseModel):
-    code: str
+
+class ErrorStatus(BaseModel):
+    """``google.rpc.Status`` in its AIP-193 HTTP/1.1+JSON representation."""
+
+    code: int
     message: str
+    status: str
+    details: list[dict[str, Any]]
 
 
 class ErrorResponse(BaseModel):
-    error: ErrorDetail
+    error: ErrorStatus
 
 
 def error_bytes(error: AppError) -> bytes:
-    """Serialize the public envelope; no exception text or details are exposed."""
+    """Serialize the public Status; no exception text or details are exposed."""
     return json.dumps(
-        error.to_response(),
+        error.to_status(request_id_var.get()),
         ensure_ascii=False,
         allow_nan=False,
         separators=(",", ":"),
@@ -41,7 +49,7 @@ def error_descriptions(*codes: ErrorCode) -> dict[int, str]:
     selected = codes or tuple(ErrorCode)
     lines: dict[int, list[str]] = {}
     for code in selected:
-        line = f"`{WIRE_CODES[code]}`: {ERROR_MESSAGES[code]}"
+        line = f"`{code.name}` ({CANONICAL_CODES[code].name}): {ERROR_MESSAGES[code]}"
         status_lines = lines.setdefault(HTTP_STATUS_CODES[code], [])
         if line not in status_lines:
             status_lines.append(line)
@@ -57,18 +65,35 @@ def error_responses(*codes: ErrorCode) -> dict[int | str, dict[str, Any]]:
 
 
 ERROR_SCHEMAS: dict[str, dict[str, Any]] = {
-    "ErrorDetail": {
+    "ErrorStatus": {
         "type": "object",
-        "required": ["code", "message"],
+        "required": ["code", "message", "status", "details"],
+        "description": "google.rpc.Status (Google AIP-193 HTTP/1.1+JSON).",
         "properties": {
-            "code": {"type": "string", "description": "Stable error code."},
+            "code": {"type": "integer", "description": "HTTP status code."},
             "message": {"type": "string", "description": "Sanitized message."},
+            "status": {
+                "type": "string",
+                "description": "Canonical google.rpc.Code name.",
+            },
+            "details": {
+                "type": "array",
+                "description": "ErrorInfo (reason, domain, metadata), then "
+                "RequestInfo (requestId) and Help (links). Branch on "
+                "ErrorInfo.reason, never on message.",
+                "items": {
+                    "type": "object",
+                    "required": ["@type"],
+                    "properties": {"@type": {"type": "string"}},
+                    "additionalProperties": True,
+                },
+            },
         },
     },
     "ErrorResponse": {
         "type": "object",
         "required": ["error"],
-        "properties": {"error": {"$ref": "#/components/schemas/ErrorDetail"}},
+        "properties": {"error": {"$ref": "#/components/schemas/ErrorStatus"}},
         "description": "Absent when application/json is unacceptable. "
         "Missing credentials produce a bodyless Bearer challenge.",
     },

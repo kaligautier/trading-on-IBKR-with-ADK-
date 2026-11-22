@@ -142,12 +142,11 @@ async def test_errors_are_safe_bodyless_when_needed_and_never_logged(client, cap
     missing = await client.get("/absent?private=hidden", headers=auth)
     assert missing.status_code == 404
     assert missing.headers["content-type"] == "application/json"
-    assert missing.json() == {
-        "error": {
-            "code": "NOT_FOUND",
-            "message": "The requested resource does not exist.",
-        }
-    }
+    error = missing.json()["error"]
+    assert (error["code"], error["status"]) == (404, "NOT_FOUND")
+    assert error["message"] == "The requested resource does not exist."
+    assert error["details"][0]["reason"] == "NOT_FOUND"
+    assert error["details"][1]["requestId"] == missing.headers["request-id"]
     assert (await client.head("/absent", headers=auth)).content == b""
     failure = await client.get("/failure", headers=auth)
     assert failure.status_code == 503
@@ -170,7 +169,7 @@ async def test_error_format_and_repeated_accept_fields(client):
     auth = {"Authorization": BEARER, "Accept": "application/json"}
     error = await client.get("/failure", headers=auth)
     assert error.status_code == 503
-    assert error.json()["error"]["code"] == "STORE_UNAVAILABLE"
+    assert error.json()["error"]["details"][0]["reason"] == "STORE_UNAVAILABLE"
     response = await client.get(
         "/health", headers=[("Accept", "text/html"), ("Accept", "application/json")]
     )
@@ -184,7 +183,7 @@ async def test_bearer_multiple_spaces_and_correlated_safe_failure(client, caplog
     )
     assert response.status_code == 200
     failure = await client.get("/crash", headers={"Authorization": BEARER})
-    assert failure.json()["error"]["code"] == "INTERNAL_ERROR"
+    assert failure.json()["error"]["details"][0]["reason"] == "INTERNAL_ERROR"
     assert failure.headers["request-id"] in caplog.text
     assert json.loads(caplog.records[-1].getMessage())["category"] == "INTERNAL_ERROR"
 
@@ -250,7 +249,7 @@ async def test_all_read_routes_reject_unknown_queries(
         assert response.content == b""
     else:
         assert response.headers["content-type"] == "application/json"
-        assert response.json()["error"]["code"] == "INVALID_ARGUMENT"
+        assert response.json()["error"]["status"] == "INVALID_ARGUMENT"
     reader.list.assert_not_awaited()
     reader.get.assert_not_awaited()
     reader.ready.assert_not_awaited()

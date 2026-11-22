@@ -18,7 +18,7 @@ script:post-response {
   test("HTTP 404", () => expect(res.getStatus()).to.equal(404));
   test("Private cache policy", () => expect(res.getHeader("Cache-Control")).to.eql("no-store"));
   test("Request ID", () => expect(res.getHeader("Request-ID")).to.match(/^[0-9a-f-]{36}$/));
-  test("Error envelope", () => { const e = res.getBody().error; expect(e.code).to.be.a("string"); expect(e.message).to.be.a("string"); expect(res.getHeader("Content-Type")).to.eql("application/json"); });
+  test("AIP-193 Status", () => { const e = res.getBody().error; expect(e.code).to.eql(res.getStatus()); expect(e.message).to.be.a("string"); expect(e.status).to.be.a("string"); const info = e.details[0]; expect(info["@type"]).to.eql("type.googleapis.com/google.rpc.ErrorInfo"); expect(info.reason).to.match(/^[A-Z][A-Z0-9_]+[A-Z0-9]$/); expect(info.domain).to.eql("momentum-api.deepcopy.fr"); expect(e.details[1].requestId).to.eql(res.getHeader("Request-ID")); expect(res.getHeader("Content-Type")).to.eql("application/json"); });
 }
 
 settings {
@@ -53,8 +53,17 @@ example {
       content: '''
         {
           "error": {
-            "code": "ANALYSIS_NOT_FOUND",
-            "message": "The requested analysis does not exist."
+            "code": 404,
+            "message": "The requested analysis does not exist.",
+            "status": "NOT_FOUND",
+            "details": [
+              {
+                "@type": "type.googleapis.com/google.rpc.ErrorInfo",
+                "reason": "ANALYSIS_NOT_FOUND",
+                "domain": "momentum-api.deepcopy.fr",
+                "metadata": {}
+              }
+            ]
           }
         }
       '''
