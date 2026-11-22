@@ -19,7 +19,7 @@ from app.infrastructure.result_writer import ModelMetadata, PostgresResultWriter
 from app.services.execution import MomentumExecutionService
 from app.services.memory import MarketOutcomeResolver, TradingMemoryService
 from app.services.runtime import MomentumRuntimeFactory
-from app.utils.error import AppError, ErrorCode
+from app.utils.error import AppError, ErrorCode, ErrorKind
 from app.utils.logging_messages import LoggingMessages
 
 
@@ -136,13 +136,16 @@ def main():
         failure = (
             error if isinstance(error, AppError) else AppError(ErrorCode.INTERNAL_ERROR)
         )
+        # Domain failures (bad request) are warnings; technical ones are errors.
+        technical = failure.kind is ErrorKind.TECHNICAL
         print(
             json.dumps(
                 {
-                    "severity": "ERROR",
+                    "severity": "ERROR" if technical else "WARNING",
                     "event": LoggingMessages.MOMENTUM_FAILED,
                     "error_type": type(error).__name__,
                     "error_code": failure.error_code.name,
+                    **failure.log_fields(),
                 }
             ),
             flush=True,
