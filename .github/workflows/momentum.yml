@@ -5,7 +5,6 @@ on:
     paths:
       - 'apps/backend/momentum-adk/**'
       - '.github/workflows/momentum.yml'
-      - '.github/scripts/verify_adk_telemetry.py'
       - 'database/**'
       - 'infra/momentum/**'
   push:
@@ -13,7 +12,6 @@ on:
     paths:
       - 'apps/backend/momentum-adk/**'
       - '.github/workflows/momentum.yml'
-      - '.github/scripts/verify_adk_telemetry.py'
       - 'database/**'
       - 'infra/momentum/**'
   workflow_dispatch:
@@ -52,7 +50,7 @@ jobs:
       - name: Test the independent library
         run: TZ=UTC uv run --frozen pytest -q tests/unit
       - name: Verify locked ADK and OpenTelemetry compatibility offline
-        run: uv run --frozen python ../../../.github/scripts/verify_adk_telemetry.py
+        run: uv run --frozen pytest -q tests/telemetry
       - name: Build and import the installed wheel outside the checkout
         shell: bash
         run: |
