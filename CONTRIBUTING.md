@@ -4,6 +4,19 @@ Contributions to Deepcopy are welcome. Keep pull requests focused on one change
 and describe the problem, the resulting behavior, and how you verified it.
 For substantial features, open an issue to discuss the proposed scope first.
 
+## Where code belongs
+
+| Directory | Contents |
+| --- | --- |
+| `apps/` | All executable code: services, jobs, functions, patched images, their tests and Dockerfiles |
+| `infra/` | Terraform only (`.tf`, `.tftest.hcl`, `.tfvars`) and policy files |
+| `database/` | SQL DDL and Liquibase changelogs only |
+| `.github/` | Workflow YAML calling standard actions and CLIs |
+
+Prefer an industry-standard tool (a Terraform provider, the Liquibase CLI, a
+pinned action) to a custom script. The `Code placement` check lists every code
+file outside `apps/`; it warns while existing files are migrated.
+
 ## Development setup
 
 The Market Scanner source is in `apps/backend/market-scanner-adk`.
