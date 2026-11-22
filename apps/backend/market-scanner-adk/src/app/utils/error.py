@@ -1,13 +1,83 @@
 """Error handling with structured exceptions and HTTP status mapping.
 
-Each ``ErrorCode`` name is the public wire code of the HTTP error envelope.
-``details`` carry internal, value-free context for logs and wide events and are
+HTTP errors are Google AIP-193 ``google.rpc.Status`` bodies: ``{"error":
+{"code", "message", "status", "details"}}`` where ``code`` is the HTTP status,
+``status`` the canonical ``google.rpc.Code`` and ``details`` an ``ErrorInfo``
+(``reason`` = ``ErrorCode`` name, ``domain`` = ``ERROR_DOMAIN``), then the
+``RequestInfo`` and, for retryable failures, a ``RetryInfo``. Every HTTP status
+is the one of its canonical code, so 502 is not used. ``details`` of the
+exception carry internal, value-free context for logs and wide events and are
 never returned to HTTP clients.
 """
 
 from enum import Enum
 
 from pydantic import JsonValue
+
+ERROR_DOMAIN = "market-scanner.deepcopy.fr"
+ERROR_INFO_TYPE = "type.googleapis.com/google.rpc.ErrorInfo"
+REQUEST_INFO_TYPE = "type.googleapis.com/google.rpc.RequestInfo"
+RETRY_INFO_TYPE = "type.googleapis.com/google.rpc.RetryInfo"
+
+
+class CanonicalCode(Enum):
+    """``google.rpc.Code``: the canonical status of every AIP-193 error."""
+
+    CANCELLED = 1
+    UNKNOWN = 2
+    INVALID_ARGUMENT = 3
+    DEADLINE_EXCEEDED = 4
+    NOT_FOUND = 5
+    ALREADY_EXISTS = 6
+    PERMISSION_DENIED = 7
+    RESOURCE_EXHAUSTED = 8
+    FAILED_PRECONDITION = 9
+    ABORTED = 10
+    OUT_OF_RANGE = 11
+    UNIMPLEMENTED = 12
+    INTERNAL = 13
+    UNAVAILABLE = 14
+    DATA_LOSS = 15
+    UNAUTHENTICATED = 16
+
+
+# HTTP status of each canonical code (google/rpc/code.proto).
+CANONICAL_HTTP_STATUS: dict[CanonicalCode, int] = {
+    CanonicalCode.CANCELLED: 499,
+    CanonicalCode.UNKNOWN: 500,
+    CanonicalCode.INVALID_ARGUMENT: 400,
+    CanonicalCode.DEADLINE_EXCEEDED: 504,
+    CanonicalCode.NOT_FOUND: 404,
+    CanonicalCode.ALREADY_EXISTS: 409,
+    CanonicalCode.PERMISSION_DENIED: 403,
+    CanonicalCode.RESOURCE_EXHAUSTED: 429,
+    CanonicalCode.FAILED_PRECONDITION: 400,
+    CanonicalCode.ABORTED: 409,
+    CanonicalCode.OUT_OF_RANGE: 400,
+    CanonicalCode.UNIMPLEMENTED: 501,
+    CanonicalCode.INTERNAL: 500,
+    CanonicalCode.UNAVAILABLE: 503,
+    CanonicalCode.DATA_LOSS: 500,
+    CanonicalCode.UNAUTHENTICATED: 401,
+}
+
+
+class ErrorKind(Enum):
+    """Who can resolve the failure: the caller (domain) or the operator."""
+
+    DOMAIN = "domain"
+    TECHNICAL = "technical"
+
+
+TECHNICAL_CODES = frozenset(
+    {
+        CanonicalCode.UNKNOWN,
+        CanonicalCode.DEADLINE_EXCEEDED,
+        CanonicalCode.INTERNAL,
+        CanonicalCode.UNAVAILABLE,
+        CanonicalCode.DATA_LOSS,
+    }
+)
 
 
 class ErrorCode(Enum):
@@ -32,14 +102,30 @@ HTTP_STATUS_CODES: dict[ErrorCode, int] = {
     ErrorCode.INVALID_INPUT: 400,
     ErrorCode.CONFIGURATION_ERROR: 500,
     ErrorCode.INSTRUCTION_ERROR: 500,
-    ErrorCode.TOOL_EXECUTION_ERROR: 502,
-    ErrorCode.MARKET_DATA_COLLECTION_ERROR: 502,
+    ErrorCode.TOOL_EXECUTION_ERROR: 503,
+    ErrorCode.MARKET_DATA_COLLECTION_ERROR: 503,
     ErrorCode.MARKET_DATA_UNAVAILABLE: 503,
-    ErrorCode.LITELLM_ERROR: 502,
+    ErrorCode.LITELLM_ERROR: 503,
     ErrorCode.UNAUTHENTICATED: 401,
     ErrorCode.SCANNER_BUSY: 503,
     ErrorCode.SCAN_JOB_NOT_CONFIGURED: 503,
-    ErrorCode.SCAN_DISPATCH_FAILED: 502,
+    ErrorCode.SCAN_DISPATCH_FAILED: 503,
+}
+
+
+CANONICAL_CODES: dict[ErrorCode, CanonicalCode] = {
+    ErrorCode.GENERIC_ERROR: CanonicalCode.INTERNAL,
+    ErrorCode.INVALID_INPUT: CanonicalCode.INVALID_ARGUMENT,
+    ErrorCode.CONFIGURATION_ERROR: CanonicalCode.INTERNAL,
+    ErrorCode.INSTRUCTION_ERROR: CanonicalCode.INTERNAL,
+    ErrorCode.TOOL_EXECUTION_ERROR: CanonicalCode.UNAVAILABLE,
+    ErrorCode.MARKET_DATA_COLLECTION_ERROR: CanonicalCode.UNAVAILABLE,
+    ErrorCode.MARKET_DATA_UNAVAILABLE: CanonicalCode.UNAVAILABLE,
+    ErrorCode.LITELLM_ERROR: CanonicalCode.UNAVAILABLE,
+    ErrorCode.UNAUTHENTICATED: CanonicalCode.UNAUTHENTICATED,
+    ErrorCode.SCANNER_BUSY: CanonicalCode.UNAVAILABLE,
+    ErrorCode.SCAN_JOB_NOT_CONFIGURED: CanonicalCode.UNAVAILABLE,
+    ErrorCode.SCAN_DISPATCH_FAILED: CanonicalCode.UNAVAILABLE,
 }
 
 
@@ -68,7 +154,10 @@ class AppError(Exception):
         message: Human-readable error message
         details: Optional dictionary with error context
         status_code: HTTP status code (automatically mapped)
+        retry_after: Seconds before a retry may succeed, published as RetryInfo
     """
+
+    retry_after: int | None = None
 
     def __init__(
         self,
@@ -88,9 +177,39 @@ class AppError(Exception):
         detail_str = f", details={self.details}" if self.details else ""
         return f"[{self.error_code.name}] {self.message}{detail_str}"
 
-    def to_response(self) -> dict[str, dict[str, str]]:
-        """Public HTTP error envelope, without internal details."""
-        return {"error": {"code": self.error_code.name, "message": self.message}}
+    @property
+    def canonical(self) -> CanonicalCode:
+        return CANONICAL_CODES[self.error_code]
+
+    @property
+    def kind(self) -> ErrorKind:
+        technical = self.canonical in TECHNICAL_CODES
+        return ErrorKind.TECHNICAL if technical else ErrorKind.DOMAIN
+
+    def to_status(self, request_id: str | None = None) -> dict[str, JsonValue]:
+        """Public AIP-193 ``google.rpc.Status`` body, without internal details."""
+        details: list[JsonValue] = [
+            {
+                "@type": ERROR_INFO_TYPE,
+                "reason": self.error_code.name,
+                "domain": ERROR_DOMAIN,
+                "metadata": {},
+            }
+        ]
+        if request_id:
+            details.append({"@type": REQUEST_INFO_TYPE, "requestId": request_id})
+        if self.retry_after is not None:
+            details.append(
+                {"@type": RETRY_INFO_TYPE, "retryDelay": f"{self.retry_after}s"}
+            )
+        return {
+            "error": {
+                "code": self.status_code,
+                "message": self.message,
+                "status": self.canonical.name,
+                "details": details,
+            }
+        }
 
     def to_dict(self):
         """Internal representation for logs and report data-quality entries."""
@@ -176,6 +295,8 @@ class UnauthenticatedError(AppError):
 
 class ScannerBusyHTTPError(AppError):
     """Scanner execution capacity is taken by another database-backed run."""
+
+    retry_after = 30
 
     def __init__(self) -> None:
         super().__init__(ErrorCode.SCANNER_BUSY)

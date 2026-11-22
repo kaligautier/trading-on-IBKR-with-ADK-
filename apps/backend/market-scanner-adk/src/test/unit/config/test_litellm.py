@@ -143,7 +143,7 @@ async def should_hide_invalid_gateway_response_details(stream, malformed_json):
     finally:
         await model.api_client.aio.aclose()
         model.api_client.close()
-    assert raised.value.status_code == 502
+    assert raised.value.status_code == 503
     assert raised.value.error_code is ErrorCode.LITELLM_ERROR
     assert marker not in str(raised.value)
     assert marker not in "".join(traceback.format_exception(raised.value))
@@ -321,7 +321,7 @@ async def should_propagate_gateway_failure_without_calling_vertex(status):
         model.api_client.close()
     assert len(calls) == 1
     assert raised.value.error_code is ErrorCode.LITELLM_ERROR
-    assert raised.value.status_code == 502
+    assert raised.value.status_code == 503
     if status is not None:
         assert raised.value.details["upstream_status"] == status
     else:
@@ -409,13 +409,14 @@ async def should_expose_custom_error_over_adk_http_without_persisting(
         await api_client.aio.aclose()
         api_client.close()
     if route == "/run":
-        assert response.status_code == 502
-        assert response.json() == {
-            "error": {
-                "code": "LITELLM_ERROR",
-                "message": "LiteLLM gateway request failed",
-            }
-        }
+        assert response.status_code == 503
+        assert (
+            response.json()["error"]["details"][0]["reason"],
+            response.json()["error"]["message"],
+        ) == (
+            "LITELLM_ERROR",
+            "LiteLLM gateway request failed",
+        )
     else:
         assert response.status_code == 200
         assert "LiteLLMError" in response.text

@@ -96,7 +96,7 @@ def should_emit_one_canonical_event_for_an_http_request(caplog) -> None:
     ("error_type", "status_code", "code"),
     [
         (InvalidInputError, 400, "INVALID_INPUT"),
-        (MarketDataCollectionError, 502, "MARKET_DATA_COLLECTION_ERROR"),
+        (MarketDataCollectionError, 503, "MARKET_DATA_COLLECTION_ERROR"),
         (MarketDataUnavailableError, 503, "MARKET_DATA_UNAVAILABLE"),
     ],
 )
@@ -111,7 +111,13 @@ def should_map_app_errors_and_record_their_codes(error_type, status_code, code, 
         response = TestClient(app).get("/test-error")
 
     assert response.status_code == status_code
-    assert response.json() == {"error": {"code": code, "message": "Test failure"}}
+    assert (
+        response.json()["error"]["details"][0]["reason"],
+        response.json()["error"]["message"],
+    ) == (
+        code,
+        "Test failure",
+    )
     assert "^GSPC" not in response.text
     assert response.headers["x-request-id"]
     events = [r for r in caplog.records if getattr(r, "event", None) == "http.request"]

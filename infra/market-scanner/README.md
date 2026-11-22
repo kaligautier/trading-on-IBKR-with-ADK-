@@ -110,7 +110,7 @@ Check the ready service revision and job image digest, then invoke
 The route submits the Cloud Run Job and returns HTTP 202 with
 `{"status": "accepted", "operation": "projects/.../operations/..."}`.
 This acknowledges submission, not scan completion. It returns 503 if the job
-is unconfigured and 502 if submission fails. The service uses its attached
+is unconfigured or submission fails (AIP-193 `UNAVAILABLE`). The service uses its attached
 identity and `roles/run.invoker` on this job only, without execution overrides.
 
 The job runs `python -m app.jobs.daily_scan`. It creates an ephemeral ADK session
