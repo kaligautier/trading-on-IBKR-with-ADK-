@@ -175,3 +175,22 @@ async def should_preserve_the_sent_http_status_when_a_stream_raises(caplog):
     assert record["http.status"] == 200
     assert record["outcome"] != "success"
     assert "sensitive provider details" not in str(record)
+
+
+async def _trace(_request):
+    trace = wide_event.trace()
+    return JSONResponse({"trace_id": trace.trace_id if trace else None})
+
+
+def should_expose_the_incoming_trace_to_request_logs():
+    application = Starlette(routes=[Route("/trace", _trace)])
+    application.add_middleware(WideEventMiddleware)
+    traceparent = "00-1234567890abcdef1234567890abcdef-1234567890abcdef-01"
+
+    with TestClient(application) as client:
+        traced = client.get("/trace", headers={"traceparent": traceparent})
+        untraced = client.get("/trace")
+
+    assert traced.json() == {"trace_id": "1234567890abcdef1234567890abcdef"}
+    assert untraced.json() == {"trace_id": None}
+    assert wide_event.trace() is None
