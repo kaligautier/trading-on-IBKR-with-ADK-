@@ -53,10 +53,26 @@ curl "$MCP_URL/" \
 Always check `result.isError`, not just HTTP 200.
 
 Every public failure is declared once in `src/momentum_public_mcp/utils/error.py`:
-an `ErrorCode`, its sanitized message, and its HTTP status. Routes outside MCP
-dispatch (unknown path, wrong method) answer with the envelope shared by the
-backends, `{"error": {"code": "NOT_FOUND", "message": "..."}}` (see
-`dto/response/error_response.py`). MCP requests keep the envelope JSON-RPC
+an `ErrorCode`, its sanitized message, its HTTP status and its canonical
+`google.rpc.Code`. Routes outside MCP dispatch (unknown path, wrong method)
+answer with a [Google AIP-193](https://google.aip.dev/193) `google.rpc.Status`
+(see `dto/response/error_response.py`):
+
+```json
+{"error": {"code": 404, "message": "Route not found", "status": "NOT_FOUND",
+  "details": [
+    {"@type": "type.googleapis.com/google.rpc.ErrorInfo",
+     "reason": "NOT_FOUND", "domain": "mcp.deepcopy.fr", "metadata": {}},
+    {"@type": "type.googleapis.com/google.rpc.RequestInfo",
+     "requestId": "<X-Request-ID>"}]}}
+```
+
+Clients branch on `ErrorInfo.reason` and `domain`, never on `message`. RFC 9110
+decides the HTTP status: a wrong method keeps `405` and its `Allow` header, and
+reports the closest canonical status, `UNIMPLEMENTED`. `AppError.kind` derives
+from the canonical status: `UNKNOWN`, `INTERNAL`, `UNAVAILABLE`,
+`DEADLINE_EXCEEDED` and `DATA_LOSS` are technical, everything else is a domain
+(caller-resolvable) failure. MCP requests keep the envelope JSON-RPC
 requires: protocol errors (`ProtocolError`) reject the request with HTTP 400, a
 JSON-RPC code (`-32602` or `-32022`) and the stable code in `error.data.code`.
 Upstream failures (`MomentumApiError`) become in-band tool or

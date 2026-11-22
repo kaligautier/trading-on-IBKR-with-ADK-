@@ -1,14 +1,22 @@
 """The error module owns every public failure message, status and protocol code."""
 
+import re
+
 import pytest
 
 from momentum_public_mcp.utils.error import (
+    CANONICAL_CODES,
+    CANONICAL_HTTP_STATUS,
+    ERROR_DOMAIN,
     ERROR_MESSAGES,
     HTTP_STATUS_CODES,
     JSONRPC_ERROR_CODES,
     PROTOCOL_ERRORS,
+    RFC9110_STATUSES,
     AppError,
+    CanonicalCode,
     ErrorCode,
+    ErrorKind,
     MomentumApiError,
     ProtocolError,
 )
@@ -49,11 +57,61 @@ def test_protocol_error_builds_the_jsonrpc_envelope():
     ] == {"code": "CLIENT_INFO_REQUIRED"}
 
 
-def test_http_errors_use_the_shared_envelope():
-    assert AppError(ErrorCode.NOT_FOUND).to_response() == {
-        "error": {"code": "NOT_FOUND", "message": "Route not found"}
+REASON = re.compile(r"[A-Z][A-Z0-9_]+[A-Z0-9]\Z")
+
+
+def test_every_code_is_an_aip_193_reason_with_a_canonical_status():
+    for code in ErrorCode:
+        assert REASON.match(code.name) and len(code.name) <= 63
+        http = HTTP_STATUS_CODES[code]
+        if http != 200 and http not in RFC9110_STATUSES:
+            assert CANONICAL_HTTP_STATUS[CANONICAL_CODES[code]] == http
+
+
+def test_http_errors_use_the_aip_193_status():
+    assert AppError(ErrorCode.NOT_FOUND).to_status("req-1") == {
+        "error": {
+            "code": 404,
+            "message": "Route not found",
+            "status": "NOT_FOUND",
+            "details": [
+                {
+                    "@type": "type.googleapis.com/google.rpc.ErrorInfo",
+                    "reason": "NOT_FOUND",
+                    "domain": ERROR_DOMAIN,
+                    "metadata": {},
+                },
+                {
+                    "@type": "type.googleapis.com/google.rpc.RequestInfo",
+                    "requestId": "req-1",
+                },
+            ],
+        }
     }
     assert HTTP_STATUS_CODES[ErrorCode.METHOD_NOT_ALLOWED] == 405
+    assert AppError(ErrorCode.METHOD_NOT_ALLOWED).canonical is (
+        CanonicalCode.UNIMPLEMENTED
+    )
+
+
+@pytest.mark.parametrize(
+    ("status", "canonical"),
+    [
+        (400, CanonicalCode.INVALID_ARGUMENT),
+        (413, CanonicalCode.FAILED_PRECONDITION),
+        (503, CanonicalCode.UNAVAILABLE),
+        (502, CanonicalCode.INTERNAL),
+    ],
+)
+def test_undeclared_statuses_get_their_canonical_code(status, canonical):
+    error = AppError(ErrorCode.REQUEST_FAILED, status_code=status)
+    assert error.canonical is canonical
+    assert error.to_status()["error"]["code"] == status
+
+
+def test_kind_separates_caller_and_operator_failures():
+    assert AppError(ErrorCode.NOT_FOUND).kind is ErrorKind.DOMAIN
+    assert AppError(ErrorCode.UPSTREAM_UNAVAILABLE).kind is ErrorKind.TECHNICAL
 
 
 @pytest.mark.parametrize(
