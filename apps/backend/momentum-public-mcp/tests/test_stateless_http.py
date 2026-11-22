@@ -186,15 +186,23 @@ def test_legacy_versions_cannot_select_a_handshake_transport(http_client, versio
     assert response.json()["error"]["data"]["supported"] == [VERSION]
 
 
-def test_routes_outside_mcp_use_the_shared_error_envelope(http_client):
+def test_routes_outside_mcp_return_an_aip_193_status(http_client):
     missing = http_client.get("/missing-route")
     assert missing.status_code == 404
-    assert missing.json() == {
-        "error": {"code": "NOT_FOUND", "message": "Route not found"}
-    }
+    error = missing.json()["error"]
+    assert (error["code"], error["message"], error["status"]) == (
+        404,
+        "Route not found",
+        "NOT_FOUND",
+    )
+    info, request = error["details"]
+    assert (info["reason"], info["domain"]) == ("NOT_FOUND", "mcp.deepcopy.fr")
+    assert request["requestId"] == missing.headers["x-request-id"]
     wrong_method = http_client.post("/health")
     assert wrong_method.status_code == 405
-    assert wrong_method.json()["error"]["code"] == "METHOD_NOT_ALLOWED"
+    error = wrong_method.json()["error"]
+    assert (error["code"], error["status"]) == (405, "UNIMPLEMENTED")
+    assert error["details"][0]["reason"] == "METHOD_NOT_ALLOWED"
     assert "GET" in wrong_method.headers["allow"]
 
 
