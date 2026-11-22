@@ -8,12 +8,17 @@ Tests:
 - Custom exceptions
 """
 
+import re
+
 from app.utils.error import (
+    CANONICAL_CODES,
+    CANONICAL_HTTP_STATUS,
     ERROR_MESSAGES,
     HTTP_STATUS_CODES,
     AppError,
     ConfigurationError,
     ErrorCode,
+    ErrorKind,
     InstructionError,
     InvalidInputError,
     ToolExecutionError,
@@ -35,7 +40,7 @@ def test_http_status_mapping():
     assert HTTP_STATUS_CODES[ErrorCode.INVALID_INPUT] == 400
     assert HTTP_STATUS_CODES[ErrorCode.CONFIGURATION_ERROR] == 500
     assert HTTP_STATUS_CODES[ErrorCode.INSTRUCTION_ERROR] == 500
-    assert HTTP_STATUS_CODES[ErrorCode.TOOL_EXECUTION_ERROR] == 502
+    assert HTTP_STATUS_CODES[ErrorCode.TOOL_EXECUTION_ERROR] == 503
 
 
 def test_error_messages_defined():
@@ -83,27 +88,49 @@ def test_app_error_to_dict():
     assert error_dict["details"] == {"config": "test_config"}
 
 
-def test_app_error_to_response_hides_details():
-    """The public HTTP envelope carries the wire code and message only."""
+def test_app_error_to_status_is_aip_193_and_hides_details():
+    """The public HTTP body is a google.rpc.Status without internal details."""
     error = AppError(
         error_code=ErrorCode.SCAN_DISPATCH_FAILED,
         details={"error_type": "RuntimeError"},
     )
 
-    assert error.to_response() == {
+    assert error.to_status("req-1") == {
         "error": {
-            "code": "SCAN_DISPATCH_FAILED",
+            "code": 503,
             "message": "Scheduled scan dispatch failed",
+            "status": "UNAVAILABLE",
+            "details": [
+                {
+                    "@type": "type.googleapis.com/google.rpc.ErrorInfo",
+                    "reason": "SCAN_DISPATCH_FAILED",
+                    "domain": "market-scanner.deepcopy.fr",
+                    "metadata": {},
+                },
+                {
+                    "@type": "type.googleapis.com/google.rpc.RequestInfo",
+                    "requestId": "req-1",
+                },
+            ],
         }
     }
+    assert error.kind is ErrorKind.TECHNICAL
 
 
-def test_http_error_codes_map_to_existing_statuses():
-    """HTTP failures keep the statuses served before the envelope change."""
+def test_every_http_status_is_the_one_of_its_canonical_code():
+    """AIP-193: the JSON code is the HTTP status of google.rpc.Code."""
+    for code in ErrorCode:
+        assert re.fullmatch(r"[A-Z][A-Z0-9_]+[A-Z0-9]", code.name)
+        assert CANONICAL_HTTP_STATUS[CANONICAL_CODES[code]] == HTTP_STATUS_CODES[code]
+
+
+def test_http_error_codes_map_to_canonical_statuses():
+    """HTTP failures use canonical statuses; dispatch failures are UNAVAILABLE."""
     assert HTTP_STATUS_CODES[ErrorCode.UNAUTHENTICATED] == 401
     assert HTTP_STATUS_CODES[ErrorCode.SCANNER_BUSY] == 503
     assert HTTP_STATUS_CODES[ErrorCode.SCAN_JOB_NOT_CONFIGURED] == 503
-    assert HTTP_STATUS_CODES[ErrorCode.SCAN_DISPATCH_FAILED] == 502
+    assert HTTP_STATUS_CODES[ErrorCode.SCAN_DISPATCH_FAILED] == 503
+    assert AppError(ErrorCode.INVALID_INPUT).kind is ErrorKind.DOMAIN
 
 
 def test_invalid_input_error():
@@ -136,7 +163,7 @@ def test_tool_execution_error():
     error = ToolExecutionError(message="Tool failed", details={"tool": "calculate"})
 
     assert error.error_code == ErrorCode.TOOL_EXECUTION_ERROR
-    assert error.status_code == 502
+    assert error.status_code == 503
     assert error.details["tool"] == "calculate"
 
 

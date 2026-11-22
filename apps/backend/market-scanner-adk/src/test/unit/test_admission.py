@@ -32,12 +32,18 @@ def should_reject_busy_work_before_handler_and_preserve_auth(monkeypatch):
     )
     assert response.status_code == 503
     assert response.headers["Retry-After"] == "30"
-    assert response.json() == {
-        "error": {
-            "code": "SCANNER_BUSY",
-            "message": "Scanner execution capacity is busy",
-        }
+    assert response.json()["error"]["status"] == "UNAVAILABLE"
+    assert response.json()["error"]["details"][-1] == {
+        "@type": "type.googleapis.com/google.rpc.RetryInfo",
+        "retryDelay": "30s",
     }
+    assert (
+        response.json()["error"]["details"][0]["reason"],
+        response.json()["error"]["message"],
+    ) == (
+        "SCANNER_BUSY",
+        "Scanner execution capacity is busy",
+    )
     assert client.get("/health").status_code == 200
     expensive.assert_not_awaited()
 

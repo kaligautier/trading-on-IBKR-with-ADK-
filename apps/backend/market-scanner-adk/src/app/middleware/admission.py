@@ -1,7 +1,6 @@
 """Reject concurrent database-backed HTTP work before model/session execution."""
 
-from starlette.responses import JSONResponse
-
+from app.dto.response.error_response import error_response
 from app.services.admission import ScannerBusyError, admit_scan
 from app.utils.error import ScannerBusyHTTPError
 
@@ -24,9 +23,4 @@ class ScannerAdmissionMiddleware:
             if scope["type"] == "websocket":
                 await send({"type": "websocket.close", "code": 1013})
             else:
-                error = ScannerBusyHTTPError()
-                await JSONResponse(
-                    error.to_response(),
-                    status_code=error.status_code,
-                    headers={"Retry-After": "30"},
-                )(scope, receive, send)
+                await error_response(ScannerBusyHTTPError())(scope, receive, send)
