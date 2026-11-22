@@ -48,7 +48,7 @@ jobs:
           ref: ${{ github.event.repository.default_branch }}
           persist-credentials: false
       - name: Test the component scope rule
-        run: python3 -m unittest discover -s .github/scripts -p 'test_pr_components.py' -v
+        run: jq -n -L .github/pr-policy --slurpfile cases .github/pr-policy/tests/cases.json -f .github/pr-policy/tests/run.jq
       - name: Read all changed files
         env:
           GH_TOKEN: ${{ github.token }}
@@ -61,8 +61,24 @@ jobs:
           gh api "repos/${GH_REPO}/pulls/${PR_NUMBER}" > "$RUNNER_TEMP/pr.json"
       - name: Enforce one component per pull request
         run: |
-          python3 .github/scripts/check_pr_components.py \
-            "$RUNNER_TEMP/pr.json" "$RUNNER_TEMP/pr-files.json" "$PR_HEAD_SHA"
+          set -euo pipefail
+          jq -n -L .github/pr-policy --slurpfile pr "$RUNNER_TEMP/pr.json" \
+            --slurpfile pages "$RUNNER_TEMP/pr-files.json" --arg head "$PR_HEAD_SHA" \
+            'include "policy"; pr_files($pr[0]; $pages[0]; $head) | components' \
+            > "$RUNNER_TEMP/result.json" 2> "$RUNNER_TEMP/error.txt" || {
+            echo "::error::$(sed 's/^jq: error[^:]*: //' "$RUNNER_TEMP/error.txt")"; exit 1; }
+          count=$(jq length "$RUNNER_TEMP/result.json")
+          {
+            echo "### PR component scope: $count / 1"
+            echo
+            echo "Components: $(jq -c . "$RUNNER_TEMP/result.json")"
+            echo
+            echo "Shared files outside component directories do not count. Renames count both the old and new component."
+          } | tee "$GITHUB_STEP_SUMMARY"
+          if (( count > 1 )); then
+            echo "::error::A PR may modify at most one application component. Split this PR."
+            exit 1
+          fi
       - name: Complete required check on the validated PR head
         if: always() && steps.head-check.outputs.id != ''
         env:
