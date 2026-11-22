@@ -73,3 +73,38 @@ def should_bound_oversized_json_logs_and_preserve_outcome_and_correlation():
     assert payload["http.status"] == 200
     assert payload["request_id"] == "request-large"
     assert "unexpected_payload" not in payload
+
+
+class TestCloudLoggingFields:
+    def should_expose_severity_for_cloud_logging(self):
+        payload = json.loads(JsonFormatter().format(_record()))
+
+        assert payload["severity"] == "INFO"
+        assert payload["level"] == "INFO"
+
+    def should_link_the_entry_to_the_caller_trace(self, monkeypatch):
+        from app.config.settings import settings
+        from app.utils.trace_context import TraceContext
+
+        monkeypatch.setattr(settings, "GOOGLE_CLOUD_PROJECT", "example-project")
+        trace = TraceContext.from_traceparent(
+            "00-1234567890abcdef1234567890abcdef-1234567890abcdef-01"
+        )
+        scope = wide_event.start({}, request_id="request-42", trace=trace)
+        try:
+            payload = json.loads(JsonFormatter().format(_record()))
+        finally:
+            wide_event.reset(scope)
+
+        assert payload["trace_id"] == "1234567890abcdef1234567890abcdef"
+        assert payload["logging.googleapis.com/trace"] == (
+            "projects/example-project/traces/1234567890abcdef1234567890abcdef"
+        )
+        assert payload["logging.googleapis.com/spanId"] == "1234567890abcdef"
+        assert payload["logging.googleapis.com/trace_sampled"] is True
+
+    def should_omit_trace_fields_outside_a_traced_request(self):
+        payload = json.loads(JsonFormatter().format(_record()))
+
+        assert "trace_id" not in payload
+        assert "logging.googleapis.com/trace" not in payload
