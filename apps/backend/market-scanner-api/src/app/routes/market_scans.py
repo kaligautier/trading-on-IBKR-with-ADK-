@@ -2,7 +2,7 @@
 
 Routes only validate HTTP input, resolve dependencies, call the service and map
 the stored model to its response DTO. Invalid input (scan ID, page size or page
-token length) is rejected by FastAPI with HTTP 422. They do not catch
+token length) is rejected with HTTP 400 ``INVALID_ARGUMENT``. They do not catch
 ``AppError``: the application handler maps it to its JSON body and HTTP status.
 """
 

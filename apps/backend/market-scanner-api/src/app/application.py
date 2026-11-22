@@ -27,9 +27,13 @@ from app.utils.logging_messages import LoggingMessages
 FRAMEWORK_ERRORS = {404: ErrorCode.NOT_FOUND, 405: ErrorCode.METHOD_NOT_ALLOWED}
 
 
-def error_response(error: AppError, status_code: int | None = None) -> JSONResponse:
-    """Serialize a known failure as the public envelope with its HTTP status."""
-    return JSONResponse(error.to_dict(), status_code=status_code or error.status_code)
+def error_response(error: AppError, request_id: str | None = None) -> JSONResponse:
+    """Serialize a known failure as an AIP-193 Status with its HTTP status."""
+    return JSONResponse(error.to_status(request_id), status_code=error.status_code)
+
+
+def _request_id(request: Request) -> str | None:
+    return getattr(request.state, "request_id", None)
 
 
 def create_app(
@@ -98,7 +102,9 @@ def _install_middleware(application: FastAPI, configuration: Settings) -> None:
                 request.headers.get("Authorization", "").encode(), expected.encode()
             )
         ):
-            response: Response = error_response(AppError(ErrorCode.UNAUTHENTICATED))
+            response: Response = error_response(
+                AppError(ErrorCode.UNAUTHENTICATED), request_id
+            )
             response.headers["WWW-Authenticate"] = "Bearer"
         else:
             try:
@@ -114,7 +120,9 @@ def _install_middleware(application: FastAPI, configuration: Settings) -> None:
                         "error_type": type(error).__name__,
                     },
                 )
-                response = error_response(AppError(ErrorCode.INTERNAL_ERROR))
+                response = error_response(
+                    AppError(ErrorCode.INTERNAL_ERROR), request_id
+                )
         response.headers["X-Request-ID"] = request_id
         response.headers["Cache-Control"] = "no-store"
         return response
@@ -122,17 +130,18 @@ def _install_middleware(application: FastAPI, configuration: Settings) -> None:
 
 def _install_error_handlers(application: FastAPI) -> None:
     @application.exception_handler(HTTPException)
-    async def http_error(_request: Request, error: HTTPException) -> JSONResponse:
+    async def http_error(request: Request, error: HTTPException) -> JSONResponse:
         code = FRAMEWORK_ERRORS.get(error.status_code, ErrorCode.REQUEST_FAILED)
-        response = error_response(AppError(code), error.status_code)
+        failure = AppError(code, status_code=error.status_code)
+        response = error_response(failure, _request_id(request))
         response.headers.update(error.headers or {})
         return response
 
     @application.exception_handler(RequestValidationError)
     async def invalid_request(
-        _request: Request, _error: RequestValidationError
+        request: Request, _error: RequestValidationError
     ) -> JSONResponse:
-        return error_response(InvalidArgumentError())
+        return error_response(InvalidArgumentError(), _request_id(request))
 
     @application.exception_handler(AppError)
     async def application_error(request: Request, error: AppError) -> JSONResponse:
@@ -148,4 +157,4 @@ def _install_error_handlers(application: FastAPI) -> None:
                     "details": error.details,
                 },
             )
-        return error_response(error)
+        return error_response(error, _request_id(request))

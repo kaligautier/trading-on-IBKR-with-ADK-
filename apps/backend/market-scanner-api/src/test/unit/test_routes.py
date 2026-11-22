@@ -102,14 +102,14 @@ def test_reader_rejects_malformed_public_arbitration(field, value):
     with client(Repository(replace(SCAN, report=report))) as api:
         response = api.get("/v1/market-scans/latest", headers=HEADERS)
     assert response.status_code == 500
-    assert response.json()["error"]["code"] == "INVALID_STORED_REPORT"
+    assert response.json()["error"]["details"][0]["reason"] == "INVALID_STORED_REPORT"
 
 
 def test_absent_report_is_not_a_database_outage():
     with client(Repository(None)) as api:
         response = api.get("/v1/market-scans/latest", headers=HEADERS)
     assert response.status_code == 404
-    assert response.json()["error"]["code"] == "SCAN_NOT_FOUND"
+    assert response.json()["error"]["details"][0]["reason"] == "SCAN_NOT_FOUND"
 
 
 def test_health_is_public_but_reports_and_docs_require_authentication():
@@ -132,7 +132,7 @@ def test_database_errors_do_not_expose_credentials():
         response = api.get("/v1/market-scans/latest", headers=HEADERS)
     assert response.status_code == 503
     assert "private-password" not in response.text
-    assert response.json()["error"]["code"] == "STORE_UNAVAILABLE"
+    assert response.json()["error"]["details"][0]["reason"] == "STORE_UNAVAILABLE"
 
 
 def test_detail_and_missing_identifier():
@@ -148,7 +148,7 @@ def test_detail_and_missing_identifier():
             == 404
         )
         assert (
-            api.get("/v1/market-scans/not-a-uuid", headers=HEADERS).status_code == 422
+            api.get("/v1/market-scans/not-a-uuid", headers=HEADERS).status_code == 400
         )
 
 
@@ -157,7 +157,7 @@ def test_list_returns_bounded_summaries():
         response = api.get("/v1/market-scans?page_size=1", headers=HEADERS)
         for query in ["page_size=0", "page_size=101", "page_token=bad"]:
             assert (
-                api.get("/v1/market-scans?" + query, headers=HEADERS).status_code == 422
+                api.get("/v1/market-scans?" + query, headers=HEADERS).status_code == 400
             )
     assert response.status_code == 200
     assert response.json()["next_page_token"] == ""
@@ -171,7 +171,7 @@ def test_invalid_stored_report_fails_instead_of_returning_incomplete_data():
     with client(Repository(replace(SCAN, report={"schema_version": 99}))) as api:
         response = api.get("/v1/market-scans/latest", headers=HEADERS)
     assert response.status_code == 500
-    assert response.json()["error"]["code"] == "INVALID_STORED_REPORT"
+    assert response.json()["error"]["details"][0]["reason"] == "INVALID_STORED_REPORT"
 
 
 def test_invalid_response_dto_fails_and_logs_field_paths_without_values(caplog):
@@ -189,12 +189,13 @@ def test_invalid_response_dto_fails_and_logs_field_paths_without_values(caplog):
     ):
         response = api.get("/v1/market-scans", headers=HEADERS)
     assert response.status_code == 500
-    assert response.json() == {
-        "error": {
-            "code": "INVALID_RESPONSE",
-            "message": "Stored scan does not satisfy the response contract",
-        }
-    }
+    assert (
+        response.json()["error"]["details"][0]["reason"],
+        response.json()["error"]["message"],
+    ) == (
+        "INVALID_RESPONSE",
+        "Stored scan does not satisfy the response contract",
+    )
     events = [
         json.loads(record.getMessage())
         for record in caplog.records
@@ -211,7 +212,7 @@ def test_openapi_error_responses_are_derived_from_error_codes():
     latest = paths["/v1/market-scans/latest"]["get"]["responses"]
     detail = paths["/v1/market-scans/{scan_id}"]["get"]["responses"]
     assert set(latest) == {"200", "401", "404", "406", "500", "503"}
-    assert set(detail) == {"200", "401", "404", "406", "422", "500", "503"}
+    assert set(detail) == {"200", "400", "401", "404", "406", "500", "503"}
     assert "`SCAN_NOT_FOUND`" in latest["404"]["description"]
     for code in ["INTERNAL_ERROR", "INVALID_STORED_REPORT", "INVALID_RESPONSE"]:
         assert f"`{code}`" in latest["500"]["description"]
@@ -274,7 +275,7 @@ def test_unexpected_errors_are_sanitized_and_still_correlated(caplog):
             headers={**HEADERS, "X-Request-ID": "failed-request"},
         )
     assert response.status_code == 500
-    assert response.json()["error"]["code"] == "INTERNAL_ERROR"
+    assert response.json()["error"]["details"][0]["reason"] == "INTERNAL_ERROR"
     assert response.headers["X-Request-ID"] == "failed-request"
     assert '"status": 500' in caplog.text
     assert "private-password" not in response.text + caplog.text
@@ -289,7 +290,7 @@ def test_stored_dates_are_validated_not_just_treated_as_strings():
     with client(Repository(replace(SCAN, report=report))) as api:
         response = api.get("/v1/market-scans/latest", headers=HEADERS)
     assert response.status_code == 500
-    assert response.json()["error"]["code"] == "INVALID_STORED_REPORT"
+    assert response.json()["error"]["details"][0]["reason"] == "INVALID_STORED_REPORT"
 
 
 def test_framework_errors_use_the_same_envelope():
@@ -297,9 +298,9 @@ def test_framework_errors_use_the_same_envelope():
         missing = api.get("/unknown", headers=HEADERS)
         disallowed = api.post("/v1/market-scans/latest", headers=HEADERS)
     assert missing.status_code == 404
-    assert missing.json()["error"]["code"] == "NOT_FOUND"
+    assert missing.json()["error"]["details"][0]["reason"] == "NOT_FOUND"
     assert disallowed.status_code == 405
-    assert disallowed.json()["error"]["code"] == "METHOD_NOT_ALLOWED"
+    assert disallowed.json()["error"]["details"][0]["reason"] == "METHOD_NOT_ALLOWED"
     assert "GET" in disallowed.headers["allow"]
 
 
@@ -391,7 +392,7 @@ def test_head_errors_are_bodyless_and_keep_status_and_allow():
         unacceptable = api.head(
             "/v1/market-scans/latest", headers={**HEADERS, "Accept": "text/plain"}
         )
-    assert missing.status_code == 422 and not missing.content
+    assert missing.status_code == 400 and not missing.content
     assert unacceptable.status_code == 406 and not unacceptable.content
 
 

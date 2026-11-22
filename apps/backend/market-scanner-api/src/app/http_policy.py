@@ -74,6 +74,9 @@ def install_head_schema(app: FastAPI) -> None:
     def schema() -> dict[str, Any]:
         document = original()
         for operations in document["paths"].values():
+            for operation in operations.values():
+                # Validation errors are served as AIP-193 400 INVALID_ARGUMENT.
+                operation["responses"].pop("422", None)
             if "get" not in operations or "head" in operations:
                 continue
             operation = deepcopy(operations["get"])
