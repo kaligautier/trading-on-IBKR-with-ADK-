@@ -68,6 +68,10 @@ testpaths = ["src/test"]
 python_files = "test_*.py"
 python_functions = ["should_*", "test_*"]
 asyncio_mode = "auto"
+# The telemetry test owns the global tracer provider, so it runs in its own process:
+# pytest -m telemetry src/test/telemetry
+markers = ["telemetry: needs a fresh process (global OpenTelemetry provider)"]
+addopts = "-m 'not telemetry'"
 env = [
     "D:LITELLM_API_BASE=https://gateway.example",
     "D:LITELLM_API_KEY=sk-offline-test",

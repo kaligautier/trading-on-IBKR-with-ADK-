@@ -6,16 +6,12 @@ on:
       - 'apps/backend/market-scanner-adk/**'
       - 'infra/**'
       - '.github/workflows/scanner.yml'
-      - 'scripts/scanner_image_smoke.py'
-      - '.github/scripts/verify_adk_telemetry.py'
   push:
     branches: [main]
     paths:
       - 'apps/backend/market-scanner-adk/**'
       - 'infra/**'
       - '.github/workflows/scanner.yml'
-      - 'scripts/scanner_image_smoke.py'
-      - '.github/scripts/verify_adk_telemetry.py'
   workflow_dispatch:
 
 permissions:
@@ -42,13 +38,14 @@ jobs:
       - name: Install locked dependencies
         run: uv sync --locked --python 3.12
       - name: Lint application and tests
-        run: uv run --no-sync ruff check src ../../../scripts/scanner_image_smoke.py
+        run: uv run --no-sync ruff check src scripts
       - name: Check formatting
-        run: uv run --no-sync ruff format --check src/app ../../../scripts/scanner_image_smoke.py
+        run: uv run --no-sync ruff format --check src/app src/test/telemetry scripts
       - name: Test scanner and gateway failure handling
         run: TZ=UTC uv run --no-sync pytest -q src/test/unit
       - name: Verify locked ADK and OpenTelemetry compatibility offline
-        run: uv run --no-sync python ../../../.github/scripts/verify_adk_telemetry.py
+        # Own process: the test installs the global tracer provider before ADK loads.
+        run: uv run --no-sync pytest -q -m telemetry src/test/telemetry
 
   infrastructure:
     runs-on: ubuntu-24.04
@@ -112,7 +109,7 @@ jobs:
       - name: Build Linux release image
         run: docker build --platform linux/amd64 --tag scanner:verify apps/backend/market-scanner-adk
       - name: Verify packaged runtime without cloud access
-        run: python3 scripts/scanner_image_smoke.py scanner:verify
+        run: python3 apps/backend/market-scanner-adk/scripts/image_smoke.py scanner:verify
 
   publish:
     # Publication is explicitly enabled by each repository owner, never by a PR.
@@ -148,7 +145,7 @@ jobs:
       - name: Build release image before obtaining credentials
         run: docker build --platform linux/amd64 --tag "$IMAGE" apps/backend/market-scanner-adk
       - name: Verify the image to be published
-        run: python3 scripts/scanner_image_smoke.py "$IMAGE"
+        run: python3 apps/backend/market-scanner-adk/scripts/image_smoke.py "$IMAGE"
       - id: auth
         uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
         with:

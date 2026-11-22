@@ -54,6 +54,7 @@ format-check: _check-uv
 [group('quality')]
 test: _check-uv
     cd {{ source_directory() }}/src && TZ=UTC uv run --frozen pytest --cov=app --cov-report=term-missing
+    cd {{ source_directory() }}/src && uv run --frozen pytest -q -m telemetry test/telemetry
 
 # Run the read-only checks CI runs (format check + lint + test)
 [group('quality')]
