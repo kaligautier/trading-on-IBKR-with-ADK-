@@ -14,7 +14,7 @@ from starlette.datastructures import Headers
 from starlette.types import ASGIApp, Receive, Scope, Send
 
 from app.config.settings import settings
-from app.dto.response.error_response import error_responses
+from app.dto.response.error_response import error_response, error_responses
 from app.middleware.admission import ScannerAdmissionMiddleware
 from app.middleware.wide_event import WideEventMiddleware
 from app.services.database import close_database
@@ -34,15 +34,6 @@ from app.utils.logging_messages import LoggingMessages
 from app.utils.wide_event import wide_event
 
 logger = logging.getLogger(__name__)
-
-
-def error_response(
-    error: AppError, headers: dict[str, str] | None = None
-) -> JSONResponse:
-    """Serialize a known failure as the public envelope with its HTTP status."""
-    return JSONResponse(
-        error.to_response(), status_code=error.status_code, headers=headers
-    )
 
 
 class ScannerRouteAuthorizer:

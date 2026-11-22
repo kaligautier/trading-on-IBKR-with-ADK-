@@ -75,4 +75,17 @@ def test_worker_failure_event_carries_the_error_code(monkeypatch, capsys):
         "event": "momentum_failed",
         "error_type": "ValidationError",
         "error_code": "INTERNAL_ERROR",
+        "status": "INTERNAL",
+        "reason": "INTERNAL_ERROR",
+        "domain": "momentum.deepcopy.fr",
+        "kind": "technical",
     }
+
+
+def test_every_code_has_a_canonical_status_and_kind():
+    from app.utils.error import CANONICAL_CODES, ErrorKind
+
+    for code in ErrorCode:
+        assert CANONICAL_CODES[code]
+    assert AppError(ErrorCode.INVALID_REQUEST).kind is ErrorKind.DOMAIN
+    assert AppError(ErrorCode.LITELLM_ERROR).kind is ErrorKind.TECHNICAL

@@ -199,5 +199,5 @@ def should_record_typed_collection_errors_and_continue_other_assets(provider_err
     assert result.assets["vix"].status == "success"
     failure = next(error for error in errors if error["symbol"] == "^GSPC")
     assert failure["error_code"] == "MARKET_DATA_COLLECTION_ERROR"
-    assert failure["status_code"] == 502
+    assert failure["status_code"] == 503
     assert failure["message"] == result.assets["sp500"].error

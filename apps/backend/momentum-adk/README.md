@@ -101,6 +101,16 @@ calls. Sessions close before admission is released. Cancellation and process dea
 release the physical database session and its lock. This fits the global budget
 in `docs/database-connection-capacity.md`; apply its role limits and rollout gate.
 
+### Failure classification
+
+Momentum is a job, not an HTTP API, so errors leave as exit codes (`EXIT_CODES`
+in `app/utils/error.py`: 75 when busy, 1 otherwise). They are still classified
+as in [Google AIP-193](https://google.aip.dev/193): the `momentum_failed` event
+carries the canonical `status` (`google.rpc.Code`), the `reason` (`ErrorCode`
+name) and `domain` `momentum.deepcopy.fr`, and `kind`. Technical failures
+(`INTERNAL`, `UNAVAILABLE`, ...) log at `ERROR`; domain failures such as
+`INVALID_ARGUMENT` log at `WARNING`. Details never leave the process.
+
 
 The Scanner consumer uses `GET /v1/market-scans/latest` on
 `TA_MARKET_SCANNER_API_URL`. Release it with the versioned Scanner API; the

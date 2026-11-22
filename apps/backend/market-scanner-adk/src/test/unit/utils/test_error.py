@@ -51,9 +51,9 @@ class TestHttpStatusCodes:
         """Test configuration error maps to 500."""
         assert HTTP_STATUS_CODES[ErrorCode.CONFIGURATION_ERROR] == 500
 
-    def should_map_tool_execution_error_to_502(self):
-        """Test tool execution error maps to 502."""
-        assert HTTP_STATUS_CODES[ErrorCode.TOOL_EXECUTION_ERROR] == 502
+    def should_map_tool_execution_error_to_503(self):
+        """Test tool execution error maps to 503."""
+        assert HTTP_STATUS_CODES[ErrorCode.TOOL_EXECUTION_ERROR] == 503
 
 
 class TestErrorMessages:
@@ -201,11 +201,11 @@ class TestToolExecutionError:
 
         assert error.error_code == ErrorCode.TOOL_EXECUTION_ERROR
 
-    def should_map_to_502_status_code(self):
-        """Test ToolExecutionError maps to 502."""
+    def should_map_to_503_status_code(self):
+        """Test ToolExecutionError maps to 503."""
         error = ToolExecutionError("Tool failed")
 
-        assert error.status_code == 502
+        assert error.status_code == 503
 
     def should_accept_tool_details(self):
         """Test tool execution details."""
