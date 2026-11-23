@@ -1,0 +1,316 @@
+{
+  "retrieved_at": "2026-11-04T22:15:04.658306+00:00",
+  "pages": [
+    {
+      "path": "servers/server",
+      "url": "https://gofastmcp.com/servers/server",
+      "bytes": 14112,
+      "sha256": "d67b9ceb7e5d6facca90892f9fcfd7be49c5b70f0e048e3acc898cda2eb06d6d"
+    },
+    {
+      "path": "servers/tools",
+      "url": "https://gofastmcp.com/servers/tools",
+      "bytes": 50232,
+      "sha256": "a9973fc681366b7a0899d5eaed9162e0677f732e2749a4c53997216bbe096aa9"
+    },
+    {
+      "path": "servers/resources",
+      "url": "https://gofastmcp.com/servers/resources",
+      "bytes": 36951,
+      "sha256": "4cb6c571fa23e34446f690d3e3d2354f2b1deb62e6bec246972561945f080c50"
+    },
+    {
+      "path": "servers/prompts",
+      "url": "https://gofastmcp.com/servers/prompts",
+      "bytes": 20310,
+      "sha256": "179b7cc8794bd34ade6564ba1f19b19996c6b4a139d4687db36ef11124f4a61c"
+    },
+    {
+      "path": "servers/context",
+      "url": "https://gofastmcp.com/servers/context",
+      "bytes": 20161,
+      "sha256": "0ac427104957ba63c66686c2d82379b0cd8d7f0e09fddba062d2de90b59bb237"
+    },
+    {
+      "path": "servers/transforms/transforms",
+      "url": "https://gofastmcp.com/servers/transforms/transforms",
+      "bytes": 7667,
+      "sha256": "0dea039fb6667b7822f335400e073ab58484eee860d2352294cf68b32958510d"
+    },
+    {
+      "path": "servers/transforms/tool-transformation",
+      "url": "https://gofastmcp.com/servers/transforms/tool-transformation",
+      "bytes": 8258,
+      "sha256": "7d383f3b6b418aca3d44540a734bda2139cd4d3dc57247d345cf95d8070092cd"
+    },
+    {
+      "path": "servers/transforms/code-mode",
+      "url": "https://gofastmcp.com/servers/transforms/code-mode",
+      "bytes": 18705,
+      "sha256": "5de5abd9476cec7e9781bd9e8d3ce186b89cb9b2da27c119dc104553c79d0e1f"
+    },
+    {
+      "path": "servers/transforms/tool-search",
+      "url": "https://gofastmcp.com/servers/transforms/tool-search",
+      "bytes": 13763,
+      "sha256": "4c39b57490aeb5706a311fde071f0b322bc77cc91298ca013f92bdaa79e9e09a"
+    },
+    {
+      "path": "servers/transforms/namespace",
+      "url": "https://gofastmcp.com/servers/transforms/namespace",
+      "bytes": 1850,
+      "sha256": "6bcd02d3638c44ab6c56484efdc0d610ae2cffb709d972d65ccea8dad0ae924a"
+    },
+    {
+      "path": "servers/visibility",
+      "url": "https://gofastmcp.com/servers/visibility",
+      "bytes": 19869,
+      "sha256": "326d8dca0e35d2e7b1b6556a0682802724b12d5d82822adab91beb5c038ae4eb"
+    },
+    {
+      "path": "servers/transforms/resources-as-tools",
+      "url": "https://gofastmcp.com/servers/transforms/resources-as-tools",
+      "bytes": 5284,
+      "sha256": "01a1339178c1f64f080311fb4e7161fd855867ff65500f238d353b967a9ce474"
+    },
+    {
+      "path": "servers/transforms/prompts-as-tools",
+      "url": "https://gofastmcp.com/servers/transforms/prompts-as-tools",
+      "bytes": 4607,
+      "sha256": "ad14661187badf79f5385062d1c4703d1a5dc2f72699ad75501b92ccb957e3a5"
+    },
+    {
+      "path": "servers/tool-fingerprinting",
+      "url": "https://gofastmcp.com/servers/tool-fingerprinting",
+      "bytes": 5934,
+      "sha256": "c9f1691d5e6fd0e57dc25e30d4837e83f0abe86565a32eabc02a13938241c58e"
+    },
+    {
+      "path": "servers/providers/overview",
+      "url": "https://gofastmcp.com/servers/providers/overview",
+      "bytes": 4913,
+      "sha256": "4d764338fc376050fa7bf2b8ec6e27eb0addc533d64023de50831a18f4ce2d15"
+    },
+    {
+      "path": "servers/providers/local",
+      "url": "https://gofastmcp.com/servers/providers/local",
+      "bytes": 4602,
+      "sha256": "2e631bd276a8b43973ae184afa9c4f5abbb11976d4a7637266392173adc3497b"
+    },
+    {
+      "path": "servers/providers/filesystem",
+      "url": "https://gofastmcp.com/servers/providers/filesystem",
+      "bytes": 9664,
+      "sha256": "63818550df6dd084609c48a01371cc311ced00053d81f95160628205e57d0d9e"
+    },
+    {
+      "path": "servers/providers/proxy",
+      "url": "https://gofastmcp.com/servers/providers/proxy",
+      "bytes": 19022,
+      "sha256": "afd43a0383600cfa9494ae027b61aa7ea23370004cd4ba81c75d0ecc0bf6f2ac"
+    },
+    {
+      "path": "servers/skills",
+      "url": "https://gofastmcp.com/servers/skills",
+      "bytes": 5903,
+      "sha256": "624281c81b59749cad4ee4e12d4b1ac09752e9679cd24256bd12c091b7cb87ab"
+    },
+    {
+      "path": "servers/composition",
+      "url": "https://gofastmcp.com/servers/composition",
+      "bytes": 7865,
+      "sha256": "1615c2d1554b88ee43e87e8b438ce9df322e2eab0b415b3f371a2be712c79524"
+    },
+    {
+      "path": "servers/providers/custom",
+      "url": "https://gofastmcp.com/servers/providers/custom",
+      "bytes": 9311,
+      "sha256": "478e3f182167359827b168025a485b89cec1758a5f64e8a0499e81ef2c65a085"
+    },
+    {
+      "path": "servers/elicitation",
+      "url": "https://gofastmcp.com/servers/elicitation",
+      "bytes": 30164,
+      "sha256": "e6be417bc72130d65141412d174b8489f56b2f38eafebee96266bd68fb0755da"
+    },
+    {
+      "path": "servers/sampling",
+      "url": "https://gofastmcp.com/servers/sampling",
+      "bytes": 7452,
+      "sha256": "375c46ab7afec347c3e7f60b610ec5c1cbb8da1d096c4343d891bff3134ba614"
+    },
+    {
+      "path": "servers/completions",
+      "url": "https://gofastmcp.com/servers/completions",
+      "bytes": 8389,
+      "sha256": "03948862cae23b3afe42eef5bd5abfa3f281b0cb94265750f048f0cf69325864"
+    },
+    {
+      "path": "servers/progress",
+      "url": "https://gofastmcp.com/servers/progress",
+      "bytes": 2430,
+      "sha256": "ae7d0d47af269e4aa7f58267bdf256b17050df142cbc27ecc5b02f8b1cf3a072"
+    },
+    {
+      "path": "servers/logging",
+      "url": "https://gofastmcp.com/servers/logging",
+      "bytes": 3578,
+      "sha256": "d430a91effb5498f13876d5ee29760e71dd76d45dabc646566e73fbf684c7009"
+    },
+    {
+      "path": "servers/pagination",
+      "url": "https://gofastmcp.com/servers/pagination",
+      "bytes": 4455,
+      "sha256": "42c6ceab58781d2fe21511ddf36ec1da5b7fc2807d492726a9f429405ec738b8"
+    },
+    {
+      "path": "servers/icons",
+      "url": "https://gofastmcp.com/servers/icons",
+      "bytes": 6617,
+      "sha256": "938a3a803154cf097fb2636986276e79eed49c9bbc69d490f14ff2f66afcc1c7"
+    },
+    {
+      "path": "servers/middleware",
+      "url": "https://gofastmcp.com/servers/middleware",
+      "bytes": 42589,
+      "sha256": "1aa4038a391c7d4dff849136f5e2ca68fd71b26523a543102456a0871f93b67d"
+    },
+    {
+      "path": "servers/dependency-injection",
+      "url": "https://gofastmcp.com/servers/dependency-injection",
+      "bytes": 17759,
+      "sha256": "0d4329cef8e11136d982ec97b314118b7b60a83a4938c37c54c8b574232b1dfe"
+    },
+    {
+      "path": "servers/lifespan",
+      "url": "https://gofastmcp.com/servers/lifespan",
+      "bytes": 4275,
+      "sha256": "5b329b6e9381b518be9776ae51059fc42078f8cd73dd56958dd7dc86291e493b"
+    },
+    {
+      "path": "servers/storage-backends",
+      "url": "https://gofastmcp.com/servers/storage-backends",
+      "bytes": 12251,
+      "sha256": "83e725d80226c3d3ffaf938a6d6a7e8c14403cfbbfd1aac2ad5e5eba3984168a"
+    },
+    {
+      "path": "servers/sessions",
+      "url": "https://gofastmcp.com/servers/sessions",
+      "bytes": 9118,
+      "sha256": "ed48867a3c748a47ce5c69577197f0594680d5f85725fd99d95ca64df4a2af6b"
+    },
+    {
+      "path": "servers/extensions",
+      "url": "https://gofastmcp.com/servers/extensions",
+      "bytes": 14938,
+      "sha256": "37b442690039b158d8266cfd8187f4a0dd123f698b446b56c9eaf7c3b77e5bab"
+    },
+    {
+      "path": "servers/tasks",
+      "url": "https://gofastmcp.com/servers/tasks",
+      "bytes": 19591,
+      "sha256": "e0c49f5a8b460d71e0a07409475230387592d997ba874f4ccf8fecbef4f8e57f"
+    },
+    {
+      "path": "servers/versioning",
+      "url": "https://gofastmcp.com/servers/versioning",
+      "bytes": 14684,
+      "sha256": "e6f90d37abedd33df5cd7a864c1986ae4a1e7ec19774ba6a4533a882ab2bb9ef"
+    },
+    {
+      "path": "servers/auth/authentication",
+      "url": "https://gofastmcp.com/servers/auth/authentication",
+      "bytes": 18002,
+      "sha256": "ca02e5411b5b8d976b4073b4676cccb5581c8881ae4512d3cfabb845ce1adddf"
+    },
+    {
+      "path": "servers/auth/token-verification",
+      "url": "https://gofastmcp.com/servers/auth/token-verification",
+      "bytes": 23779,
+      "sha256": "95461e5ab6421c7bf8acc4daa3d095c9f61907a17d15da3e854a5b31f684bf37"
+    },
+    {
+      "path": "servers/auth/remote-oauth",
+      "url": "https://gofastmcp.com/servers/auth/remote-oauth",
+      "bytes": 14864,
+      "sha256": "026a735db748addf6e0eb7fe2f02814db7adff7b3824001b4e4344f041727231"
+    },
+    {
+      "path": "servers/auth/oauth-proxy",
+      "url": "https://gofastmcp.com/servers/auth/oauth-proxy",
+      "bytes": 55640,
+      "sha256": "64383ea074dfa2038679fda8d1ab65f96b9de36743bf2d1a7db4f6865676416c"
+    },
+    {
+      "path": "servers/auth/oidc-proxy",
+      "url": "https://gofastmcp.com/servers/auth/oidc-proxy",
+      "bytes": 13709,
+      "sha256": "e9b2cba6f2e25f5416f06413b28e8d9aba7be0d95b8ebc5a31cd15234f2c6e65"
+    },
+    {
+      "path": "servers/auth/full-oauth-server",
+      "url": "https://gofastmcp.com/servers/auth/full-oauth-server",
+      "bytes": 6465,
+      "sha256": "ba3454fa1b496e261398b196bfef3097bc7a23e22a4ad4310661c309bd92268b"
+    },
+    {
+      "path": "servers/auth/multi-auth",
+      "url": "https://gofastmcp.com/servers/auth/multi-auth",
+      "bytes": 8044,
+      "sha256": "2a5cd683ccef56497b681d420cf39f51236b644cb6d30aa2344c66ee386e5cd3"
+    },
+    {
+      "path": "servers/authorization",
+      "url": "https://gofastmcp.com/servers/authorization",
+      "bytes": 22025,
+      "sha256": "e140bcf754c859dbcd6658b0f2fc2be52dbfcfd166124a7ef53a8821d566ffeb"
+    },
+    {
+      "path": "deployment/running-server",
+      "url": "https://gofastmcp.com/deployment/running-server",
+      "bytes": 12753,
+      "sha256": "d426eeed8ad48d6b7116b940a1209fe97ae1b5e7e55e2ea56b1b8de399154997"
+    },
+    {
+      "path": "deployment/http",
+      "url": "https://gofastmcp.com/deployment/http",
+      "bytes": 44024,
+      "sha256": "a496aa65bb5d173b5135cc7c53ecdcbf1410b408c87860e9dbc694d69627070d"
+    },
+    {
+      "path": "deployment/sandboxed-agents",
+      "url": "https://gofastmcp.com/deployment/sandboxed-agents",
+      "bytes": 11259,
+      "sha256": "87c3a7874d726f63438ba7f0e444fb93701efe032001c3e1f13e6b1cbc25b058"
+    },
+    {
+      "path": "deployment/prefect-horizon",
+      "url": "https://gofastmcp.com/deployment/prefect-horizon",
+      "bytes": 8611,
+      "sha256": "ef5a11922c07d8d755dac61ba4900d13fee61f4f676678699d29a33679aa8401"
+    },
+    {
+      "path": "deployment/server-configuration",
+      "url": "https://gofastmcp.com/deployment/server-configuration",
+      "bytes": 23030,
+      "sha256": "55587d0729f257af3e6d77b30f97ad5f9df9e264588fc02f4f9572efb97f2dae"
+    },
+    {
+      "path": "servers/testing",
+      "url": "https://gofastmcp.com/servers/testing",
+      "bytes": 4063,
+      "sha256": "7413f04e6417f6a83e8c109e16b44ba4236ed41c43c9619344418e5b7dc283c3"
+    },
+    {
+      "path": "servers/telemetry",
+      "url": "https://gofastmcp.com/servers/telemetry",
+      "bytes": 21201,
+      "sha256": "c24aaf66fbbabffe6c6fe71e407c18bf8deecbd4c656f1981625c38d69d8a62a"
+    },
+    {
+      "path": "deployment/fastmcp-gateway",
+      "url": "https://gofastmcp.com/deployment/fastmcp-gateway",
+      "status": 404
+    }
+  ]
+}
