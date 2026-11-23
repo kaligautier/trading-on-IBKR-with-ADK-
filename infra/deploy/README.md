@@ -28,7 +28,7 @@ and every IAM or secret change. Those stay manual, reviewed Terraform applies.
    digest must already exist in the registry.
 4. Terraform plans with `-var image=<repository>@<digest>`. The tfvars files come from the
    repository plus the private plan inputs shared with the nightly drift check.
-5. [`check_image_only_plan.py`](scripts/check_image_only_plan.py) reads the plan JSON and
+5. The Conftest policy [`policy/image_only.rego`](policy/image_only.rego) reads the plan JSON and
    refuses anything except an in-place update of a Cloud Run service or job whose **only**
    difference is the image, pinned by digest in the expected repository. A secret version,
    an env var, a scaling field, a delete, a replace or any other resource fails the job.
@@ -104,5 +104,6 @@ terraform -chdir=infra/deploy fmt -check
 terraform -chdir=infra/deploy init -backend=false -input=false -lockfile=readonly
 terraform -chdir=infra/deploy validate
 terraform -chdir=infra/deploy test
-python3 -m unittest discover -s infra/deploy/tests -p 'test_*.py'
+docker run --rm -v "$PWD/infra/deploy/policy:/policy:ro" \
+  openpolicyagent/conftest:v0.56.0 verify --policy /policy
 ```

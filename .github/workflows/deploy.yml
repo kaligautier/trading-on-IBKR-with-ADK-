@@ -69,7 +69,11 @@ jobs:
           terraform_wrapper: false
       - id: release
         name: Read the release settings
-        run: python3 infra/deploy/scripts/release.py config "$ROOT"
+        run: |
+          set -euo pipefail
+          jq -er --arg root "$ROOT" '.[$root] // error("Unknown root \($root)")
+            | "app=\(.app)\nimage=\(.image)\nprefix=\(.prefix)\nrelease_file=\(.release_file)\nplan_vars=\(.plan_vars | join(" "))"' \
+            infra/deploy/releases.json | tee -a "$GITHUB_OUTPUT"
       - id: auth
         uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
         with:
@@ -103,15 +107,12 @@ jobs:
           umask 077
           gcloud secrets versions access latest --secret=infra-drift-inputs \
             --project="$GCP_PROJECT_ID" > "$RUNNER_TEMP/inputs.json"
-          python3 - <<'PY'
-          import json, os, pathlib
-          root = os.environ["ROOT"]
-          files = json.load(open(os.path.join(os.environ["RUNNER_TEMP"], "inputs.json"))).get(root, {})
-          for name, content in files.items():
-              target = pathlib.Path("infra") / root / name
-              target.parent.mkdir(parents=True, exist_ok=True)
-              target.write_text(content)
-          PY
+          inputs="$RUNNER_TEMP/inputs.json"
+          jq -r --arg root "$ROOT" '.[$root] // {} | keys[]' "$inputs" | while read -r name; do
+            [[ "$name" =~ ^[A-Za-z0-9._/-]+$ && "$name" != *..* ]]
+            mkdir -p "$(dirname "infra/$ROOT/$name")"
+            jq -j --arg root "$ROOT" --arg name "$name" '.[$root][$name]' "$inputs" > "infra/$ROOT/$name"
+          done
           rm -f "$RUNNER_TEMP/inputs.json"
       - id: plan
         name: Plan and refuse anything but an image update
@@ -151,10 +152,19 @@ jobs:
             echo
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
+          # Conftest prints resource addresses and attribute paths only, never plan values.
           # GitHub runs this step with `bash -e`: capture the guard's exit code explicitly,
           # or a refusal would end the step before its reasons are printed.
+          jq -n --arg repository "$IMAGE" '{deploy: {repository: $repository}}' > guard-data.json
           status=0
-          python3 "$GITHUB_WORKSPACE/infra/deploy/scripts/check_image_only_plan.py" plan.json "$IMAGE" >guard.out || status=$?
+          docker run --rm --network=none -v "$PWD:/plan:ro" \
+            -v "$GITHUB_WORKSPACE/infra/deploy/policy:/policy:ro" \
+            openpolicyagent/conftest:v0.56.0@sha256:9204b38318a7b4be4e49403d81a6c53ed81a99d0c3dd770a216a65edb9a412c7 \
+            test /plan/plan.json --policy /policy --data /plan/guard-data.json --no-color >guard.out || status=$?
+          if [[ "$status" == 0 ]]; then
+            jq -r '.resource_changes[]? | select(.change.actions == ["update"]) | "image update: \(.address)"' plan.json >> guard.out
+            echo "changed=$(jq '[.resource_changes[]? | select(.change.actions == ["update"])] | length' plan.json)" >> "$GITHUB_OUTPUT"
+          fi
           cat guard.out
           cat guard.out >> "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"
@@ -205,8 +215,11 @@ jobs:
         run: |
           set -euo pipefail
           [[ "$DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]
-          file="infra/$ROOT/$(python3 infra/deploy/scripts/release.py config "$ROOT" | sed -n 's/^release_file=//p')"
-          python3 infra/deploy/scripts/release.py record "$file" "$DIGEST"
+          file="infra/$ROOT/$(jq -er --arg root "$ROOT" '.[$root].release_file' infra/deploy/releases.json)"
+          line='^(image[[:space:]]*=[[:space:]]*"[^"@]+@)sha256:[0-9a-f]{64}"'
+          [[ "$(grep -cE "$line" "$file")" == 1 ]] || { echo "::error::Expected exactly one pinned image line in $file"; exit 1; }
+          sed -i -E "s/${line}/\\1${DIGEST}\"/" "$file"
+          grep -qE "@${DIGEST}\"" "$file"
           branch="release/$ROOT-$GITHUB_RUN_ID"
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
