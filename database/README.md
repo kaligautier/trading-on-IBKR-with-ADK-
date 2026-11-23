@@ -191,11 +191,12 @@ up to date). It then compares, for every domain that has them:
 - `history.tsv`: `id`, `author`, `filename` and `md5sum` of every applied changeset.
 
 After adding a migration, regenerate both files from a fresh local replay and review
-the diff. Start a disposable `postgres:18` container named `lb-local` with
-`POSTGRES_PASSWORD=local-test-only`, then run the workflow steps with `PG=lb-local`,
-`PASSWORD=local-test-only` and `RUNNER_TEMP` set to an empty directory, and copy
-`$RUNNER_TEMP/<domain>.schema.sql` and `.history.tsv` over the committed files. A
-failing CI run prints the same diff. Never point these steps at Aiven.
+the diff: run the `domain-database` action's script
+(`.github/actions/domain-database/action.yml`) with `NAME`, `PORT`, `DOMAINS`,
+`PASSWORD`, `IMAGE` and `RUNNER_TEMP` set as in its inputs, then the workflow's
+comparison step, and copy `$RUNNER_TEMP/<domain>.schema.sql` and `.history.tsv` over
+the committed files. A failing CI run prints the same diff. Never point these steps
+at Aiven. Application workflows reuse the same action for their database tests.
 
 The Python tooling below (`manage.py`, `testing/`, `tests/`, `current.json`) remains
 until the application database tests run in their own workflows; it is then removed.

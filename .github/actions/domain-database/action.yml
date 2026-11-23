@@ -1,0 +1,67 @@
+name: Domain database
+description: >-
+  Start a disposable PostgreSQL 18 container with the domain databases bootstrapped and
+  migrated by the Liquibase CLI, as on Aiven. Test-only credentials; never use remotely.
+inputs:
+  name:
+    description: Container name, also usable as `--network container:<name>`.
+    default: deepcopy-current-domains-test
+  port:
+    description: Host port published on 127.0.0.1.
+    default: '55471'
+  domains:
+    description: Space-separated domains to bootstrap and migrate.
+    default: market_scanner momentum
+  password:
+    description: Test-only password of every login.
+    default: domain-test-only
+runs:
+  using: composite
+  steps:
+    - name: Start PostgreSQL and migrate the domains with Liquibase
+      shell: bash
+      env:
+        NAME: ${{ inputs.name }}
+        PORT: ${{ inputs.port }}
+        DOMAINS: ${{ inputs.domains }}
+        PASSWORD: ${{ inputs.password }}
+        IMAGE: postgres:18@sha256:74935e72241653ca55e0414067e6d8763aceb8a810eb51b452253ec3dcfc4336
+      run: |
+        set -euo pipefail
+        docker build --quiet --tag local/deepcopy-database:5.0.4 database
+        docker run --detach --rm --name "$NAME" --publish "127.0.0.1:$PORT:5432" \
+          --env POSTGRES_PASSWORD=local-test-only "$IMAGE"
+        for attempt in $(seq 60); do
+          docker exec "$NAME" pg_isready -h 127.0.0.1 -U postgres >/dev/null 2>&1 && break
+          [[ "$attempt" == 60 ]] && { echo "::error::PostgreSQL did not start"; exit 1; }
+          sleep 1
+        done
+        docker exec -i "$NAME" psql -X -q -v ON_ERROR_STOP=1 -v password="$PASSWORD" \
+          -U postgres -d postgres < database/ci/local-roles.sql
+        psql_as() {
+          docker exec -i -e PGPASSWORD="$PASSWORD" "$NAME" \
+            psql -X -q -v ON_ERROR_STOP=1 -h 127.0.0.1 -U "$1" -d "$2"
+        }
+        liquibase() {
+          docker run --rm --network "container:$NAME" -v "$PWD/database:/liquibase/changelog:ro" \
+            -e LIQUIBASE_COMMAND_URL="jdbc:postgresql://127.0.0.1:5432/$domain" \
+            -e LIQUIBASE_COMMAND_USERNAME=database_migrator \
+            -e LIQUIBASE_COMMAND_PASSWORD="$PASSWORD" \
+            -e LIQUIBASE_COMMAND_CHANGELOG_FILE="domains/$domain/changelog.yaml" \
+            -e LIQUIBASE_LIQUIBASE_SCHEMA_NAME=liquibase \
+            -e LIQUIBASE_SHOW_BANNER=false \
+            local/deepcopy-database:5.0.4 "$@"
+        }
+        for domain in $DOMAINS; do
+          echo "::group::$domain"
+          psql_as postgres "$domain" < "database/domains/$domain/bootstrap.sql"
+          psql_as database_migrator "$domain" < database/operations/prepare.sql
+          liquibase validate
+          liquibase update-to-tag --tag=aiven-20261023
+          liquibase update
+          liquibase update
+          liquibase status > "$RUNNER_TEMP/$domain.status.txt"
+          cat "$RUNNER_TEMP/$domain.status.txt"
+          grep -q 'is up to date' "$RUNNER_TEMP/$domain.status.txt"
+          echo "::endgroup::"
+        done

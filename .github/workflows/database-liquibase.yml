@@ -1,8 +1,9 @@
 name: Database migrations (Liquibase)
 
 # Replays every domain changelog with the Liquibase CLI on a disposable PostgreSQL 18
-# and compares the resulting schema (pg_dump, grants and per-database role settings
-# included) and Liquibase history with each domain's committed snapshots. No path filter: the check runs on every PR.
+# (see .github/actions/domain-database) and compares the resulting schema (pg_dump,
+# grants and per-database role settings included) and Liquibase history with each
+# domain's committed snapshots. No path filter: the check runs on every PR.
 on:
   pull_request:
   push:
@@ -21,54 +22,16 @@ jobs:
     name: Liquibase migrations
     runs-on: ubuntu-24.04
     timeout-minutes: 10
-    services:
-      postgres:
-        image: postgres:18@sha256:74935e72241653ca55e0414067e6d8763aceb8a810eb51b452253ec3dcfc4336
-        env:
-          POSTGRES_PASSWORD: local-test-only
-        options: >-
-          --health-cmd "pg_isready -U postgres"
-          --health-interval 2s --health-timeout 5s --health-retries 30
     env:
-      PG: ${{ job.services.postgres.id }}
-      PASSWORD: local-test-only
+      PG: deepcopy-liquibase-check
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           persist-credentials: false
-      - name: Build the pinned Liquibase image (official image + checksummed JDBC driver)
-        run: docker build --quiet --tag local/deepcopy-liquibase database
-      - name: Create the local logins and databases
-        run: docker exec -i "$PG" psql -X -q -U postgres -d postgres < database/ci/local-roles.sql
-      - name: Bootstrap and migrate each domain, then prove a repeated update is a no-op
-        run: |
-          set -euo pipefail
-          psql_as() {
-            docker exec -i -e PGPASSWORD="$PASSWORD" "$PG" \
-              psql -X -q -v ON_ERROR_STOP=1 -h 127.0.0.1 -U "$1" -d "$2"
-          }
-          liquibase() {
-            docker run --rm --network "container:$PG" -v "$PWD/database:/liquibase/changelog:ro" \
-              -e LIQUIBASE_COMMAND_URL="jdbc:postgresql://127.0.0.1:5432/$domain" \
-              -e LIQUIBASE_COMMAND_USERNAME=database_migrator \
-              -e LIQUIBASE_COMMAND_PASSWORD="$PASSWORD" \
-              -e LIQUIBASE_COMMAND_CHANGELOG_FILE="domains/$domain/changelog.yaml" \
-              -e LIQUIBASE_LIQUIBASE_SCHEMA_NAME=liquibase \
-              -e LIQUIBASE_SHOW_BANNER=false \
-              local/deepcopy-liquibase "$@"
-          }
-          for domain in market_scanner momentum; do
-            echo "::group::$domain"
-            psql_as postgres "$domain" < "database/domains/$domain/bootstrap.sql"
-            psql_as database_migrator "$domain" < database/operations/prepare.sql
-            liquibase validate
-            liquibase update-to-tag --tag=aiven-20261023
-            liquibase update
-            liquibase update
-            liquibase status | tee status.txt
-            grep -q 'is up to date' status.txt
-            echo "::endgroup::"
-          done
+      - name: Bootstrap and migrate each domain; a repeated update must be a no-op
+        uses: ./.github/actions/domain-database
+        with:
+          name: ${{ env.PG }}
       - name: Compare the schema and the Liquibase history with the committed snapshots
         run: |
           set -euo pipefail
