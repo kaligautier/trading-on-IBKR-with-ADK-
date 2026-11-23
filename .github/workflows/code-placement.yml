@@ -1,0 +1,51 @@
+name: Code placement
+
+# Repository rule: executable code lives in apps/. infra/ holds Terraform (and policy
+# files), database/ holds SQL and Liquibase changelogs, and .github/ holds YAML that
+# calls standard actions and CLIs. This job lists every tracked code file outside
+# apps/. It only warns while the existing files are migrated; set STRICT to true to
+# make it blocking.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: code-placement-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  placement:
+    name: Code outside apps
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    env:
+      STRICT: 'false'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: List code files outside apps/
+        run: |
+          set -euo pipefail
+          git ls-files -- ':!:apps/**' \
+            | grep -E '(\.(py|pyi|js|mjs|cjs|ts|tsx|sh|bash|go|rb)|(^|/)Dockerfile[^/]*)$' \
+            > "$RUNNER_TEMP/outside.txt" || true
+          count=$(wc -l < "$RUNNER_TEMP/outside.txt" | tr -d ' ')
+          level=warning
+          [[ "$STRICT" == true ]] && level=error
+          while read -r path; do
+            echo "::${level} file=${path}::Code outside apps/: move it into an application or replace it with Terraform, SQL or a workflow step."
+          done < "$RUNNER_TEMP/outside.txt"
+          {
+            echo "### Code outside apps/: $count file(s)"
+            echo
+            sed 's/^/- `/; s/$/`/' "$RUNNER_TEMP/outside.txt"
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [[ "$STRICT" == true && "$count" -gt 0 ]]; then
+            exit 1
+          fi
