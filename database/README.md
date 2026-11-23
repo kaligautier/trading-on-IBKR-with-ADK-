@@ -177,6 +177,29 @@ and the baseline fingerprints in `domains.json` unchanged. `verify` rejects a st
 manifest if the SQL/changelog sources changed; CI independently replays the chain
 and compares both schema fingerprint and history to the committed manifest.
 
+## Liquibase-only check (replacing the Python tooling)
+
+The `Liquibase migrations` workflow (`.github/workflows/database-liquibase.yml`) uses
+only the Liquibase CLI, `psql` and `pg_dump` on a disposable PostgreSQL 18. For each
+domain it runs `bootstrap.sql` and `operations/prepare.sql`, then `liquibase validate`,
+`update-to-tag aiven-20261023`, `update`, a second `update` and `status` (which must be
+up to date). It then compares, for every domain that has them:
+
+- `schema.sql`: `pg_dump --schema-only --create` without comment lines. It covers
+  tables, constraints, indexes, ownership, table and column grants, and per-database
+  role settings (`search_path`, timeouts).
+- `history.tsv`: `id`, `author`, `filename` and `md5sum` of every applied changeset.
+
+After adding a migration, regenerate both files from a fresh local replay and review
+the diff. Start a disposable `postgres:18` container named `lb-local` with
+`POSTGRES_PASSWORD=local-test-only`, then run the workflow steps with `PG=lb-local`,
+`PASSWORD=local-test-only` and `RUNNER_TEMP` set to an empty directory, and copy
+`$RUNNER_TEMP/<domain>.schema.sql` and `.history.tsv` over the committed files. A
+failing CI run prints the same diff. Never point these steps at Aiven.
+
+The Python tooling below (`manage.py`, `testing/`, `tests/`, `current.json`) remains
+until the application database tests run in their own workflows; it is then removed.
+
 ## Required merge check
 
 The `Database migrations` check runs the full rehearsal on **every PR**, on pushes
