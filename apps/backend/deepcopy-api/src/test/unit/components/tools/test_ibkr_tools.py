@@ -5,22 +5,30 @@ from unittest.mock import patch
 import pytest
 
 from app.components.tools.custom import ibkr_tools
+from app.dto.response.ibkr_responses import ContractResponse
 from app.utils.error import IbkrSessionError, ToolExecutionError
 
 
 class TestIbkrTools:
-    def should_delegate_positions_to_the_service(self, mock_tool_context):
-        with patch.object(ibkr_tools, "ibkr_gateway") as gateway:
-            gateway.get_positions.return_value = [{"conid": 1}]
+    def should_return_plain_dicts_from_the_service(self, mock_tool_context):
+        contract = ContractResponse(
+            conid=1,
+            symbol="AAPL",
+            company_name=None,
+            exchange="NASDAQ",
+            security_types=["STK"],
+        )
+        with patch.object(ibkr_tools, "ibkr_portfolio_service") as service:
+            service.search_contracts.return_value = [contract]
 
-            result = ibkr_tools.get_positions("U1234567", mock_tool_context)
+            result = ibkr_tools.search_contracts("AAPL", mock_tool_context)
 
-        assert result == [{"conid": 1}]
-        gateway.get_positions.assert_called_once_with("U1234567")
+        assert result == [contract.model_dump()]
+        service.search_contracts.assert_called_once_with("AAPL")
 
     def should_wrap_service_errors(self, mock_tool_context):
-        with patch.object(ibkr_tools, "ibkr_gateway") as gateway:
-            gateway.list_accounts.side_effect = IbkrSessionError("not signed in")
+        with patch.object(ibkr_tools, "ibkr_portfolio_service") as service:
+            service.list_accounts.side_effect = IbkrSessionError("not signed in")
 
             with pytest.raises(ToolExecutionError, match="not signed in"):
                 ibkr_tools.list_accounts(mock_tool_context)

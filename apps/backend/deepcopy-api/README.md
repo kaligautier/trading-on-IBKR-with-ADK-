@@ -6,6 +6,17 @@ agent template (see [CLAUDE.md](CLAUDE.md) for the architecture and rules).
 It never places, modifies or cancels orders. The gateway is started and signed
 in by an operator; this API only reads from it.
 
+## Layers
+
+| Folder (`src/app/`) | Role |
+| :------------------ | :--- |
+| `clients/ibkr/` | `IbkrGatewayClient` contract (ABC) and its httpx implementation; gateway errors become `IbkrSessionError` / `IbkrGatewayError` |
+| `dto/ibkr/` | Gateway responses as IBKR sends them (unknown fields ignored) |
+| `mapper/` | IBKR DTOs to API responses |
+| `dto/response/` | API responses |
+| `services/` | Input validation and use cases; depends on the client contract only |
+| `routes/`, `components/tools/` | FastAPI routes and ADK tools on top of the service |
+
 ## Routes
 
 | Route | Purpose |
