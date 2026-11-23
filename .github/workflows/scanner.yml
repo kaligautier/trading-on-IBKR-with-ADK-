@@ -87,7 +87,24 @@ jobs:
           terraform -chdir=infra/deploy init -backend=false -input=false -lockfile=readonly
           terraform -chdir=infra/deploy validate
           terraform -chdir=infra/deploy test
-          python3 -m unittest discover -s infra/deploy/tests -p 'test_*.py' -v
+      - name: Test the image-only release guard
+        run: |
+          docker run --rm --network=none -v "$PWD/infra/deploy/policy:/policy:ro" \
+            openpolicyagent/conftest:v0.56.0@sha256:9204b38318a7b4be4e49403d81a6c53ed81a99d0c3dd770a216a65edb9a412c7 \
+            verify --policy /policy --no-color
+      - name: Check every release root and its pinned image line
+        run: |
+          set -euo pipefail
+          releases=infra/deploy/releases.json
+          jq -e 'keys == ["market-scanner", "momentum", "momentum-api", "reader"]' "$releases"
+          jq -e 'all(.[]; .app != "" and .prefix != "" and (.image | contains("@") | not)
+            and (.release_file as $file | .plan_vars | index($file) != null))' "$releases"
+          jq -r 'to_entries[] | [.key, .value.app, .value.image, .value.release_file] | @tsv' "$releases" |
+            while IFS=$'\t' read -r root app image file; do
+              test -f "$app/Dockerfile"
+              count=$(grep -cE "^image[[:space:]]*=[[:space:]]*\"${image//./\\.}@sha256:[0-9a-f]{64}\"" "infra/$root/$file" || true)
+              [[ "$count" == 1 ]] || { echo "::error::$root: expected one pinned $image line in $file, found $count"; exit 1; }
+            done
 
   dependencies:
     runs-on: ubuntu-24.04
