@@ -49,16 +49,18 @@ terraform -chdir=infra/frontend/build init \
 terraform -chdir=infra/frontend/build plan -out=build.tfplan
 terraform -chdir=infra/frontend/build apply build.tfplan
 
-gcloud builds submit . \
+gcloud builds submit apps/frontend \
   --project=preprod-deep-copy --region=europe-west1 \
-  --config=infra/frontend/cloudbuild.yaml \
-  --ignore-file=infra/frontend/gcloudignore \
+  --config=infra/backend-build/cloudbuild.yaml \
+  --substitutions=_IMAGE=europe-west1-docker.pkg.dev/preprod-deep-copy/market-scanner/deepcopy-front \
   --service-account=projects/preprod-deep-copy/serviceAccounts/deepcopy-front-builder@preprod-deep-copy.iam.gserviceaccount.com \
   --gcs-source-staging-dir=gs://preprod-deep-copy-front-build-sources/source \
   --format='value(results.images[0].digest)'
 ```
 
-The allowlist uploads only frontend source and build files. Never submit the
+The Dockerfile and its allowlist (`.gcloudignore`, `.dockerignore`) live in
+`apps/frontend`, like the backends; the allowlist uploads only frontend source
+and build files. Never submit the
 whole repository without it. Builds run with the dedicated identity rather than
 default compute permissions. Cloud Build builds Linux images on its x86 workers;
 the multi-stage Dockerfile runs the Next.js standalone server as `node`, listening
@@ -135,7 +137,7 @@ terraform -chdir=infra/frontend validate
 terraform -chdir=infra/frontend test
 terraform -chdir=infra/frontend/build init -backend=false -lockfile=readonly
 terraform -chdir=infra/frontend/build validate
-docker build -f infra/frontend/Dockerfile -t local/deepcopy-front:review .
+docker build -t local/deepcopy-front:review apps/frontend
 ```
 
 References: [Cloud Run domain mapping](https://docs.cloud.google.com/run/docs/mapping-custom-domains),
