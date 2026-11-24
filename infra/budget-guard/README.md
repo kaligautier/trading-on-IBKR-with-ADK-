@@ -7,6 +7,9 @@ Flow: Cloud Billing budget → Pub/Sub → private Cloud Function → Service Us
 `:disable`. By default it only disables `aiplatform.googleapis.com` (Vertex AI) in
 the target project; Cloud Run, the database and state are untouched. The function
 runs as a dedicated service account whose custom role can only disable services.
+Its code lives in [`apps/platform/budget-guard`](../../apps/platform/budget-guard);
+this root only zips and deploys it. Any file added there changes the zip and
+redeploys the function.
 
 **Limits to know**
 

@@ -106,7 +106,7 @@ resource "google_project_iam_member" "event_receiver" {
 
 data "archive_file" "source" {
   type        = "zip"
-  source_dir  = "${path.module}/function"
+  source_dir  = "${path.module}/../../apps/platform/budget-guard"
   output_path = "${path.module}/.build/function.zip"
   excludes    = ["__pycache__", "*.pyc"]
 }
