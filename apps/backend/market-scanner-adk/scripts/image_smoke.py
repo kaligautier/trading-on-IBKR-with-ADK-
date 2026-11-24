@@ -20,7 +20,9 @@ def require(result: subprocess.CompletedProcess[str]) -> str:
 
 
 def verify(image: str) -> None:
-    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "database/testing"))
+    # Shared disposable PostgreSQL fixture, until database/ moves to Liquibase CI.
+    repository = Path(__file__).resolve().parents[4]
+    sys.path.insert(0, str(repository / "database/testing"))
     import local_domains
 
     if local_domains.inspect_container() is None:
@@ -185,5 +187,5 @@ assert root_agent is not None
 
 if __name__ == "__main__":
     if len(sys.argv) != 2 or sys.argv[1].startswith("-"):
-        raise SystemExit("Usage: python3 scripts/scanner_image_smoke.py IMAGE")
+        raise SystemExit("Usage: python3 scripts/image_smoke.py IMAGE")
     verify(sys.argv[1])
