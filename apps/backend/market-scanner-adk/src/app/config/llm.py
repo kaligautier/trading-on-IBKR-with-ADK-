@@ -11,6 +11,17 @@ from pydantic import ValidationError
 from app.config.settings import Settings
 from app.utils.error import LiteLLMError
 
+# LiteLLM answers 429 when an agent key's per-minute token or request quota is
+# spent, and the quota resets within a minute. Waits of about 20, 40 and 60 s
+# span that window and fit the 900 s job timeout. Other errors are not retried.
+RATE_LIMIT_RETRY = types.HttpRetryOptions(
+    attempts=4,
+    initial_delay=20,
+    max_delay=60,
+    exp_base=2,
+    http_status_codes=[429],
+)
+
 
 class LiteLLMGatewayModel(Gemini):
     """Translate provider failures into the application's typed error contract."""
@@ -52,6 +63,7 @@ def create_model(config: Settings) -> LiteLLMGatewayModel:
                     + config.LITELLM_API_KEY.get_secret_value(),
                 },
                 timeout=180_000,
+                retry_options=RATE_LIMIT_RETRY,
                 client_args={"follow_redirects": False},
                 # GenAI otherwise chooses aiohttp and ignores follow_redirects.
                 async_client_args={
