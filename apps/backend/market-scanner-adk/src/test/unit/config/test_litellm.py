@@ -1,5 +1,6 @@
 """Exercise the real ADK and GenAI transport against a gateway HTTP stub."""
 
+import asyncio
 import json
 import traceback
 from unittest.mock import AsyncMock
@@ -328,6 +329,85 @@ async def should_propagate_gateway_failure_without_calling_vertex(status):
         assert raised.value.details == {"error_type": "ReadTimeout"}
     assert "PRIVATE" not in str(raised.value)
     assert "sk-offline-test" not in json.dumps(raised.value.to_dict())
+
+
+async def should_wait_out_gateway_rate_limit_then_succeed(monkeypatch):
+    statuses = [429, 429, 200]
+    calls, sleeps = [], []
+
+    async def respond(request):
+        calls.append(request)
+        status = statuses[len(calls) - 1]
+        if status == 429:
+            return httpx.Response(
+                429, json={"error": {"code": 429, "message": "Rate limit exceeded"}}
+            )
+        return httpx.Response(
+            200,
+            json={
+                "candidates": [
+                    {
+                        "content": {"role": "model", "parts": [{"text": "Done"}]},
+                        "finishReason": "STOP",
+                    }
+                ]
+            },
+        )
+
+    async def no_wait(seconds):
+        if seconds:
+            sleeps.append(seconds)
+
+    monkeypatch.setattr(asyncio, "sleep", no_wait)
+    model = create_model(gateway_config())
+    model.client_kwargs["http_options"].async_client_args = {
+        "transport": httpx.MockTransport(respond),
+    }
+    request = LlmRequest(
+        contents=[types.Content(role="user", parts=[types.Part(text="Hi")])]
+    )
+    try:
+        responses = [r async for r in model.generate_content_async(request)]
+    finally:
+        await model.api_client.aio.aclose()
+        model.api_client.close()
+    assert len(calls) == 3
+    assert responses[-1].content.parts[0].text == "Done"
+    # Waits must span the one-minute quota window, not the SDK's 1-2 s default.
+    assert len(sleeps) == 2 and sleeps[0] >= 20 and sum(sleeps) >= 60
+
+
+async def should_give_up_after_bounded_rate_limit_retries(monkeypatch):
+    calls, sleeps = [], []
+
+    async def throttle(request):
+        calls.append(request)
+        return httpx.Response(
+            429, json={"error": {"code": 429, "message": "Rate limit exceeded"}}
+        )
+
+    async def no_wait(seconds):
+        if seconds:
+            sleeps.append(seconds)
+
+    monkeypatch.setattr(asyncio, "sleep", no_wait)
+    model = create_model(gateway_config())
+    model.client_kwargs["http_options"].async_client_args = {
+        "transport": httpx.MockTransport(throttle),
+    }
+    request = LlmRequest(
+        contents=[types.Content(role="user", parts=[types.Part(text="Hi")])]
+    )
+    try:
+        with pytest.raises(LiteLLMError) as raised:
+            _ = [r async for r in model.generate_content_async(request)]
+    finally:
+        await model.api_client.aio.aclose()
+        model.api_client.close()
+    assert len(calls) == 4
+    assert raised.value.details["upstream_status"] == 429
+    # Total wait stays well inside the 900 s Cloud Run job timeout.
+    assert sum(sleeps) <= 3 * 61
 
 
 @pytest.mark.parametrize("route", ["/run", "/run_sse"])
