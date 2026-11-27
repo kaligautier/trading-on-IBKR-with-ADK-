@@ -15,6 +15,11 @@ inputs:
   password:
     description: Test-only password of every login.
     default: domain-test-only
+  tls:
+    description: >-
+      'true' serves TLS only with a throwaway certificate for `localhost`. Its CA is
+      $RUNNER_TEMP/<name>-tls/server.pem; untrusted.pem is an unrelated CA.
+    default: 'false'
 runs:
   using: composite
   steps:
@@ -26,12 +31,28 @@ runs:
         PORT: ${{ inputs.port }}
         DOMAINS: ${{ inputs.domains }}
         PASSWORD: ${{ inputs.password }}
+        TLS: ${{ inputs.tls }}
         IMAGE: postgres:18@sha256:74935e72241653ca55e0414067e6d8763aceb8a810eb51b452253ec3dcfc4336
       run: |
         set -euo pipefail
         docker build --quiet --tag local/deepcopy-database:5.0.4 database
-        docker run --detach --rm --name "$NAME" --publish "127.0.0.1:$PORT:5432" \
-          --env POSTGRES_PASSWORD="$PASSWORD" "$IMAGE"
+        if [[ "$TLS" == true ]]; then
+          tls="$RUNNER_TEMP/$NAME-tls" && mkdir -p "$tls"
+          for cert in server untrusted; do
+            openssl req -x509 -newkey rsa:2048 -nodes -days 1 -subj /CN=localhost \
+              -addext subjectAltName=DNS:localhost \
+              -keyout "$tls/$cert.key" -out "$tls/$cert.pem" 2>/dev/null
+          done
+          docker create --rm --name "$NAME" --publish "127.0.0.1:$PORT:5432" \
+            --env POSTGRES_PASSWORD="$PASSWORD" "$IMAGE" bash -c \
+            'chown postgres:postgres /tmp/server.*; chmod 600 /tmp/server.key; exec docker-entrypoint.sh postgres -c ssl=on -c ssl_cert_file=/tmp/server.pem -c ssl_key_file=/tmp/server.key' >/dev/null
+          docker cp "$tls/server.pem" "$NAME:/tmp/server.pem"
+          docker cp "$tls/server.key" "$NAME:/tmp/server.key"
+          docker start "$NAME" >/dev/null
+        else
+          docker run --detach --rm --name "$NAME" --publish "127.0.0.1:$PORT:5432" \
+            --env POSTGRES_PASSWORD="$PASSWORD" "$IMAGE"
+        fi
         for attempt in $(seq 60); do
           docker exec "$NAME" pg_isready -h 127.0.0.1 -U postgres >/dev/null 2>&1 && break
           [[ "$attempt" == 60 ]] && { echo "::error::PostgreSQL did not start"; exit 1; }
@@ -55,6 +76,8 @@ runs:
         }
         for domain in $DOMAINS; do
           echo "::group::$domain"
+          # Created one at a time: a bootstrap refuses other databases still open to PUBLIC.
+          psql_as postgres postgres <<< "CREATE DATABASE \"$domain\";"
           psql_as postgres "$domain" < "database/domains/$domain/bootstrap.sql"
           psql_as database_migrator "$domain" < database/operations/prepare.sql
           liquibase validate

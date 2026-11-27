@@ -79,6 +79,35 @@ jobs:
         with:
           version: '0.9.17'
       - run: uv sync --project apps/backend/momentum-adk --frozen --python 3.12
+      - name: Start the TLS-only PostgreSQL with the migrated momentum database
+        uses: ./.github/actions/domain-database
+        with:
+          name: worker-tls
+          port: '55473'
+          domains: momentum
+          tls: 'true'
+      - name: Start the admission PostgreSQL (15 slots) for worker tests
+        run: |
+          set -euo pipefail
+          docker run --detach --rm --name worker-admission --publish 127.0.0.1:55474:5432 \
+            --env POSTGRES_PASSWORD=domain-test-only \
+            postgres:18@sha256:74935e72241653ca55e0414067e6d8763aceb8a810eb51b452253ec3dcfc4336 \
+            -c max_connections=15 -c superuser_reserved_connections=3
+          for attempt in $(seq 60); do
+            docker exec worker-admission pg_isready -h 127.0.0.1 -U postgres >/dev/null 2>&1 && break
+            [[ "$attempt" == 60 ]] && { docker logs worker-admission; exit 1; }
+            sleep 1
+          done
+          docker exec -i worker-admission psql -X -q -v ON_ERROR_STOP=1 -U postgres <<'SQL'
+          CREATE DATABASE momentum;
+          CREATE ROLE momentum_results_writer LOGIN PASSWORD 'domain-test-only' CONNECTION LIMIT 2;
+          SQL
+          {
+            echo "WORKER_ADMISSION_TEST_URL=postgresql://momentum_results_writer:domain-test-only@127.0.0.1:55474/momentum"
+            echo "WORKER_TLS_TEST_URL=postgresql://postgres:domain-test-only@localhost:55473/momentum?sslmode=verify-full"
+            echo "WORKER_TLS_TEST_CA=$RUNNER_TEMP/worker-tls-tls/server.pem"
+            echo "WORKER_TLS_UNTRUSTED_CA=$RUNNER_TEMP/worker-tls-tls/untrusted.pem"
+          } >> "$GITHUB_ENV"
       - id: postgres
         run: bash apps/backend/momentum-adk/scripts/test_database.sh start
       - name: Test actual Liquibase migrations and restricted runtime credentials
