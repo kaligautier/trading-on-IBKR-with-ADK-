@@ -10,5 +10,3 @@ CREATE ROLE market_scanner_reader LOGIN NOINHERIT PASSWORD :'password' CONNECTIO
 CREATE ROLE momentum_sessions_writer LOGIN NOINHERIT PASSWORD :'password' CONNECTION LIMIT 4;
 CREATE ROLE momentum_results_writer LOGIN NOINHERIT PASSWORD :'password' CONNECTION LIMIT 4;
 CREATE ROLE momentum_results_reader LOGIN NOINHERIT PASSWORD :'password' CONNECTION LIMIT 2;
-CREATE DATABASE market_scanner;
-CREATE DATABASE momentum;
