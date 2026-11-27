@@ -30,7 +30,7 @@ runs:
         set -euo pipefail
         docker build --quiet --tag local/deepcopy-database:5.0.4 database
         docker run --detach --rm --name "$NAME" --publish "127.0.0.1:$PORT:5432" \
-          --env POSTGRES_PASSWORD=local-test-only "$IMAGE"
+          --env POSTGRES_PASSWORD="$PASSWORD" "$IMAGE"
         for attempt in $(seq 60); do
           docker exec "$NAME" pg_isready -h 127.0.0.1 -U postgres >/dev/null 2>&1 && break
           [[ "$attempt" == 60 ]] && { echo "::error::PostgreSQL did not start"; exit 1; }
