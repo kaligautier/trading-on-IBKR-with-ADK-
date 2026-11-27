@@ -1,0 +1,10 @@
+{
+  "$schema": "https://gofastmcp.com/public/schemas/fastmcp.json/v1.json",
+  "source": {
+    "path": "src/app/application.py",
+    "entrypoint": "create_server"
+  },
+  "deployment": {
+    "transport": "stdio"
+  }
+}

@@ -1,0 +1,45 @@
+default:
+    @just --list
+
+install:
+    uv sync --frozen
+
+stdio:
+    uv run --frozen deepcopy-mcp --transport stdio
+
+api:
+    uv run --frozen deepcopy-mcp --transport http
+
+format:
+    uv run --frozen ruff format src
+    uv run --frozen ruff check --select I --fix src
+
+lint:
+    uv run --frozen ruff check src
+    uv run --frozen ruff format --check src
+
+typecheck:
+    uv run --frozen ty check src/app
+
+test:
+    uv run --frozen pytest --cov=app --cov-report=term-missing
+
+check: lint typecheck test
+
+audit:
+    mkdir -p .local
+    uv export --frozen --no-dev --all-extras --no-emit-project --output-file .local/requirements.txt --quiet
+    uvx --from pip-audit==2.10.1 pip-audit --disable-pip --no-deps --requirement .local/requirements.txt
+
+package:
+    uv build
+
+build:
+    docker build -t deepcopy-mcp:local .
+
+run:
+    docker run --rm --read-only --tmpfs /tmp -e MCP_ENVIRONMENT=local -p 127.0.0.1:8000:8000 deepcopy-mcp:local
+
+# Environment file must contain production JWT configuration (see docs/DEPLOYMENT.md).
+run-prod env_file:
+    docker run --rm --read-only --tmpfs /tmp --cap-drop ALL --security-opt no-new-privileges --env-file {{quote(env_file)}} -e MCP_ENVIRONMENT=production -e MCP_TRANSPORT=http -p 127.0.0.1:8000:8000 deepcopy-mcp:local
