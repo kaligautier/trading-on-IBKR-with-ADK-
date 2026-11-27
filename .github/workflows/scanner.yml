@@ -84,6 +84,42 @@ jobs:
             sleep 1
           done
           exit 1
+      - name: Start the admission (15 slots) and TLS PostgreSQL servers for worker tests
+        run: |
+          set -euo pipefail
+          image=postgres:18@sha256:74935e72241653ca55e0414067e6d8763aceb8a810eb51b452253ec3dcfc4336
+          docker run --detach --rm --name worker-admission --publish 127.0.0.1:55474:5432 \
+            --env POSTGRES_PASSWORD=domain-test-only "$image" \
+            -c max_connections=15 -c superuser_reserved_connections=3
+          tls="$RUNNER_TEMP/worker-tls" && mkdir -p "$tls"
+          for name in server untrusted; do
+            openssl req -x509 -newkey rsa:2048 -nodes -days 1 -subj /CN=localhost \
+              -addext subjectAltName=DNS:localhost \
+              -keyout "$tls/$name.key" -out "$tls/$name.pem" 2>/dev/null
+          done
+          docker create --name worker-tls --publish 127.0.0.1:55473:5432 \
+            --env POSTGRES_PASSWORD=domain-test-only "$image" bash -c \
+            'chown postgres:postgres /tmp/server.*; chmod 600 /tmp/server.key; exec docker-entrypoint.sh postgres -c ssl=on -c ssl_cert_file=/tmp/server.pem -c ssl_key_file=/tmp/server.key' >/dev/null
+          docker cp "$tls/server.pem" worker-tls:/tmp/server.pem
+          docker cp "$tls/server.key" worker-tls:/tmp/server.key
+          docker start worker-tls >/dev/null
+          for server in worker-admission worker-tls; do
+            for attempt in $(seq 60); do
+              docker exec "$server" pg_isready -h 127.0.0.1 -U postgres >/dev/null 2>&1 && break
+              [[ "$attempt" == 60 ]] && { docker logs "$server"; exit 1; }
+              sleep 1
+            done
+          done
+          docker exec -i worker-admission psql -X -q -v ON_ERROR_STOP=1 -U postgres <<'SQL'
+          CREATE DATABASE market_scanner;
+          CREATE ROLE market_scanner_writer LOGIN PASSWORD 'domain-test-only' CONNECTION LIMIT 2;
+          SQL
+          {
+            echo "WORKER_ADMISSION_TEST_URL=postgresql://market_scanner_writer:domain-test-only@127.0.0.1:55474/market_scanner"
+            echo "WORKER_TLS_TEST_URL=postgresql://postgres:domain-test-only@localhost:55473/postgres?sslmode=verify-full"
+            echo "WORKER_TLS_TEST_CA=$tls/server.pem"
+            echo "WORKER_TLS_UNTRUSTED_CA=$tls/untrusted.pem"
+          } >> "$GITHUB_ENV"
       - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           version: '0.9.17'
