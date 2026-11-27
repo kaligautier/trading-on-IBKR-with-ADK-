@@ -20,6 +20,7 @@ runs:
   steps:
     - name: Start PostgreSQL and migrate the domains with Liquibase
       shell: bash
+      working-directory: ${{ github.workspace }}
       env:
         NAME: ${{ inputs.name }}
         PORT: ${{ inputs.port }}

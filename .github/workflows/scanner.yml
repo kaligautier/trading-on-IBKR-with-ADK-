@@ -3,6 +3,9 @@ name: Scanner checks
 on:
   pull_request:
     paths:
+      - 'apps/backend/market-scanner-api/**'
+      - 'database/**'
+      - '.github/actions/domain-database/**'
       - 'apps/backend/market-scanner-adk/**'
       - 'infra/**'
       - '.github/workflows/scanner.yml'
@@ -11,6 +14,9 @@ on:
   push:
     branches: [main]
     paths:
+      - 'apps/backend/market-scanner-api/**'
+      - 'database/**'
+      - '.github/actions/domain-database/**'
       - 'apps/backend/market-scanner-adk/**'
       - 'infra/**'
       - '.github/workflows/scanner.yml'
@@ -49,6 +55,55 @@ jobs:
         run: TZ=UTC uv run --no-sync pytest -q src/test/unit
       - name: Verify locked ADK and OpenTelemetry compatibility offline
         run: uv run --no-sync python ../../../.github/scripts/verify_adk_telemetry.py
+
+  database:
+    # Scanner and reader tests on the domain database migrated by the Liquibase CLI.
+    # The reader test reads the report the scanner tests write, so they run in order.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      TZ: UTC
+      PGSSLMODE: disable
+      RUN_DOMAIN_TESTS: '1'
+      SHARED: deepcopy-current-scanner-tests
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/domain-database
+        with:
+          domains: market_scanner
+      - name: Start the disposable PostgreSQL for shared-root migration tests
+        run: |
+          set -euo pipefail
+          docker run --detach --rm --name "$SHARED" --label org.deepcopy.scanner-tests=true \
+            --publish 127.0.0.1:55466:5432 --env POSTGRES_PASSWORD=local-test-only \
+            postgres:18@sha256:74935e72241653ca55e0414067e6d8763aceb8a810eb51b452253ec3dcfc4336
+          for attempt in $(seq 60); do
+            docker exec "$SHARED" pg_isready -h 127.0.0.1 -U postgres >/dev/null 2>&1 && exit 0
+            sleep 1
+          done
+          exit 1
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version: '0.9.17'
+          enable-cache: true
+      - name: Scanner tests, including the database ones
+        working-directory: apps/backend/market-scanner-adk
+        env:
+          MARKET_SHARED_TEST_DATABASE_URL: postgresql://postgres:local-test-only@127.0.0.1:55466/postgres
+          MARKET_SHARED_TEST_CONTAINER: ${{ env.SHARED }}
+        run: |
+          uv sync --locked --python 3.12
+          uv run --no-sync pytest -q --tb=short src/test
+      - name: Reader tests, including the one reading the scanner report
+        working-directory: apps/backend/market-scanner-api
+        env:
+          TEST_DATABASE_URL: postgresql://postgres:local-test-only@127.0.0.1:55466/scanner_reader_test
+        run: |
+          docker exec "$SHARED" createdb -U postgres scanner_reader_test
+          uv sync --locked --python 3.12
+          uv run --frozen pytest -q --tb=short src/test
 
   infrastructure:
     runs-on: ubuntu-24.04
