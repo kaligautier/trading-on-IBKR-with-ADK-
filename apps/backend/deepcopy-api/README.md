@@ -37,7 +37,7 @@ is not signed in or the brokerage session is not open, `IBKR_GATEWAY_ERROR`
 1. Start the gateway and sign in at https://localhost:5055:
 
    ```bash
-   docker compose -f ../ibkr-mcp-gateway/compose.local.yml -p ibkr-gateway-local up -d --build
+   docker compose -f ../ibkr-gateway/compose.local.yml -p ibkr-gateway-local up -d --build
    ```
 
 2. Run the API:
