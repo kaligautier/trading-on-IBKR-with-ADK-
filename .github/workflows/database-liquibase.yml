@@ -53,3 +53,113 @@ jobs:
             done
           done
           exit "$status"
+
+  safety:
+    # SQL-level guarantees, previously proven by database/tests with Python.
+    name: Database safety
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      PG: deepcopy-current-domains-test
+      PASSWORD: domain-test-only
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/domain-database
+        with:
+          name: ${{ env.PG }}
+      - name: Runtime and reader roles are confined to their schema and database
+        run: |
+          set -uo pipefail
+          as() { docker exec -i -e PGPASSWORD="$PASSWORD" "$PG" psql -X -At -v ON_ERROR_STOP=1 -h 127.0.0.1 -U "$1" -d "$2" -c "$3" 2>&1; }
+          denied() {
+            if output=$(as "$@"); then echo "::error::$1 on $2 was allowed: $3"; exit 1; fi
+            grep -q 'permission denied' <<< "$output" || { echo "::error::$1 on $2: $output"; exit 1; }
+          }
+          for pair in market_scanner:market_scanner_writer momentum:momentum_sessions_writer; do
+            domain=${pair%%:*} role=${pair#*:}
+            other=$([[ "$domain" == momentum ]] && echo market_scanner || echo momentum)
+            denied "$role" "$domain" 'CREATE TABLE _sessions.forbidden(id int)'
+            denied "$role" "$domain" "UPDATE _sessions.adk_internal_metadata SET value = '0'"
+            denied "$role" "$domain" 'SELECT * FROM liquibase.databasechangelog'
+            denied "$role" "$other" 'SELECT 1'
+          done
+          denied market_scanner_reader market_scanner 'SELECT * FROM _sessions.sessions'
+          [[ "$(as market_scanner_reader market_scanner 'SELECT count(*) FROM _analysis.market_scans')" == 0 ]]
+          for domain in market_scanner momentum; do
+            [[ "$(as database_migrator "$domain" "SELECT count(*) FROM information_schema.schemata WHERE schema_name IN ('_analysis', '_sessions', 'liquibase')")" == 3 ]]
+          done
+          echo "Runtime confinement verified."
+      - name: Bootstrap refuses an unusable or elevated runtime login, atomically
+        run: |
+          set -uo pipefail
+          admin() { docker exec -i "$PG" psql -X -q -v ON_ERROR_STOP=1 -U postgres -d "$1"; }
+          for pair in market_scanner:market_scanner_writer market_scanner:market_scanner_reader \
+                      momentum:momentum_sessions_writer momentum:momentum_results_writer momentum:momentum_results_reader; do
+            domain=${pair%%:*} role=${pair#*:}
+            for attribute in NOLOGIN REPLICATION; do
+              echo "ALTER ROLE $role $attribute;" | admin postgres
+              if output=$(admin "$domain" < "database/domains/$domain/bootstrap.sql" 2>&1); then
+                echo "::error::$domain bootstrap accepted $role with $attribute"; exit 1
+              fi
+              grep -qi runtime <<< "$output" || { echo "::error::$domain bootstrap failed for another reason: $output"; exit 1; }
+              echo "ALTER ROLE $role LOGIN NOREPLICATION;" | admin postgres
+              admin "$domain" < "database/domains/$domain/bootstrap.sql"
+            done
+          done
+          echo "Bootstrap rejections verified."
+      - name: The legacy ratio rollback keeps TEXT, long values and the deployed checksum
+        run: |
+          set -euo pipefail
+          root="$RUNNER_TEMP/ratio"
+          ratio=changelog/momentum-unified/trader-ratio-text.sql
+          admin() { docker exec -i "$PG" psql -X -q -At -v ON_ERROR_STOP=1 -U postgres -d "$1"; }
+          liquibase() {
+            docker run --rm --network "container:$PG" -v "$root:/liquibase/changelog:ro" \
+              -e LIQUIBASE_COMMAND_URL=jdbc:postgresql://127.0.0.1:5432/momentum \
+              -e LIQUIBASE_COMMAND_USERNAME=database_migrator -e LIQUIBASE_COMMAND_PASSWORD="$PASSWORD" \
+              -e LIQUIBASE_COMMAND_CHANGELOG_FILE=domains/momentum/changelog.yaml \
+              -e LIQUIBASE_LIQUIBASE_SCHEMA_NAME=liquibase -e LIQUIBASE_SHOW_BANNER=false \
+              local/deepcopy-database:5.0.4 "$@" > /dev/null
+          }
+          # A fresh momentum database, migrated only up to the legacy changeset, with the
+          # rollback text that was deployed before the fix.
+          echo "DROP DATABASE momentum WITH (FORCE); CREATE DATABASE momentum;" | admin postgres
+          admin momentum < database/domains/momentum/bootstrap.sql
+          docker exec -i -e PGPASSWORD="$PASSWORD" "$PG" psql -X -q -v ON_ERROR_STOP=1 -h 127.0.0.1 \
+            -U database_migrator -d momentum < database/operations/prepare.sql
+          mkdir -p "$root" && cp -R database/domains database/changelog "$root/"
+          awk '/^  - include:$/ { held = $0; next } held && /file: migrations\// { exit } held { print held; held = "" } { print }' \
+            database/domains/momentum/changelog.yaml > "$root/domains/momentum/changelog.yaml"
+          sed 's/^--rollback SELECT 1;$/--rollback ALTER TABLE _analysis.trader_proposals ALTER COLUMN risk_reward_ratio TYPE VARCHAR(20);/' \
+            "database/$ratio" > "$root/$ratio"
+          ! grep -q 'migrations/' "$root/domains/momentum/changelog.yaml"
+          ! cmp -s "database/$ratio" "$root/$ratio"
+          history='SELECT id, filename, md5sum FROM liquibase.databasechangelog ORDER BY id'
+          liquibase update
+          before=$(admin momentum <<< "$history")
+          admin momentum <<'SQL'
+          INSERT INTO _analysis.analysis_results
+            (session_id, invocation_id, user_id, id, ticker, analysis_date, llm_provider,
+             deep_think_llm, quick_think_llm, created_at)
+          VALUES ('rollback', 'rollback', 'rollback', '00000000-0000-0000-0000-000000000001',
+                  'TEST', CURRENT_DATE, 'fixture', 'fixture', 'fixture', NOW());
+          INSERT INTO _analysis.trader_proposals
+            (id, result_id, ticker, analysis_date, action, reasoning, risk_reward_ratio)
+          VALUES ('00000000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-000000000001',
+                  'TEST', CURRENT_DATE, 'HOLD', 'fixture',
+                  'An explanatory risk reward ratio longer than twenty characters');
+          SQL
+          # The fixed rollback directive must not change the deployed checksum.
+          cp "database/$ratio" "$root/$ratio"
+          liquibase validate
+          liquibase update
+          [[ "$(admin momentum <<< "$history")" == "$before" ]]
+          liquibase rollback-count --count=1
+          column="SELECT format_type(atttypid, atttypmod) FROM pg_attribute WHERE attrelid = '_analysis.trader_proposals'::regclass AND attname = 'risk_reward_ratio'"
+          [[ "$(admin momentum <<< "$column")" == text ]]
+          admin momentum <<< 'SELECT risk_reward_ratio FROM _analysis.trader_proposals' | grep -q 'longer than twenty characters'
+          liquibase update
+          [[ "$(admin momentum <<< "$history")" == "$before" ]]
+          echo "Legacy rollback verified."
