@@ -54,5 +54,63 @@
   },
   "release_mode": "drain-before-replace",
   "provider_allowance": 1,
-  "migration_mode": "offline"
+  "migration_mode": "offline",
+  "runtimes": [
+    {
+      "consumer": "scanner",
+      "file": "infra/market-scanner/market_scanner.tf",
+      "resource": "google_cloud_run_v2_service.scanner",
+      "instances": 1,
+      "connections": 2
+    },
+    {
+      "consumer": "scanner",
+      "file": "infra/market-scanner/market_scanner_job.tf",
+      "resource": "google_cloud_run_v2_job.daily_scan",
+      "instances": 1,
+      "connections": 2
+    },
+    {
+      "consumer": "scanner_reader",
+      "file": "infra/reader/main.tf",
+      "resource": "google_cloud_run_v2_service.reader",
+      "instances": 1,
+      "connections": 1
+    },
+    {
+      "consumer": "momentum",
+      "file": "infra/momentum/main.tf",
+      "resource": "google_cloud_run_v2_job.analysis",
+      "instances": 1,
+      "connections": 2
+    },
+    {
+      "consumer": "momentum_reader",
+      "file": "infra/momentum-api/main.tf",
+      "resource": "google_cloud_run_v2_service.reader",
+      "instances": 1,
+      "connections": 1
+    },
+    {
+      "consumer": "litellm_admin_and_gateway",
+      "file": "infra/litellm/service.tf",
+      "resource": "google_cloud_run_v2_service.litellm",
+      "instances": 1,
+      "connections": 1
+    },
+    {
+      "consumer": "litellm_admin_and_gateway",
+      "file": "infra/litellm/gateway.tf",
+      "resource": "google_cloud_run_v2_service.gateway",
+      "instances": 1,
+      "connections": 1
+    },
+    {
+      "consumer": "migration",
+      "file": "infra/litellm/migrations.tf",
+      "resource": "google_cloud_run_v2_job.migrations",
+      "instances": 1,
+      "connections": 1
+    }
+  ]
 }

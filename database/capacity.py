@@ -50,6 +50,7 @@ def validate(budget, inventory=None, release_roles=(), phase="runtime"):
             raise ValueError("Consumer exceeds its role allocation")
     if sorted(allocated) != sorted(budget["roles"]):
         raise ValueError("Every runtime role must be counted exactly once")
+    validate_runtimes(budget)
     if inventory is not None:
         validate_inventory(budget, inventory, available - total, release_roles, phase)
     elif release_roles or phase == "migration":
@@ -62,6 +63,99 @@ def validate(budget, inventory=None, release_roles=(), phase="runtime"):
         "provider": budget["provider_allowance"],
         "migration_mode": budget["migration_mode"],
     }
+
+
+def validate_runtimes(budget):
+    """Each Cloud Run instance opens its own pool: instances multiply connections."""
+    runtimes = budget["runtimes"]
+    by_consumer = {}
+    for runtime in runtimes:
+        instances, connections = runtime["instances"], runtime["connections"]
+        if any(
+            type(value) is not int or value < 1 for value in (instances, connections)
+        ):
+            raise ValueError(
+                "Runtime instances and connections must be positive integers"
+            )
+        consumer = runtime["consumer"]
+        if consumer != "migration" and consumer not in budget["consumers"]:
+            raise ValueError("Runtime belongs to an unknown consumer")
+        by_consumer.setdefault(consumer, []).append(runtime)
+    if set(budget["consumers"]) - set(by_consumer):
+        raise ValueError("Every consumer must declare the runtimes that open its pools")
+    migration = by_consumer.pop("migration", [])
+    if (
+        sum(r["instances"] * r["connections"] for r in migration)
+        > budget["migration_allowance"]
+    ):
+        raise ValueError("Migration runtimes exceed the migration allowance")
+    for name, members in by_consumer.items():
+        validate_consumer_runtimes(budget["consumers"][name], members)
+
+
+def validate_consumer_runtimes(consumer, members):
+    if consumer["admission"] == 0:
+        # Without admission, every instance can hold its whole pool at once.
+        peak = sum(r["instances"] * r["connections"] for r in members)
+        if peak > consumer["active"]:
+            raise ValueError("Runtime instances exceed the consumer allocation")
+    else:
+        # One admitted process holds its pool; every other one only probes.
+        if max(r["connections"] for r in members) > consumer["active"]:
+            raise ValueError("Admitted runtime exceeds the consumer allocation")
+        if sum(r["instances"] for r in members) - 1 > consumer["admission"]:
+            raise ValueError("Runtime instances exceed the admission allocation")
+
+
+def _terraform_block(text, kind, name):
+    match = re.search(rf'resource\s+"{kind}"\s+"{name}"\s*\{{', text)
+    if match is None:
+        return None
+    depth, end = 1, match.end()
+    while depth:
+        depth += {"{": 1, "}": -1}.get(text[end], 0)
+        end += 1
+    return text[match.start() : end]
+
+
+def _terraform_setting(block, key):
+    values = re.findall(rf"^\s*{key}\s*=\s*(\S+)", block, re.MULTILINE)
+    if len(values) != 1 or not values[0].isdigit():
+        raise ValueError(f"Cloud Run {key} must be a single literal integer")
+    return int(values[0])
+
+
+def validate_runtime_sources(budget, root):
+    """Pin Cloud Run scaling to the budget and reject undeclared database clients."""
+    declared = set()
+    for runtime in budget["runtimes"]:
+        kind, name = runtime["resource"].split(".")
+        block = _terraform_block((root / runtime["file"]).read_text(), kind, name)
+        if block is None:
+            raise ValueError("Declared Cloud Run runtime is missing from Terraform")
+        key = (
+            "parallelism" if kind == "google_cloud_run_v2_job" else "max_instance_count"
+        )
+        if _terraform_setting(block, key) != runtime["instances"]:
+            raise ValueError("Cloud Run scaling differs from the capacity budget")
+        declared.add((runtime["file"], runtime["resource"]))
+    for path in sorted((root / "infra").rglob("*.tf")):
+        text = path.read_text()
+        for match in re.finditer(
+            r'resource\s+"(google_cloud_run_v2_(?:service|job))"\s+"(\w+)"', text
+        ):
+            block = _terraform_block(text, *match.groups())
+            source = (str(path.relative_to(root)), ".".join(match.groups()))
+            if re.search("database", block, re.IGNORECASE) and source not in declared:
+                raise ValueError("Cloud Run database client is missing from the budget")
+    workers = re.findall(
+        r'"--num_workers",\s*"(\d+)"',
+        "".join(
+            path.read_text() for path in sorted((root / "infra/litellm").glob("*.tf"))
+        ),
+    )
+    if not workers or set(workers) != {"1"}:
+        raise ValueError("LiteLLM workers multiply its pool beyond the allocation")
 
 
 def validate_phase_config(budget, phase):
@@ -137,6 +231,7 @@ def validate_sources(budget, root=ROOT.parent):
     pools = re.findall(r"database_connection_pool_limit\s*=\s*(\d+)", foundation)
     if pools != ["1"] or budget["roles"]["litellm"] != 2:
         raise ValueError("LiteLLM pools differ from the shared allocation")
+    validate_runtime_sources(budget, root)
 
 
 def main():
