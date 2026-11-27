@@ -139,3 +139,109 @@ def test_offline_migration_rejects_live_application(budget):
     observed["ingress_and_dispatch_paused"] = False
     with pytest.raises(ValueError, match="Pause every"):
         capacity.validate(budget, observed, phase="migration")
+
+
+@pytest.fixture
+def sources(tmp_path):
+    """Copy every file validate_sources reads, so a test can mutate one safely."""
+    import shutil
+
+    shutil.copytree(ROOT.parent / "infra", tmp_path / "infra")
+    for component in ("market-scanner-adk", "market-scanner-api", "momentum-api"):
+        relative = f"apps/backend/{component}/src/app/config/settings.py"
+        (tmp_path / relative).parent.mkdir(parents=True)
+        shutil.copyfile(ROOT.parent / relative, tmp_path / relative)
+    (tmp_path / "database").mkdir()
+    shutil.copyfile(ROOT / "domains.json", tmp_path / "database/domains.json")
+    return tmp_path
+
+
+def _rewrite(path, old, new):
+    text = path.read_text()
+    assert old in text
+    path.write_text(text.replace(old, new, 1))
+
+
+def test_copied_sources_match_budget(budget, sources):
+    capacity.validate_sources(budget, sources)
+
+
+def test_scaling_out_a_pooled_service_is_rejected(budget, sources):
+    _rewrite(
+        sources / "infra/reader/main.tf",
+        "max_instance_count = 1",
+        "max_instance_count = 3",
+    )
+    with pytest.raises(ValueError, match="scaling differs"):
+        capacity.validate_sources(budget, sources)
+
+
+def test_job_parallelism_is_pinned(budget, sources):
+    _rewrite(sources / "infra/momentum/main.tf", "parallelism = 1", "parallelism = 2")
+    with pytest.raises(ValueError, match="scaling differs"):
+        capacity.validate_sources(budget, sources)
+
+
+def test_non_literal_scaling_is_rejected(budget, sources):
+    _rewrite(
+        sources / "infra/momentum-api/main.tf",
+        "max_instance_count = 1",
+        "max_instance_count = var.max_instances",
+    )
+    with pytest.raises(ValueError, match="literal integer"):
+        capacity.validate_sources(budget, sources)
+
+
+def test_undeclared_database_client_is_rejected(budget, sources):
+    (sources / "infra/reader/extra.tf").write_text(
+        'resource "google_cloud_run_v2_job" "backfill" {\n'
+        '  template { parallelism = 1\n    env { name = "DATABASE_URL" } }\n}\n'
+    )
+    with pytest.raises(ValueError, match="missing from the budget"):
+        capacity.validate_sources(budget, sources)
+
+
+def test_litellm_workers_multiply_its_pool(budget, sources):
+    _rewrite(
+        sources / "infra/litellm/gateway.tf",
+        '"--num_workers", "1"',
+        '"--num_workers", "2"',
+    )
+    with pytest.raises(ValueError, match="workers"):
+        capacity.validate_sources(budget, sources)
+
+
+def test_declared_instances_cannot_exceed_pooled_allocation(budget):
+    reader = next(r for r in budget["runtimes"] if r["consumer"] == "scanner_reader")
+    reader["instances"] = 2
+    with pytest.raises(ValueError, match="exceed the consumer allocation"):
+        capacity.validate(budget)
+
+
+def test_admission_only_covers_one_waiting_process(budget):
+    job = next(r for r in budget["runtimes"] if r["consumer"] == "momentum")
+    job["instances"] = 3
+    with pytest.raises(ValueError, match="admission allocation"):
+        capacity.validate(budget)
+
+
+def test_admitted_process_cannot_exceed_active_slots(budget):
+    scanner = next(r for r in budget["runtimes"] if r["consumer"] == "scanner")
+    scanner["connections"] = 3
+    with pytest.raises(ValueError, match="Admitted runtime"):
+        capacity.validate(budget)
+
+
+def test_every_consumer_declares_its_runtimes(budget):
+    budget["runtimes"] = [
+        r for r in budget["runtimes"] if r["consumer"] != "momentum_reader"
+    ]
+    with pytest.raises(ValueError, match="declare the runtimes"):
+        capacity.validate(budget)
+
+
+def test_migration_runtimes_fit_the_migration_allowance(budget):
+    migration = next(r for r in budget["runtimes"] if r["consumer"] == "migration")
+    migration["connections"] = 2
+    with pytest.raises(ValueError, match="migration allowance"):
+        capacity.validate(budget)
