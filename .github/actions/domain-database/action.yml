@@ -20,6 +20,11 @@ inputs:
       'true' serves TLS only with a throwaway certificate for `localhost`. Its CA is
       $RUNNER_TEMP/<name>-tls/server.pem; untrusted.pem is an unrelated CA.
     default: 'false'
+  tag:
+    description: >-
+      Stop at this Liquibase tag instead of the current release, for example
+      aiven-20261023 to reproduce the adopted Aiven baseline.
+    default: ''
 runs:
   using: composite
   steps:
@@ -32,6 +37,7 @@ runs:
         DOMAINS: ${{ inputs.domains }}
         PASSWORD: ${{ inputs.password }}
         TLS: ${{ inputs.tls }}
+        TAG: ${{ inputs.tag }}
         IMAGE: postgres:18@sha256:74935e72241653ca55e0414067e6d8763aceb8a810eb51b452253ec3dcfc4336
       run: |
         set -euo pipefail
@@ -82,6 +88,11 @@ runs:
           psql_as database_migrator "$domain" < database/operations/prepare.sql
           liquibase validate
           liquibase update-to-tag --tag=aiven-20261023
+          if [[ -n "$TAG" ]]; then
+            [[ "$TAG" == aiven-20261023 ]] || liquibase update-to-tag --tag="$TAG"
+            echo "::endgroup::"
+            continue
+          fi
           liquibase update
           liquibase update
           liquibase status > "$RUNNER_TEMP/$domain.status.txt"
