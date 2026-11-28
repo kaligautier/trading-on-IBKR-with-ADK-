@@ -25,10 +25,12 @@ database/
     baseline.sql               # Current Aiven schemas, constraints, indexes and grants
     changelog.yaml             # One Liquibase entry point per application database
     migrations/                # Changes after the baseline
-  operations/                  # Migration preparation and read-only catalog checks
-  testing/                     # Disposable PostgreSQL lifecycle and full rehearsal
-  tests/                       # Baseline, adoption, isolation and tool safety tests
-  manage.py                    # The operator interface
+    current.json               # Fingerprint and changesets of the current release
+  operations/
+    prepare.sql                # database_migrator: the owned liquibase schema
+    verify.sh                  # Read-only baseline/current checks (psql, jq)
+    liquibase.sh               # Liquibase CLI as database_migrator, from a private env file
+  capacity/                    # Shared 15-connection budget (jq)
 ```
 
 Only the domain entry points above are supported. The superseded shared-database,
@@ -49,34 +51,39 @@ memberships, login capability, and effective CONNECT access to all other
 connectable non-template databases, including `postgres`. Provider-controlled
 template admission is verified separately by the managed reader network checks.
 
-Use Python from a locked application environment and build the pinned migration image:
+The operator tools are the PostgreSQL 18 `psql` client, `jq` and the Liquibase CLI,
+run from the pinned image `database/Dockerfile` builds (Liquibase 5.0.4 with a
+checksum-pinned JDBC driver). No application environment is needed.
 
-```sh
-uv sync --project apps/backend/market-scanner-adk --frozen --python 3.12
-docker build -t local/deepcopy-database:5.0.4 database
-```
-
-Keep an explicit PostgreSQL URL in an ignored regular file with permissions `0600`.
-Use the appropriate identity and database name, `sslmode=verify-full`, and the Aiven
-CA via `sslrootcert` or `--ca-file`. Never put a real URL in shell history or Git.
+`verify.sh` connects through libpq: define a service in `~/.pg_service.conf` with the
+host, port, user, `sslmode=verify-full` and the Aiven CA as `sslrootcert`, keep the
+password in `~/.pgpass` (`0600`), and select it with `PGSERVICE`. `liquibase.sh` reads a
+private (`0600`) docker env file with `LIQUIBASE_COMMAND_URL` (the domain database,
+`sslmode=verify-full&sslrootcert=/run/database-ca.pem`), `LIQUIBASE_COMMAND_USERNAME=database_migrator`
+and `LIQUIBASE_COMMAND_PASSWORD`; it mounts `DATABASE_CA_FILE` at that path. Both refuse
+another database, and `liquibase.sh` refuses another identity, unverified remote TLS
+and destructive commands. Never put a real URL or password in shell history or Git.
 
 ```sh
 # Baseline comparison before adoption; runtime identities can inspect the catalog.
-uv run --project apps/backend/market-scanner-adk --frozen python database/manage.py \
-  verify-baseline --domain momentum --url-file .local/momentum.url --ca-file .local/aiven-ca.pem
+PGSERVICE=momentum-aiven database/operations/verify.sh baseline momentum
 ```
 
 To adopt the new baseline on an existing database, first back up its Liquibase
 tracking tables and establish an exclusive migration window. Use `database_migrator`:
 
 ```sh
-uv run --project apps/backend/market-scanner-adk --frozen python database/manage.py \
-  adopt --domain momentum --url-file .local/momentum-migrator.url --ca-file .local/aiven-ca.pem
+PGSERVICE=momentum-aiven-migrator database/operations/verify.sh baseline momentum
+DATABASE_ENV_FILE=.local/momentum-migrator.env DATABASE_CA_FILE=.local/aiven-ca.pem \
+  database/operations/liquibase.sh momentum changelog-sync-to-tag --tag=aiven-20261023
 ```
 
-`adopt` refuses a structural or object-grant mismatch before invoking Liquibase.
-It synchronizes only through tag `aiven-20261023`; it does not run baseline DDL or
-mark pending changes as applied. Existing tracking rows are retained for audit.
+Run adoption only after `verify.sh baseline` succeeds; it fails on any structural,
+object-grant or runtime-role mismatch. `changelog-sync-to-tag` only records the
+baseline changesets: it runs no DDL and does not mark later changes as applied.
+Existing tracking rows are retained for audit. The `Database operator checks` workflow
+rehearses this sequence on a disposable database and proves the baseline catalog is
+unchanged by adoption.
 No adoption or schema changes were executed on Aiven as part of this repository reorganization.
 
 ## Fresh installation
@@ -87,9 +94,9 @@ Reconnect as `database_migrator` and execute `operations/prepare.sql` to create 
 owned `liquibase` schema. These are distinct identities because an Aiven administrator
 cannot necessarily assume an existing migration role.
 
-Run `manage.py baseline --domain <domain> --url-file <private-file>` to create exactly
-the captured Aiven state, stopping at `aiven-20261023`. Run `verify-baseline` afterward,
-then `plan`, `migrate` and `verify` to reach and verify the current release.
+Run `liquibase.sh <domain> update-to-tag --tag=aiven-20261023` to create exactly the
+captured Aiven state, then `verify.sh baseline <domain>`. Then `update-sql` to review,
+`update`, and `verify.sh current <domain>` reach and verify the current release.
 An initial baseline has no destructive rollback: restore a protected backup for a live
 recovery, or recreate an explicitly owned disposable test database.
 
@@ -122,8 +129,8 @@ The attestation never exempts another database or changes network permissions.
 
 ## Subsequent changes
 
-Use `status` to inspect pending changes, `plan` to review generated SQL, and `migrate`
-to apply them. All commands take the same explicit domain and private URL file.
+Use `liquibase.sh <domain> status --verbose` to inspect pending changes, `update-sql`
+to review the generated SQL, and `update` to apply them, then `verify.sh current`.
 After adoption, add a new migration under that domain's `migrations/` directory and
 include it in its `changelog.yaml`. Keep the baseline and applied changes immutable.
 Do not clear checksums to hide a mismatch.
@@ -133,9 +140,9 @@ reader's allowlisted grants and indexes, verified on Aiven during the final insp
 The baseline remains immutable. Momentum now has an additive migration for private
 trading memory in `_analysis.trading_memory`; consultation readers receive no grant
 on that table. Adopt the baseline before applying subsequent migrations to an
-existing installation. `verify-baseline` compares the immutable adoption snapshot;
-`verify` checks the current release's schema, grants, runtime policy and every
-expected Liquibase identity/checksum. Use `database_migrator` for `verify` because
+existing installation. `verify.sh baseline` compares the immutable adoption snapshot;
+`verify.sh current` checks the current release's schema, grants, runtime policy and every
+expected Liquibase identity/checksum. Use `database_migrator` for `verify.sh current` because
 runtime identities intentionally cannot read migration history. Verification is
 read-only and permits retained historical rows from pre-baseline migrations.
 It rejects missing changesets, null/changed checksums and structural drift.
@@ -148,7 +155,7 @@ grant on a private column and a missing writer UPDATE grant, alongside table ACL
 PostgreSQL documents these column-level permissions under
 [`GRANT`](https://www.postgresql.org/docs/18/sql-grant.html).
 The fingerprint is a project verification mechanism, not a PostgreSQL migration
-requirement. `verify-baseline` and `adopt` retain their original catalog format
+requirement. The baseline check and adoption retain their original catalog format
 and fingerprints; they do not gain column-ACL coverage. Only current-release
 manifests are regenerated for this extended check, with no baseline or applied
 migration changes.
@@ -163,19 +170,12 @@ Only the rollback directive changes; a real replay test validates the old checks
 and proves rollback/reapply preserve long explanations. Do not add comments inside
 the applied forward SQL: Liquibase can include them in its checksum.
 
-Each domain's `current.json` is generated from a fresh, fully migrated local
-database, not from production. After adding a migration, regenerate and review it:
-
-```sh
-uv run --project apps/backend/market-scanner-adk --frozen python \
-  database/testing/refresh_current.py
-```
-
-This command resets only the labelled disposable domain fixture. It never accepts
-a remote URL. Commit the new manifest with the migration, leaving `baseline.sql`
-and the baseline fingerprints in `domains.json` unchanged. `verify` rejects a stale
-manifest if the SQL/changelog sources changed; CI independently replays the chain
-and compares both schema fingerprint and history to the committed manifest.
+Each domain's `current.json` records the current release's fingerprint (column grants
+included) and changesets, taken from a fresh, fully migrated local database, never from
+production. After adding a migration, the `Database operator checks` workflow fails
+and prints the new fingerprint (`verify.sh current` on its current-release database);
+review it, update `fingerprint` and add the new changesets from `history.tsv`. Leave
+`baseline.sql` and the baseline fingerprints in `domains.json` unchanged.
 
 ## Liquibase-only check (replacing the Python tooling)
 
@@ -198,8 +198,8 @@ comparison step, and copy `$RUNNER_TEMP/<domain>.schema.sql` and `.history.tsv` 
 the committed files. A failing CI run prints the same diff. Never point these steps
 at Aiven. Application workflows reuse the same action for their database tests.
 
-The Python tooling below (`manage.py`, `testing/`, `tests/`, `current.json`) remains
-until the application database tests run in their own workflows; it is then removed.
+The remaining Python tooling below (`manage.py`, `operations/*.py`, `testing/`, `tests/`)
+is superseded by `verify.sh`, `liquibase.sh` and these workflows, and is being removed.
 
 ## Required merge check
 

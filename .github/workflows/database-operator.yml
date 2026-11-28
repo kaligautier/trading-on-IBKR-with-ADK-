@@ -1,0 +1,99 @@
+name: Database operator checks
+
+# Rehearses the Aiven operator procedure (database/README.md) on disposable local
+# PostgreSQL: the psql/jq verifications reproduce the recorded Aiven fingerprints and
+# reject drift, and adoption with Liquibase changelog-sync-to-tag runs no DDL.
+on:
+  pull_request:
+    paths:
+      - 'database/**'
+      - '.github/actions/domain-database/**'
+      - '.github/workflows/database-operator.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'database/**'
+      - '.github/actions/domain-database/**'
+      - '.github/workflows/database-operator.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  operator:
+    name: Operator procedure
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      PASSWORD: domain-test-only
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Domains at the adopted Aiven baseline
+        uses: ./.github/actions/domain-database
+        with:
+          name: operator-baseline
+          port: '55475'
+          tag: aiven-20261023
+      - name: Domains at the current release
+        uses: ./.github/actions/domain-database
+        with:
+          name: operator-current
+          port: '55476'
+      - name: Verifications accept the matching state and refuse the other one
+        run: |
+          set -euo pipefail
+          psql_in() { echo "docker exec -i -e PGPASSWORD=$PASSWORD operator-$1 psql -h 127.0.0.1 -U database_migrator"; }
+          for domain in market_scanner momentum; do
+            PSQL=$(psql_in baseline) database/operations/verify.sh baseline "$domain"
+            PSQL=$(psql_in current) database/operations/verify.sh current "$domain"
+          done
+          # Momentum has migrations after the baseline; market_scanner does not yet.
+          if PSQL=$(psql_in current) database/operations/verify.sh baseline momentum ||
+             PSQL=$(psql_in baseline) database/operations/verify.sh current momentum; then
+            echo "::error::a verification accepted the other release"; exit 1
+          fi
+      - name: Verifications reject schema, grant, role and history drift
+        run: |
+          set -euo pipefail
+          admin() { docker exec -i operator-current psql -X -q -v ON_ERROR_STOP=1 -U postgres -d "$1"; }
+          rejects() {
+            if PSQL="docker exec -i -e PGPASSWORD=$PASSWORD operator-current psql -h 127.0.0.1 -U database_migrator" \
+              database/operations/verify.sh "$@"; then
+              echo "::error::verify.sh $* accepted drift"; exit 1
+            fi
+          }
+          admin momentum <<< 'ALTER ROLE momentum_results_writer CONNECTION LIMIT 5;'
+          rejects current momentum
+          admin momentum <<< 'ALTER ROLE momentum_results_writer CONNECTION LIMIT 2;'
+          admin market_scanner <<< 'GRANT CREATE ON SCHEMA public TO market_scanner_reader;'
+          rejects baseline market_scanner
+          admin market_scanner <<< 'REVOKE CREATE ON SCHEMA public FROM market_scanner_reader;'
+          admin market_scanner <<< 'CREATE TABLE _analysis.drift (id int);'
+          rejects baseline market_scanner
+          admin market_scanner <<< 'DROP TABLE _analysis.drift;'
+          admin momentum <<< "UPDATE liquibase.databasechangelog SET md5sum = '9:0'
+            WHERE orderexecuted = (SELECT max(orderexecuted) FROM liquibase.databasechangelog);"
+          rejects current momentum
+      - name: Adoption marks only the baseline, then update reaches the current release
+        env:
+          DATABASE_ENV_FILE: ${{ runner.temp }}/momentum.env
+          DATABASE_NETWORK: container:operator-baseline
+          PSQL: docker exec -i -e PGPASSWORD=domain-test-only operator-baseline psql -h 127.0.0.1 -U database_migrator
+        run: |
+          set -euo pipefail
+          umask 077
+          printf '%s\n' 'LIQUIBASE_COMMAND_URL=jdbc:postgresql://127.0.0.1:5432/momentum' \
+            'LIQUIBASE_COMMAND_USERNAME=database_migrator' "LIQUIBASE_COMMAND_PASSWORD=$PASSWORD" > "$DATABASE_ENV_FILE"
+          # An existing database built before Liquibase tracked it.
+          docker exec operator-baseline psql -X -q -U postgres -d momentum -c 'DELETE FROM liquibase.databasechangelog'
+          database/operations/verify.sh baseline momentum
+          database/operations/liquibase.sh momentum changelog-sync-to-tag --tag=aiven-20261023
+          database/operations/verify.sh baseline momentum
+          database/operations/liquibase.sh momentum update
+          database/operations/verify.sh current momentum
+          if database/operations/liquibase.sh momentum drop-all; then
+            echo "::error::liquibase.sh ran an unsupported command"; exit 1
+          fi
