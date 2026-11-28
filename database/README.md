@@ -198,8 +198,8 @@ comparison step, and copy `$RUNNER_TEMP/<domain>.schema.sql` and `.history.tsv` 
 the committed files. A failing CI run prints the same diff. Never point these steps
 at Aiven. Application workflows reuse the same action for their database tests.
 
-The remaining Python tooling below (`manage.py`, `operations/*.py`, `testing/`, `tests/`)
-is superseded by `verify.sh`, `liquibase.sh` and these workflows, and is being removed.
+The remaining Python rehearsal below (`testing/`, `tests/`) is superseded by these
+workflows and the application workflows, and is being removed.
 
 ## Required merge check
 
@@ -224,9 +224,9 @@ python3 database/testing/local_domains.py stop
 ```
 
 The rehearsal uses pinned PostgreSQL 18 on a local Unix-socket Docker daemon. It
-rebuilds only labelled disposable fixtures, checks exact Aiven-baseline equivalence,
-proves adoption preserves application rows and rejects drift, and runs the real
-application persistence and reader suites. Local fixtures explicitly disable TLS;
+rebuilds only labelled disposable fixtures and runs the real application persistence
+and reader suites. Baseline equivalence, adoption and drift rejection are rehearsed by
+the `Database operator checks` workflow. Local fixtures explicitly disable TLS;
 remote management requires certificate and hostname verification. No providers or
 LLMs are called. The retained domain fixture binds only to `127.0.0.1:55471`.
 
