@@ -3,8 +3,11 @@
 The observed server has 15 connections, 3 superuser-reserved slots and no other
 reserved slots. Ordinary consumers therefore share **12** slots. Live administrator inspection also found one provider client
 connection. Runtime and migrations therefore use separate phases. The executable
-contract is `database/connection-budget.json`; validate with
-`python3 database/capacity.py`. The application allocation includes idle pools and
+contract is `database/capacity/budget.json`; validate it with
+`database/capacity/check.sh` (jq only; `just capacity` also runs its policy tests, and
+the `Database capacity` workflow runs both). It also checks the domain role limits in
+`database/domains.json`, the scanner, reader and Momentum API pool settings, and the
+LiteLLM pool in `infra/litellm/foundation.tf`. The application allocation includes idle pools and
 admission attempts, not just active SQL statements.
 
 | Consumer / login | Maximum | Normal use |
@@ -35,8 +38,8 @@ connection refusal is a capacity fault, not a successful admission rejection.
 This is an implementation target, **not a claim that live role limits or secrets
 have already changed**. The earlier reader-only inventory could not see all server
 sessions. It is insufficient to establish provider headroom. A full-visibility
-operator must run `database/operations/capacity_snapshot.sql`, save only its JSON
-row, and run `python3 database/capacity.py --inventory snapshot.json`. This rejects
+operator must run `database/capacity/snapshot.sql`, save only its JSON
+row, and run `database/capacity/check.sh snapshot.json runtime`. This rejects
 hidden statistics, different server settings, elevated/wrong-limit runtime roles,
 or more than the one allocated provider client. Do not consume the operator slot
 or increase the tier. Runtime snapshots reject any active migration connection.
@@ -47,19 +50,19 @@ Use a maintenance replacement, not an overlapping rolling release:
    work finish, then stop its old revisions and connection pools. Keep the operator
    connection available. Do not terminate in-flight writes to force this gate.
 2. Drain every application, including both readers and LiteLLM, before a migration.
-   Validate a fresh inventory with `--phase migration`; it requires all application
+   Validate a fresh inventory with `check.sh snapshot.json migration`; it requires all application
    connections to be zero and the pause attestation. Apply the reviewed role bootstrap and the one-connection LiteLLM secret/config
    changes only after their old pools drain. Existing sessions are not evicted by
    lowering role limits. Apply the memory migration before the new Momentum worker.
 3. Export a fresh full-visibility snapshot. Set `ingress_and_dispatch_paused=true`
    only after verifying the external controls; this is an explicit operator
    attestation, not a database-discoverable fact. Invoke the gate with every target
-   login, for example `--release-role litellm`. Any remaining target connections
+   login after the phase, for example `check.sh snapshot.json runtime litellm`. Any remaining target connections
    reject replacement. Keep dispatch paused until the gate and rollout finish.
 4. Run migrations serially. LiteLLM's own Prisma migration uses its existing role
    allocation **while both LiteLLM services are stopped**; never overlap it with
    their two live pools. Domain Liquibase uses the separate migrator allowance.
-5. Close the migrator connection, validate `--phase runtime`, then start one replacement per service, verify pools/roles and runtime behavior,
+5. Close the migrator connection, validate `check.sh snapshot.json runtime`, then start one replacement per service, verify pools/roles and runtime behavior,
    then restore ingress/dispatch. Re-run the inventory gate. Roll back application
    images without removing retained memory or rewriting Liquibase history.
 
