@@ -1,0 +1,42 @@
+name: Database capacity
+
+# The shared PostgreSQL server has 15 connections. This keeps the reviewed budget,
+# the domain role limits and every consumer's pool setting in step (jq only).
+on:
+  pull_request:
+    paths:
+      - 'database/capacity/**'
+      - 'database/domains.json'
+      - 'apps/backend/market-scanner-adk/src/app/config/settings.py'
+      - 'apps/backend/market-scanner-api/src/app/config/settings.py'
+      - 'apps/backend/momentum-api/src/app/config/settings.py'
+      - 'infra/litellm/foundation.tf'
+      - '.github/workflows/database-capacity.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'database/capacity/**'
+      - 'database/domains.json'
+      - 'apps/backend/market-scanner-adk/src/app/config/settings.py'
+      - 'apps/backend/market-scanner-api/src/app/config/settings.py'
+      - 'apps/backend/momentum-api/src/app/config/settings.py'
+      - 'infra/litellm/foundation.tf'
+      - '.github/workflows/database-capacity.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  budget:
+    name: Connection budget
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Test the budget policy
+        run: database/capacity/check.sh --test
+      - name: Check the budget against the versioned consumer settings
+        run: database/capacity/check.sh

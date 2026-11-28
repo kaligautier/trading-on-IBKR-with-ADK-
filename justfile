@@ -19,3 +19,8 @@ check: lint
     just apps/backend/momentum-adk/check
     just apps/backend/momentum-public-mcp/check
     just apps/frontend/check
+
+# Check the shared PostgreSQL connection budget and its policy tests (jq only).
+capacity:
+    database/capacity/check.sh --test
+    database/capacity/check.sh
