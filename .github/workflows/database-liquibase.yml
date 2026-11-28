@@ -53,3 +53,8 @@ jobs:
             done
           done
           exit "$status"
+      - name: Runtime logins are confined to their domain; bootstraps refuse unsafe logins
+        env:
+          NAME: ${{ env.PG }}
+          PASSWORD: domain-test-only
+        run: database/ci/access-policy.sh

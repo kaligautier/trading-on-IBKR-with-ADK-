@@ -177,7 +177,7 @@ and prints the new fingerprint (`verify.sh current` on its current-release datab
 review it, update `fingerprint` and add the new changesets from `history.tsv`. Leave
 `baseline.sql` and the baseline fingerprints in `domains.json` unchanged.
 
-## Liquibase-only check (replacing the Python tooling)
+## Liquibase migrations check
 
 The `Liquibase migrations` workflow (`.github/workflows/database-liquibase.yml`) uses
 only the Liquibase CLI, `psql` and `pg_dump` on a disposable PostgreSQL 18. For each
@@ -190,6 +190,11 @@ up to date). It then compares, for every domain that has them:
   role settings (`search_path`, timeouts).
 - `history.tsv`: `id`, `author`, `filename` and `md5sum` of every applied changeset.
 
+Finally `ci/access-policy.sh` connects as each runtime login of `domains.json`. A login
+reaches only its own database, cannot create tables or read the Liquibase history, and
+only the session writers can read `_sessions`. Each domain's bootstrap must also refuse
+a runtime login made `NOLOGIN` or `REPLICATION`.
+
 After adding a migration, regenerate both files from a fresh local replay and review
 the diff: run the `domain-database` action's script
 (`.github/actions/domain-database/action.yml`) with `NAME`, `PORT`, `DOMAINS`,
@@ -198,37 +203,22 @@ comparison step, and copy `$RUNNER_TEMP/<domain>.schema.sql` and `.history.tsv` 
 the committed files. A failing CI run prints the same diff. Never point these steps
 at Aiven. Application workflows reuse the same action for their database tests.
 
-The remaining Python rehearsal below (`testing/`, `tests/`) is superseded by these
-workflows and the application workflows, and is being removed.
-
 ## Required merge check
 
-The `Database migrations` check runs the full rehearsal on **every PR**, on pushes
-to `main`, and on manual dispatch. It has no path filter, conditional job or
-continue-on-error step. Documentation-only PRs therefore emit the same check.
-Require this exact check name, from the GitHub Actions app, in `main` branch
-protection alongside existing checks. Keep strict/up-to-date validation enabled.
-The workflow defines execution; repository branch protection enforces merging.
-When enabling it, preserve existing required checks and other protection settings.
-Open PRs based on an older workflow need an update/rebase to emit the new name.
+`Liquibase migrations` runs on **every PR**, on pushes to `main` and on manual
+dispatch. It has no path filter, conditional job or continue-on-error step, so
+documentation-only PRs emit it too. Require this exact check name, from the GitHub
+Actions app, in `main` branch protection in place of the former `Database migrations`
+check. Keep strict/up-to-date validation and the other required checks. Open PRs
+based on an older workflow need an update/rebase to emit it.
 
 ## Local verification
 
-```sh
-uv sync --project apps/backend/market-scanner-adk --frozen --python 3.12
-uv sync --project apps/backend/market-scanner-api --frozen --python 3.12
-uv sync --project apps/backend/momentum-adk --frozen --python 3.12
-uv sync --project apps/backend/momentum-api --frozen --python 3.12
-python3 database/testing/rehearse.py
-python3 database/testing/local_domains.py stop
-```
-
-The rehearsal uses pinned PostgreSQL 18 on a local Unix-socket Docker daemon. It
-rebuilds only labelled disposable fixtures and runs the real application persistence
-and reader suites. Baseline equivalence, adoption and drift rejection are rehearsed by
-the `Database operator checks` workflow. Local fixtures explicitly disable TLS;
-remote management requires certificate and hostname verification. No providers or
-LLMs are called. The retained domain fixture binds only to `127.0.0.1:55471`.
+Run the same steps as CI on a local Docker daemon: the `domain-database` action's
+script, then `NAME=<container> PASSWORD=domain-test-only database/ci/access-policy.sh`.
+Each application documents its own database tests; their workflows start the same
+action. Local containers listen only on `127.0.0.1` and disable TLS; remote management
+requires certificate and hostname verification. No providers or LLMs are called.
 
 References: [Liquibase baseline synchronization](https://docs.liquibase.com/community/reference-guide-5-0/database-inspection-change-tracking-and-utility-commands/changelog-sync),
 [PostgreSQL schema-only exports](https://www.postgresql.org/docs/18/app-pgdump.html),
