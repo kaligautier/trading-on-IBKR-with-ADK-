@@ -3,8 +3,9 @@
 import subprocess
 import sys
 import time
-from pathlib import Path
 from uuid import uuid4
+
+DATABASE = "deepcopy-current-domains-test"
 
 
 def docker(*args: str, timeout: int = 30) -> subprocess.CompletedProcess[str]:
@@ -20,11 +21,12 @@ def require(result: subprocess.CompletedProcess[str]) -> str:
 
 
 def verify(image: str) -> None:
-    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "database/testing"))
-    import local_domains
-
-    if local_domains.inspect_container() is None:
-        local_domains.reset()
+    # Started beforehand by .github/actions/domain-database (database/README.md).
+    if (
+        docker("inspect", "--format={{.State.Running}}", DATABASE).stdout.strip()
+        != "true"
+    ):
+        raise RuntimeError(f"Start the {DATABASE} domain database first")
     name = f"scanner-smoke-{uuid4().hex}"
     environment = [
         "-e",
@@ -53,7 +55,7 @@ def verify(image: str) -> None:
                 "--name",
                 name,
                 "--network",
-                "container:deepcopy-current-domains-test",
+                "container:" + DATABASE,
                 *environment,
                 image,
             )
