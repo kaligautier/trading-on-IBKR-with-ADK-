@@ -202,6 +202,10 @@ jobs:
           persist-credentials: false
       - name: Build Linux release image
         run: docker build --platform linux/amd64 --tag scanner:verify apps/backend/market-scanner-adk
+      - name: Start the migrated market_scanner database for the smoke test
+        uses: ./.github/actions/domain-database
+        with:
+          domains: market_scanner
       - name: Verify packaged runtime without cloud access
         run: python3 scripts/scanner_image_smoke.py scanner:verify
 
@@ -238,6 +242,10 @@ jobs:
           echo "IMAGE=$GCP_REGION-docker.pkg.dev/$GCP_PROJECT_ID/market-scanner/market-scanner-adk:$GITHUB_SHA" >> "$GITHUB_ENV"
       - name: Build release image before obtaining credentials
         run: docker build --platform linux/amd64 --tag "$IMAGE" apps/backend/market-scanner-adk
+      - name: Start the migrated market_scanner database for the smoke test
+        uses: ./.github/actions/domain-database
+        with:
+          domains: market_scanner
       - name: Verify the image to be published
         run: python3 scripts/scanner_image_smoke.py "$IMAGE"
       - id: auth
